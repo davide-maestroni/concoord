@@ -15,33 +15,12 @@
  */
 package concoord.util.assertion;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+public abstract class AbstractPrecondition implements Precondition {
 
-public class IfNull extends AbstractPrecondition {
-
-  private final Object object;
-  private final String name;
-
-  public IfNull(Object object) {
-    this(object, "object");
-  }
-
-  public IfNull(Object object, String name) {
-    this.object = object;
-    this.name = name;
-  }
-
-  @Nullable
-  public RuntimeException getException() {
-    if (object == null) {
-      return buildException();
+  public void throwException() {
+    RuntimeException exception = getException();
+    if (exception != null) {
+      throw exception;
     }
-    return null;
-  }
-
-  @NotNull
-  private NullPointerException buildException() {
-    return new NullPointerException(name + " cannot be null");
   }
 }

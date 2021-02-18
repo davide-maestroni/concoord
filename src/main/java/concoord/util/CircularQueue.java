@@ -49,7 +49,7 @@ public class CircularQueue<E> extends AbstractCollection<E> implements Queue<E> 
    * @param minCapacity the minimum capacity.
    * @throws IllegalArgumentException if the specified capacity is less than 1.
    */
-  public CircularQueue(final int minCapacity) {
+  public CircularQueue(int minCapacity) {
     new IfLessThan(minCapacity, "minCapacity", 1).throwException();
     final int msb = Integer.highestOneBit(minCapacity);
     final int initialCapacity = (minCapacity == msb) ? msb : msb << 1;
@@ -116,7 +116,7 @@ public class CircularQueue<E> extends AbstractCollection<E> implements Queue<E> 
    * {@inheritDoc}
    */
   @Override
-  public boolean add(@Nullable final E element) {
+  public boolean add(@Nullable E element) {
     return offer(element);
   }
 
@@ -141,7 +141,7 @@ public class CircularQueue<E> extends AbstractCollection<E> implements Queue<E> 
   /**
    * {@inheritDoc}
    */
-  public boolean offer(final E e) {
+  public boolean offer(E e) {
     final int last = this.last;
     data[last] = e;
     if (first == (this.last = (last + 1) & mask)) {
@@ -198,7 +198,7 @@ public class CircularQueue<E> extends AbstractCollection<E> implements Queue<E> 
    * @throws IndexOutOfBoundsException if the index is out of range (index < 0 || index >= size()).
    */
   @SuppressWarnings("unchecked")
-  public E get(final int index) {
+  public E get(int index) {
     if ((index < 0) || (index >= size())) {
       throw new IndexOutOfBoundsException(Integer.toString(index));
     }
@@ -214,7 +214,7 @@ public class CircularQueue<E> extends AbstractCollection<E> implements Queue<E> 
    * @throws IndexOutOfBoundsException if the index is out of range (index < 0 || index >= size()).
    */
   @SuppressWarnings("unchecked")
-  public E set(final int index, @Nullable final E element) {
+  public E set(int index, @Nullable E element) {
     if ((index < 0) || (index >= size())) {
       throw new IndexOutOfBoundsException(Integer.toString(index));
     }
@@ -233,7 +233,7 @@ public class CircularQueue<E> extends AbstractCollection<E> implements Queue<E> 
    * @return the element that was removed from the queue.
    * @throws IndexOutOfBoundsException if the index is out of range (index < 0 || index >= size()).
    */
-  public E remove(final int index) {
+  public E remove(int index) {
     final E element = get(index);
     removeElement((first + index) & mask);
     return element;
@@ -241,7 +241,7 @@ public class CircularQueue<E> extends AbstractCollection<E> implements Queue<E> 
 
   @NotNull
   @SuppressWarnings("SuspiciousSystemArraycopy")
-  private <T> T[] copyElements(@NotNull final T[] dst) {
+  private <T> T[] copyElements(@NotNull T[] dst) {
     final Object[] data = this.data;
     final int first = this.first;
     final int last = this.last;
@@ -274,7 +274,7 @@ public class CircularQueue<E> extends AbstractCollection<E> implements Queue<E> 
     mask = newSize - 1;
   }
 
-  private boolean removeElement(final int index) {
+  private boolean removeElement(int index) {
     final int first = this.first;
     final int last = this.last;
     final Object[] data = this.data;

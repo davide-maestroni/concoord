@@ -17,30 +17,39 @@ package concoord.util.assertion;
 
 import org.jetbrains.annotations.Nullable;
 
-public class IfLessThan implements Precondition {
+public class IfLessThan extends IfOneOf {
 
   public IfLessThan(Integer value, int limit) {
-
+    this(value, "value", limit);
   }
 
-  public IfLessThan(Integer value, String name, int limit) {
-
+  public IfLessThan(final Integer value, final String name, final int limit) {
+    super(new IfNull(value, name), new AbstractPrecondition() {
+      @Nullable
+      public RuntimeException getException() {
+        if (value < limit) {
+          return new IllegalArgumentException(
+              name + " cannot be less than " + limit + ", but it was: " + value);
+        }
+        return null;
+      }
+    });
   }
 
   public IfLessThan(Long value, long limit) {
-
+    this(value, "value", limit);
   }
 
-  public IfLessThan(Long value, String name, long limit) {
-
-  }
-
-  @Nullable
-  public RuntimeException getException() {
-    return null;
-  }
-
-  public void throwException() {
-
+  public IfLessThan(final Long value, final String name, final long limit) {
+    super(new IfNull(value, name), new AbstractPrecondition() {
+      @Nullable
+      public RuntimeException getException() {
+        if (value < limit) {
+          return new IllegalArgumentException(
+              name + " cannot be less than " + limit + ", but it was: " + value);
+        }
+        return null;
+      }
+    });
   }
 }
