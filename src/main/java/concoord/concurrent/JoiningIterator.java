@@ -34,8 +34,7 @@ public class JoiningIterator<T> implements Iterator<T> {
   private Throwable throwable;
   private boolean isDone;
 
-  public JoiningIterator(@NotNull Awaitable<T> awaitable, int maxEvents, long nextTimeout,
-      @NotNull TimeUnit timeUnit) {
+  public JoiningIterator(@NotNull Awaitable<T> awaitable, int maxEvents, long nextTimeout, @NotNull TimeUnit timeUnit) {
     new IfAnyOf(
         new IfNull(awaitable, "awaitable"),
         new IfLessThan(nextTimeout, "nextTimeout", 1)
