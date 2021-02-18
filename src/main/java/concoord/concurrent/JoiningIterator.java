@@ -69,14 +69,14 @@ public class JoiningIterator<T> implements Iterator<T> {
           return false;
         }
         if (throwable != null) {
-          throw new RuntimeException(throwable);
+          throw new JoinException(throwable);
         }
         // await events
         awaitable.await(maxEvents, awaiter);
         try {
           mutex.wait(timeoutMs);
         } catch (final InterruptedException e) {
-          throw new RuntimeException(e);
+          throw new JoinException(e);
         }
       }
       // timeout
@@ -108,7 +108,7 @@ public class JoiningIterator<T> implements Iterator<T> {
     }
 
     public long getNextTimeout(long startTimeMs) {
-      return Math.max(System.currentTimeMillis() - startTimeMs, nextTimeoutMs);
+      return startTimeMs + nextTimeoutMs - System.currentTimeMillis();
     }
   }
 

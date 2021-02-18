@@ -15,13 +15,9 @@
  */
 package concoord.concurrent;
 
-import org.jetbrains.annotations.NotNull;
+public class JoinException extends RuntimeException {
 
-public interface Awaitable<T> {
-
-  void await(int maxEvents);
-
-  void await(int maxEvents, @NotNull Awaiter<? super T> awaiter);
-
-  void cancel();
+  public JoinException(Throwable cause) {
+    super(cause);
+  }
 }

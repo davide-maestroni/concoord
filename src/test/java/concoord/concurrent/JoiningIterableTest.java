@@ -16,6 +16,7 @@
 package concoord.concurrent;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.Arrays;
 import java.util.Iterator;
@@ -29,28 +30,104 @@ public class JoiningIterableTest {
 
   @Test
   public void join() {
-    TestAwaitable<String> awaitable = new TestAwaitable<>(Arrays.asList("a", "b", "c"));
+    IterableAwaitable<String> awaitable = new IterableAwaitable<>(Arrays.asList("a", "b", "c"));
     assertThat(new JoiningIterable<>(awaitable, 1, 1, TimeUnit.SECONDS).toList()).containsExactly("a", "b", "c");
   }
 
   @Test
   public void joinTotal() {
-    TestAwaitable<String> awaitable = new TestAwaitable<>(Arrays.asList("a", "b", "c"));
+    IterableAwaitable<String> awaitable = new IterableAwaitable<>(Arrays.asList("a", "b", "c"));
     assertThat(new JoiningIterable<>(awaitable, 10, 1, 1, TimeUnit.SECONDS).toList()).containsExactly("a", "b", "c");
   }
 
-  private static class TestAwaitable<T> implements Awaitable<T> {
+  @Test
+  public void joinException() {
+    ExceptionAwaitable<String> awaitable = new ExceptionAwaitable<>(new ArithmeticException());
+    assertThatThrownBy(() -> new JoiningIterable<>(awaitable, 1, 1, TimeUnit.SECONDS).toList())
+        .isInstanceOf(JoinException.class)
+        .hasCauseInstanceOf(ArithmeticException.class);
+  }
+
+  @Test
+  public void joinTotalException() {
+    ExceptionAwaitable<String> awaitable = new ExceptionAwaitable<>(new ArithmeticException());
+    assertThatThrownBy(() -> new JoiningIterable<>(awaitable, 10, 1, 1, TimeUnit.SECONDS).toList())
+        .isInstanceOf(JoinException.class)
+        .hasCauseInstanceOf(ArithmeticException.class);
+  }
+
+  @Test
+  public void joinTimeout() {
+    DummyAwaitable<String> awaitable = new DummyAwaitable<>();
+    assertThatThrownBy(() -> new JoiningIterable<>(awaitable, 1, 1, TimeUnit.SECONDS).toList())
+        .isInstanceOf(JoinTimeoutException.class);
+  }
+
+  @Test
+  public void joinTotalTimeout() {
+    DummyAwaitable<String> awaitable = new DummyAwaitable<>();
+    assertThatThrownBy(() -> new JoiningIterable<>(awaitable, 10, 1, 1, TimeUnit.SECONDS).toList())
+        .isInstanceOf(JoinTimeoutException.class);
+  }
+
+  private static class DummyAwaitable<T> implements Awaitable<T> {
+
+    @Override
+    public void await(int maxEvents) {
+    }
+
+    @Override
+    public void await(int maxEvents, @NotNull Awaiter<? super T> awaiter) {
+    }
+
+    @Override
+    public void cancel() {
+    }
+  }
+
+  private static class ExceptionAwaitable<T> implements Awaitable<T> {
+
+    private final ExecutorService service = Executors.newSingleThreadExecutor();
+    private final Throwable throwable;
+
+    private ExceptionAwaitable(@NotNull Throwable throwable) {
+      this.throwable = throwable;
+    }
+
+    @Override
+    public void await(int maxEvents) {
+    }
+
+    @Override
+    public void await(int maxEvents, @NotNull Awaiter<? super T> awaiter) {
+      service.execute(() -> {
+        try {
+          awaiter.error(throwable);
+        } catch (Exception ex) {
+          throw new RuntimeException(ex);
+        }
+      });
+    }
+
+    @Override
+    public void cancel() {
+    }
+  }
+
+  private static class IterableAwaitable<T> implements Awaitable<T> {
 
     private final ExecutorService service = Executors.newSingleThreadExecutor();
     private final Iterator<T> iterator;
 
-    private TestAwaitable(@NotNull Iterable<T> values) {
+    private IterableAwaitable(@NotNull Iterable<T> values) {
       this.iterator = values.iterator();
     }
 
+    @Override
     public void await(int maxEvents) {
     }
 
+    @Override
     public void await(int maxEvents, @NotNull Awaiter<? super T> awaiter) {
       service.execute(() -> {
         try {
@@ -69,6 +146,10 @@ public class JoiningIterableTest {
           }
         }
       });
+    }
+
+    @Override
+    public void cancel() {
     }
   }
 }
