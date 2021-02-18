@@ -15,6 +15,11 @@ compileJava {
     targetCompatibility = 5
 }
 
+compileTestJava {
+    sourceCompatibility = 8
+    targetCompatibility = 8
+}
+
 dependencies {
     implementation 'com.intellij:annotations:12.0'
 

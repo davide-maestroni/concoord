@@ -131,18 +131,24 @@ public class JoiningIterator<T> implements Iterator<T> {
   private class JoiningAwaiter implements Awaiter<T> {
 
     public void message(T message) {
-      queue.add(message);
-      mutex.notifyAll();
+      synchronized (mutex) {
+        queue.add(message);
+        mutex.notifyAll();
+      }
     }
 
     public void error(Throwable error) {
-      throwable = error;
-      mutex.notifyAll();
+      synchronized (mutex) {
+        throwable = error;
+        mutex.notifyAll();
+      }
     }
 
     public void end() {
-      isDone = true;
-      mutex.notifyAll();
+      synchronized (mutex) {
+        isDone = true;
+        mutex.notifyAll();
+      }
     }
   }
 }

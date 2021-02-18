@@ -25,13 +25,64 @@ import org.junit.jupiter.api.Test;
 public class LoggerTest {
 
   @Test
-  public void printHello() {
-    final TestPrinter printer = new TestPrinter();
-    final Logger logger = new Logger(LoggerTest.class);
+  public void printHelloDbg() {
+    TestPrinter printer = new TestPrinter();
+    Logger logger = new Logger(LoggerTest.class);
+    logger.addPrinter(printer);
+    logger.log(new DbgMessage("hello"));
+    assertThat(printer.getDbgMessages()).hasSize(1);
+    assertThat(printer.getInfMessages()).isEmpty();
+    assertThat(printer.getWrnMessages()).isEmpty();
+    assertThat(printer.getErrMessages()).isEmpty();
+    TestMessage testMessage = printer.getDbgMessages().get(0);
+    assertThat(testMessage.getName()).isEqualTo(LoggerTest.class.getName());
+    assertThat(testMessage.getMessage()).isEqualTo("hello");
+    assertThat(testMessage.getError()).isNull();
+  }
+
+  @Test
+  public void printHelloInf() {
+    TestPrinter printer = new TestPrinter();
+    Logger logger = new Logger(LoggerTest.class);
+    logger.addPrinter(printer);
+    logger.log(new InfMessage("hello"));
+    assertThat(printer.getDbgMessages()).isEmpty();
+    assertThat(printer.getInfMessages()).hasSize(1);
+    assertThat(printer.getWrnMessages()).isEmpty();
+    assertThat(printer.getErrMessages()).isEmpty();
+    TestMessage testMessage = printer.getInfMessages().get(0);
+    assertThat(testMessage.getName()).isEqualTo(LoggerTest.class.getName());
+    assertThat(testMessage.getMessage()).isEqualTo("hello");
+    assertThat(testMessage.getError()).isNull();
+  }
+
+  @Test
+  public void printHelloWrn() {
+    TestPrinter printer = new TestPrinter();
+    Logger logger = new Logger(LoggerTest.class);
+    logger.addPrinter(printer);
+    logger.log(new WrnMessage("hello"));
+    assertThat(printer.getDbgMessages()).isEmpty();
+    assertThat(printer.getInfMessages()).isEmpty();
+    assertThat(printer.getWrnMessages()).hasSize(1);
+    assertThat(printer.getErrMessages()).isEmpty();
+    TestMessage testMessage = printer.getWrnMessages().get(0);
+    assertThat(testMessage.getName()).isEqualTo(LoggerTest.class.getName());
+    assertThat(testMessage.getMessage()).isEqualTo("hello");
+    assertThat(testMessage.getError()).isNull();
+  }
+
+  @Test
+  public void printHelloErr() {
+    TestPrinter printer = new TestPrinter();
+    Logger logger = new Logger(LoggerTest.class);
     logger.addPrinter(printer);
     logger.log(new ErrMessage("hello"));
+    assertThat(printer.getDbgMessages()).isEmpty();
+    assertThat(printer.getInfMessages()).isEmpty();
+    assertThat(printer.getWrnMessages()).isEmpty();
     assertThat(printer.getErrMessages()).hasSize(1);
-    final TestMessage testMessage = printer.getErrMessages().get(0);
+    TestMessage testMessage = printer.getErrMessages().get(0);
     assertThat(testMessage.getName()).isEqualTo(LoggerTest.class.getName());
     assertThat(testMessage.getMessage()).isEqualTo("hello");
     assertThat(testMessage.getError()).isNull();
@@ -148,13 +199,6 @@ public class LoggerTest {
     @NotNull
     public List<TestMessage> getErrMessages() {
       return errMessages;
-    }
-
-    public void clear() {
-      dbgMessages.clear();
-      infMessages.clear();
-      wrnMessages.clear();
-      errMessages.clear();
     }
   }
 }

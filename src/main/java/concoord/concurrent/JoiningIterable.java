@@ -15,40 +15,60 @@
  */
 package concoord.concurrent;
 
+import concoord.util.assertion.IfAnyOf;
+import concoord.util.assertion.IfLessThan;
 import concoord.util.assertion.IfNull;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.jetbrains.annotations.NotNull;
 
 public class JoiningIterable<T> implements Iterable<T> {
 
-  private final Awaitable<T> awaitable;
-  private final int maxEvents;
-  private final long nextTimeoutMs;
-  private final long totalTimeoutMs;
+  private final Iterable<T> iterable;
 
-  public JoiningIterable(@NotNull Awaitable<T> awaitable, int maxEvents, long nextTimeout,
-      @NotNull TimeUnit timeUnit) {
-    new IfNull(awaitable, "async").throwException();
-    this.awaitable = awaitable;
-    this.maxEvents = maxEvents;
-    this.nextTimeoutMs = timeUnit.toMillis(nextTimeout);
-    this.totalTimeoutMs = -1;
+  public JoiningIterable(@NotNull final Awaitable<T> awaitable, final int maxEvents, final long nextTimeout,
+      @NotNull final TimeUnit timeUnit) {
+    new IfAnyOf(
+        new IfNull(awaitable, "awaitable"),
+        new IfLessThan(nextTimeout, "nextTimeout", 1),
+        new IfNull(timeUnit, "timeUnit")
+    ).throwException();
+    this.iterable = new Iterable<T>() {
+      @NotNull
+      public Iterator<T> iterator() {
+        return new JoiningIterator<T>(awaitable, maxEvents, nextTimeout, timeUnit);
+      }
+    };
   }
 
-  public JoiningIterable(@NotNull Awaitable<T> awaitable, int maxEvents, long nextTimeout,
-      long totalTimeout,
-      @NotNull TimeUnit timeUnit) {
-    new IfNull(awaitable, "async").throwException();
-    this.awaitable = awaitable;
-    this.maxEvents = maxEvents;
-    this.nextTimeoutMs = timeUnit.toMillis(nextTimeout);
-    this.totalTimeoutMs = timeUnit.toMillis(totalTimeout);
+  public JoiningIterable(@NotNull final Awaitable<T> awaitable, final int maxEvents, final long nextTimeout,
+      final long totalTimeout, @NotNull final TimeUnit timeUnit) {
+    new IfAnyOf(
+        new IfNull(awaitable, "awaitable"),
+        new IfLessThan(nextTimeout, "nextTimeout", 1),
+        new IfNull(timeUnit, "timeUnit")
+    ).throwException();
+    this.iterable = new Iterable<T>() {
+      @NotNull
+      public Iterator<T> iterator() {
+        return new JoiningIterator<T>(awaitable, maxEvents, nextTimeout, totalTimeout, timeUnit);
+      }
+    };
   }
 
   @NotNull
   public Iterator<T> iterator() {
-    return new JoiningIterator<T>(awaitable, maxEvents, nextTimeoutMs, totalTimeoutMs,
-        TimeUnit.MILLISECONDS);
+    return iterable.iterator();
+  }
+
+  @NotNull
+  public List<T> toList() {
+    final ArrayList<T> messages = new ArrayList<T>();
+    for (T message : this) {
+      messages.add(message);
+    }
+    return messages;
   }
 }
