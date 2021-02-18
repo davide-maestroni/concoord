@@ -19,10 +19,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 
@@ -38,6 +40,20 @@ public class JoiningIterableTest {
   public void joinTotal() {
     IterableAwaitable<String> awaitable = new IterableAwaitable<>(Arrays.asList("a", "b", "c"));
     assertThat(new JoiningIterable<>(awaitable, 10, 1, 1, TimeUnit.SECONDS).toList()).containsExactly("a", "b", "c");
+  }
+
+  @Test
+  public void joinRemove() {
+    IterableAwaitable<String> awaitable = new IterableAwaitable<>(Collections.emptyList());
+    assertThatThrownBy(() -> new JoiningIterable<>(awaitable, 1, 1, TimeUnit.SECONDS).iterator().remove())
+        .isInstanceOf(UnsupportedOperationException.class);
+  }
+
+  @Test
+  public void joinTotalRemove() {
+    IterableAwaitable<String> awaitable = new IterableAwaitable<>(Collections.emptyList());
+    assertThatThrownBy(() -> new JoiningIterable<>(awaitable, 10, 1, 1, TimeUnit.SECONDS).iterator().remove())
+        .isInstanceOf(UnsupportedOperationException.class);
   }
 
   @Test
@@ -68,6 +84,46 @@ public class JoiningIterableTest {
     DummyAwaitable<String> awaitable = new DummyAwaitable<>();
     assertThatThrownBy(() -> new JoiningIterable<>(awaitable, 10, 1, 1, TimeUnit.SECONDS).toList())
         .isInstanceOf(JoinTimeoutException.class);
+  }
+
+  @Test
+  public void joinInterrupt() throws InterruptedException {
+    DummyAwaitable<String> awaitable = new DummyAwaitable<>();
+    AtomicReference<Throwable> throwable = new AtomicReference<>();
+    Thread thread = new Thread(() -> {
+      try {
+        new JoiningIterable<>(awaitable, 1, 1, TimeUnit.MINUTES).toList();
+      } catch (Throwable t) {
+        throwable.set(t);
+      }
+    });
+    thread.start();
+    Thread.sleep(500);
+    thread.interrupt();
+    Thread.sleep(500);
+    assertThat(throwable.get())
+        .isInstanceOf(JoinException.class)
+        .hasCauseInstanceOf(InterruptedException.class);
+  }
+
+  @Test
+  public void joinTotalInterrupt() throws InterruptedException {
+    DummyAwaitable<String> awaitable = new DummyAwaitable<>();
+    AtomicReference<Throwable> throwable = new AtomicReference<>();
+    Thread thread = new Thread(() -> {
+      try {
+        new JoiningIterable<>(awaitable, 10, 1, 1, TimeUnit.MINUTES).toList();
+      } catch (Throwable t) {
+        throwable.set(t);
+      }
+    });
+    thread.start();
+    Thread.sleep(500);
+    thread.interrupt();
+    Thread.sleep(500);
+    assertThat(throwable.get())
+        .isInstanceOf(JoinException.class)
+        .hasCauseInstanceOf(InterruptedException.class);
   }
 
   private static class DummyAwaitable<T> implements Awaitable<T> {
