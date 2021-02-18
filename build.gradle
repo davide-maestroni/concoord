@@ -1,0 +1,28 @@
+plugins {
+    id 'java-library'
+    id 'com.github.ben-manes.versions' version '0.36.0'
+}
+
+group 'com.github.davide-maestroni'
+version '0.0.0'
+
+repositories {
+    mavenCentral()
+}
+
+compileJava {
+    sourceCompatibility = 5
+    targetCompatibility = 5
+}
+
+dependencies {
+    implementation 'com.intellij:annotations:12.0'
+
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.6.0'
+    testImplementation 'org.assertj:assertj-core:3.16.1'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine'
+}
+
+test {
+    useJUnitPlatform()
+}
