@@ -17,19 +17,20 @@ package concoord.util.assertion;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 public class IfAnyOf extends AbstractPrecondition {
 
-  private final Iterable<? extends Precondition> preconditions;
+  private final Collection<? extends Precondition> preconditions;
 
   public IfAnyOf(@NotNull Precondition... preconditions) {
     this(Arrays.asList(preconditions));
   }
 
-  public IfAnyOf(@NotNull Iterable<? extends Precondition> preconditions) {
+  public IfAnyOf(@NotNull Collection<? extends Precondition> preconditions) {
     this.preconditions = preconditions;
   }
 

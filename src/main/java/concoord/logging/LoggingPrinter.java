@@ -25,8 +25,7 @@ import org.jetbrains.annotations.NotNull;
 
 public class LoggingPrinter implements LogPrinter {
 
-  public void applyDefaultConfiguration(@NotNull concoord.logging.Logger logger,
-      @NotNull Level level) {
+  public void applyDefaultConfiguration(@NotNull concoord.logging.Logger logger, @NotNull Level level) {
     final Logger rootLogger = Logger.getLogger(logger.getName());
     rootLogger.setLevel(level);
     final Handler[] handlers = rootLogger.getHandlers();

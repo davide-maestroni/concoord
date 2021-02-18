@@ -35,7 +35,6 @@ public class ScheduledExecutor implements Scheduler {
   private final ConcurrentLinkedQueue<Runnable> lowQueue = new ConcurrentLinkedQueue<Runnable>();
   private final AtomicInteger status = new AtomicInteger(IDLE);
   private final Logger logger = new Logger(this);
-
   private final Executor executor;
   private final Runnable runner;
 

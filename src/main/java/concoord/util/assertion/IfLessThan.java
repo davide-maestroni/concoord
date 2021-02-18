@@ -20,7 +20,7 @@ import org.jetbrains.annotations.Nullable;
 public class IfLessThan extends IfOneOf {
 
   public IfLessThan(Integer value, int limit) {
-    this(value, "value", limit);
+    this(value, "number", limit);
   }
 
   public IfLessThan(final Integer value, final String name, final int limit) {
@@ -28,8 +28,7 @@ public class IfLessThan extends IfOneOf {
       @Nullable
       public RuntimeException getException() {
         if (value < limit) {
-          return new IllegalArgumentException(
-              name + " cannot be less than " + limit + ", but it was: " + value);
+          return new IllegalArgumentException(name + " cannot be less than " + limit + ", but it was: " + value);
         }
         return null;
       }
@@ -37,7 +36,7 @@ public class IfLessThan extends IfOneOf {
   }
 
   public IfLessThan(Long value, long limit) {
-    this(value, "value", limit);
+    this(value, "number", limit);
   }
 
   public IfLessThan(final Long value, final String name, final long limit) {
@@ -45,8 +44,39 @@ public class IfLessThan extends IfOneOf {
       @Nullable
       public RuntimeException getException() {
         if (value < limit) {
-          return new IllegalArgumentException(
-              name + " cannot be less than " + limit + ", but it was: " + value);
+          return new IllegalArgumentException(name + " cannot be less than " + limit + ", but it was: " + value);
+        }
+        return null;
+      }
+    });
+  }
+
+  public IfLessThan(Float value, int limit) {
+    this(value, "number", limit);
+  }
+
+  public IfLessThan(final Float value, final String name, final int limit) {
+    super(new IfNull(value, name), new AbstractPrecondition() {
+      @Nullable
+      public RuntimeException getException() {
+        if (value < limit) {
+          return new IllegalArgumentException(name + " cannot be less than " + limit + ", but it was: " + value);
+        }
+        return null;
+      }
+    });
+  }
+
+  public IfLessThan(Double value, int limit) {
+    this(value, "number", limit);
+  }
+
+  public IfLessThan(final Double value, final String name, final int limit) {
+    super(new IfNull(value, name), new AbstractPrecondition() {
+      @Nullable
+      public RuntimeException getException() {
+        if (value < limit) {
+          return new IllegalArgumentException(name + " cannot be less than " + limit + ", but it was: " + value);
         }
         return null;
       }

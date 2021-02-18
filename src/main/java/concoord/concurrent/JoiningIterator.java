@@ -17,7 +17,6 @@ package concoord.concurrent;
 
 import concoord.util.CircularQueue;
 import concoord.util.assertion.IfAnyOf;
-import concoord.util.assertion.IfLessThan;
 import concoord.util.assertion.IfNull;
 import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
@@ -37,7 +36,7 @@ public class JoiningIterator<T> implements Iterator<T> {
   public JoiningIterator(@NotNull Awaitable<T> awaitable, int maxEvents, long nextTimeout, @NotNull TimeUnit timeUnit) {
     new IfAnyOf(
         new IfNull(awaitable, "awaitable"),
-        new IfLessThan(nextTimeout, "nextTimeout", 1)
+        new IfNull(timeUnit, "timeUnit")
     ).throwException();
     this.awaitable = awaitable;
     this.maxEvents = maxEvents;
@@ -48,7 +47,7 @@ public class JoiningIterator<T> implements Iterator<T> {
       @NotNull TimeUnit timeUnit) {
     new IfAnyOf(
         new IfNull(awaitable, "awaitable"),
-        new IfLessThan(nextTimeout, "nextTimeout", 1)
+        new IfNull(timeUnit, "timeUnit")
     ).throwException();
     this.awaitable = awaitable;
     this.maxEvents = maxEvents;
@@ -59,8 +58,7 @@ public class JoiningIterator<T> implements Iterator<T> {
     final long startTimeMs = System.currentTimeMillis();
     final TimeoutProvider timeoutProvider = this.timeoutProvider;
     synchronized (mutex) {
-      long timeoutMs;
-      while ((timeoutMs = timeoutProvider.getNextTimeout(startTimeMs)) > 0) {
+      while (true) {
         if (!queue.isEmpty()) {
           return true;
         }
@@ -70,12 +68,17 @@ public class JoiningIterator<T> implements Iterator<T> {
         if (throwable != null) {
           throw new JoinException(throwable);
         }
-        // await events
-        awaitable.await(maxEvents, awaiter);
-        try {
-          mutex.wait(timeoutMs);
-        } catch (final InterruptedException e) {
-          throw new JoinException(e);
+        long timeoutMs = timeoutProvider.getNextTimeout(startTimeMs);
+        if (timeoutMs > 0) {
+          // await events
+          awaitable.await(maxEvents, awaiter);
+          try {
+            mutex.wait(timeoutMs);
+          } catch (final InterruptedException e) {
+            throw new JoinException(e);
+          }
+        } else {
+          break;
         }
       }
       // timeout
@@ -123,7 +126,7 @@ public class JoiningIterator<T> implements Iterator<T> {
 
     public long getNextTimeout(long startTimeMs) {
       long currentTimeMs = System.currentTimeMillis();
-      return Math.min(Math.max(currentTimeMs - startTimeMs, nextTimeoutMs), expireTimeMs - currentTimeMs);
+      return Math.min(startTimeMs + nextTimeoutMs - currentTimeMs, expireTimeMs - currentTimeMs);
     }
   }
 

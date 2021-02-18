@@ -16,18 +16,19 @@
 package concoord.util.assertion;
 
 import java.util.Arrays;
+import java.util.Collection;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 public class IfOneOf extends AbstractPrecondition {
 
-  private final Iterable<? extends Precondition> preconditions;
+  private final Collection<? extends Precondition> preconditions;
 
   public IfOneOf(@NotNull Precondition... preconditions) {
     this(Arrays.asList(preconditions));
   }
 
-  public IfOneOf(@NotNull Iterable<? extends Precondition> preconditions) {
+  public IfOneOf(@NotNull Collection<? extends Precondition> preconditions) {
     this.preconditions = preconditions;
   }
 

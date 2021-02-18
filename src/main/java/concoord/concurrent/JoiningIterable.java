@@ -16,7 +16,6 @@
 package concoord.concurrent;
 
 import concoord.util.assertion.IfAnyOf;
-import concoord.util.assertion.IfLessThan;
 import concoord.util.assertion.IfNull;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -32,7 +31,6 @@ public class JoiningIterable<T> implements Iterable<T> {
       @NotNull final TimeUnit timeUnit) {
     new IfAnyOf(
         new IfNull(awaitable, "awaitable"),
-        new IfLessThan(nextTimeout, "nextTimeout", 1),
         new IfNull(timeUnit, "timeUnit")
     ).throwException();
     this.iterable = new Iterable<T>() {
@@ -47,7 +45,6 @@ public class JoiningIterable<T> implements Iterable<T> {
       final long totalTimeout, @NotNull final TimeUnit timeUnit) {
     new IfAnyOf(
         new IfNull(awaitable, "awaitable"),
-        new IfLessThan(nextTimeout, "nextTimeout", 1),
         new IfNull(timeUnit, "timeUnit")
     ).throwException();
     this.iterable = new Iterable<T>() {
