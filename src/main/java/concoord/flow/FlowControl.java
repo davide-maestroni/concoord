@@ -13,9 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package concoord.function;
+package concoord.flow;
 
-public interface Factory<T> {
+import concoord.concurrent.Awaitable;
 
-  T create() throws Exception;
+public interface FlowControl<T> {
+
+  void postOutput(T message);
+
+  void postOutput(Awaitable<? extends T> awaitable);
+
+  void limitInputs(int maxEvents);
+
+  void stop();
 }

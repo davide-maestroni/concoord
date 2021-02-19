@@ -13,9 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package concoord.function;
+package concoord.flow;
 
-public interface UncheckedFactory<T> {
+import org.jetbrains.annotations.NotNull;
 
-  T create();
+class ResultMessage<T> implements Result<T> {
+
+  private final T message;
+
+  ResultMessage(T message) {
+    this.message = message;
+  }
+
+  public void apply(@NotNull FlowControl<? super T> flowControl) {
+    flowControl.postOutput(message);
+  }
 }

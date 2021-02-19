@@ -13,15 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package concoord.concurrent;
+package concoord.flow;
 
 import org.jetbrains.annotations.NotNull;
 
-public interface Awaitable<T> {
+public interface Result<T> {
 
-  void await(int maxEvents);
-
-  void await(int maxEvents, @NotNull Awaiter<? super T> awaiter);
-
-  void abort();
+  void apply(@NotNull FlowControl<? super T> flowControl);
 }

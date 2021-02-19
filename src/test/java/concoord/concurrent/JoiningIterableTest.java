@@ -137,7 +137,7 @@ public class JoiningIterableTest {
     }
 
     @Override
-    public void cancel() {
+    public void abort() {
     }
   }
 
@@ -166,7 +166,7 @@ public class JoiningIterableTest {
     }
 
     @Override
-    public void cancel() {
+    public void abort() {
     }
   }
 
@@ -205,7 +205,7 @@ public class JoiningIterableTest {
     }
 
     @Override
-    public void cancel() {
+    public void abort() {
     }
   }
 }
