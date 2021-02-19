@@ -17,7 +17,7 @@ package concoord.util.assertion;
 
 import org.jetbrains.annotations.Nullable;
 
-public class IfLessThan extends IfOneOf {
+public class IfLessThan extends IfAnyOf {
 
   public IfLessThan(Integer value, int limit) {
     this(value, "number", limit);

@@ -16,8 +16,9 @@
 package concoord.concurrent;
 
 import concoord.util.CircularQueue;
-import concoord.util.assertion.IfAnyOf;
 import concoord.util.assertion.IfNull;
+import concoord.util.assertion.IfSomeOf;
+import concoord.util.assertion.Precondition;
 import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
 import org.jetbrains.annotations.NotNull;
@@ -34,10 +35,7 @@ public class JoiningIterator<T> implements Iterator<T> {
   private boolean isDone;
 
   public JoiningIterator(@NotNull Awaitable<T> awaitable, int maxEvents, long nextTimeout, @NotNull TimeUnit timeUnit) {
-    new IfAnyOf(
-        new IfNull(awaitable, "awaitable"),
-        new IfNull(timeUnit, "timeUnit")
-    ).throwException();
+    buildPrecondition(awaitable, timeUnit).throwException();
     this.awaitable = awaitable;
     this.maxEvents = maxEvents;
     this.timeoutProvider = new UnboundTimeoutProvider(timeUnit.toMillis(nextTimeout));
@@ -45,10 +43,7 @@ public class JoiningIterator<T> implements Iterator<T> {
 
   public JoiningIterator(@NotNull Awaitable<T> awaitable, int maxEvents, long nextTimeout, long totalTimeout,
       @NotNull TimeUnit timeUnit) {
-    new IfAnyOf(
-        new IfNull(awaitable, "awaitable"),
-        new IfNull(timeUnit, "timeUnit")
-    ).throwException();
+    buildPrecondition(awaitable, timeUnit).throwException();
     this.awaitable = awaitable;
     this.maxEvents = maxEvents;
     this.timeoutProvider = new BoundTimeoutProvider(timeUnit.toMillis(nextTimeout), timeUnit.toMillis(totalTimeout));
@@ -94,6 +89,14 @@ public class JoiningIterator<T> implements Iterator<T> {
 
   public void remove() {
     throw new UnsupportedOperationException("remove");
+  }
+
+  @NotNull
+  private Precondition buildPrecondition(Awaitable<T> awaitable, TimeUnit timeUnit) {
+    return new IfSomeOf(
+        new IfNull(awaitable, "awaitable"),
+        new IfNull(timeUnit, "timeUnit")
+    );
   }
 
   private interface TimeoutProvider {

@@ -15,31 +15,48 @@
  */
 package concoord.util.assertion;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-public class IfOneOf extends AbstractPrecondition {
+public class IfSomeOf extends AbstractPrecondition {
 
   private final Collection<? extends Precondition> preconditions;
 
-  public IfOneOf(@NotNull Precondition... preconditions) {
+  public IfSomeOf(@NotNull Precondition... preconditions) {
     this(Arrays.asList(preconditions));
   }
 
-  public IfOneOf(@NotNull Collection<? extends Precondition> preconditions) {
+  public IfSomeOf(@NotNull Collection<? extends Precondition> preconditions) {
     this.preconditions = preconditions;
   }
 
   @Nullable
   public RuntimeException getException() {
+    List<RuntimeException> exceptions = getExceptions();
+    if (!exceptions.isEmpty()) {
+      return buildException(exceptions);
+    }
+    return null;
+  }
+
+  @NotNull
+  private List<RuntimeException> getExceptions() {
+    final ArrayList<RuntimeException> exceptions = new ArrayList<RuntimeException>();
     for (Precondition precondition : preconditions) {
       RuntimeException exception = precondition.getException();
       if (exception != null) {
-        return exception;
+        exceptions.add(exception);
       }
     }
-    return null;
+    return exceptions;
+  }
+
+  @NotNull
+  private PreconditionFailedException buildException(@NotNull List<RuntimeException> exceptions) {
+    return new PreconditionFailedException("preconditions failed", exceptions);
   }
 }

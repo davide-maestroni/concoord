@@ -15,8 +15,9 @@
  */
 package concoord.concurrent;
 
-import concoord.util.assertion.IfAnyOf;
 import concoord.util.assertion.IfNull;
+import concoord.util.assertion.IfSomeOf;
+import concoord.util.assertion.Precondition;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -29,10 +30,7 @@ public class JoiningIterable<T> implements Iterable<T> {
 
   public JoiningIterable(@NotNull final Awaitable<T> awaitable, final int maxEvents, final long nextTimeout,
       @NotNull final TimeUnit timeUnit) {
-    new IfAnyOf(
-        new IfNull(awaitable, "awaitable"),
-        new IfNull(timeUnit, "timeUnit")
-    ).throwException();
+    buildPrecondition(awaitable, timeUnit).throwException();
     this.iterable = new Iterable<T>() {
       @NotNull
       public Iterator<T> iterator() {
@@ -43,10 +41,7 @@ public class JoiningIterable<T> implements Iterable<T> {
 
   public JoiningIterable(@NotNull final Awaitable<T> awaitable, final int maxEvents, final long nextTimeout,
       final long totalTimeout, @NotNull final TimeUnit timeUnit) {
-    new IfAnyOf(
-        new IfNull(awaitable, "awaitable"),
-        new IfNull(timeUnit, "timeUnit")
-    ).throwException();
+    buildPrecondition(awaitable, timeUnit).throwException();
     this.iterable = new Iterable<T>() {
       @NotNull
       public Iterator<T> iterator() {
@@ -67,5 +62,13 @@ public class JoiningIterable<T> implements Iterable<T> {
       messages.add(message);
     }
     return messages;
+  }
+
+  @NotNull
+  private Precondition buildPrecondition(Awaitable<T> awaitable, TimeUnit timeUnit) {
+    return new IfSomeOf(
+        new IfNull(awaitable, "awaitable"),
+        new IfNull(timeUnit, "timeUnit")
+    );
   }
 }
