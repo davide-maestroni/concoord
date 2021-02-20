@@ -19,9 +19,9 @@ import org.jetbrains.annotations.NotNull;
 
 public interface Scheduler {
 
-  void scheduleHigh(@NotNull Runnable task);
+  void scheduleHigh(@NotNull Runnable command);
 
-  void scheduleLow(@NotNull Runnable task);
+  void scheduleLow(@NotNull Runnable command);
 
-  int pendingTasks();
+  int pendingCommands();
 }

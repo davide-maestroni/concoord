@@ -45,10 +45,10 @@ public class ScheduledExecutor implements Scheduler {
       public void run() {
         while (true) {
           status.set(READING);
-          Runnable task = highQueue.poll();
-          if (task == null) {
-            task = lowQueue.poll();
-            if (task == null) {
+          Runnable command = highQueue.poll();
+          if (command == null) {
+            command = lowQueue.poll();
+            if (command == null) {
               // move to IDLE
               if (status.compareAndSet(READING, IDLE)) {
                 return;
@@ -60,7 +60,7 @@ public class ScheduledExecutor implements Scheduler {
 
           status.set(RUNNING);
           try {
-            task.run();
+            command.run();
           } catch (final Throwable t) {
             logger.log(new ErrMessage(new LogMessage("uncaught exception"), t));
             if (t instanceof RuntimeException) {
@@ -85,10 +85,10 @@ public class ScheduledExecutor implements Scheduler {
         public void run() {
           while (true) {
             status.set(READING);
-            Runnable task = highQueue.peek();
-            if (task == null) {
-              task = lowQueue.peek();
-              if (task == null) {
+            Runnable command = highQueue.peek();
+            if (command == null) {
+              command = lowQueue.peek();
+              if (command == null) {
                 // move to IDLE
                 if (!status.compareAndSet(READING, IDLE)) {
                   ScheduledExecutor.this.executor.execute(this);
@@ -103,7 +103,7 @@ public class ScheduledExecutor implements Scheduler {
 
             status.set(RUNNING);
             try {
-              task.run();
+              command.run();
             } catch (final Throwable t) {
               logger.log(new ErrMessage(new LogMessage("uncaught exception"), t));
               if (t instanceof RuntimeException) {
@@ -122,10 +122,10 @@ public class ScheduledExecutor implements Scheduler {
         public void run() {
           for (int i = 0; i < max; ++i) {
             status.set(READING);
-            Runnable task = highQueue.peek();
-            if (task == null) {
-              task = lowQueue.peek();
-              if (task == null) {
+            Runnable command = highQueue.peek();
+            if (command == null) {
+              command = lowQueue.peek();
+              if (command == null) {
                 // move to IDLE
                 if (status.compareAndSet(READING, IDLE)) {
                   return;
@@ -142,7 +142,7 @@ public class ScheduledExecutor implements Scheduler {
 
             status.set(RUNNING);
             try {
-              task.run();
+              command.run();
             } catch (final Throwable t) {
               logger.log(new ErrMessage(new LogMessage("uncaught exception"), t));
               if (t instanceof RuntimeException) {
@@ -152,10 +152,10 @@ public class ScheduledExecutor implements Scheduler {
               }
             }
           }
-          Runnable task = highQueue.peek();
-          if (task == null) {
-            task = lowQueue.peek();
-            if (task == null) {
+          Runnable command = highQueue.peek();
+          if (command == null) {
+            command = lowQueue.peek();
+            if (command == null) {
               // move to IDLE
               if (!status.compareAndSet(READING, IDLE)) {
                 ScheduledExecutor.this.executor.execute(this);
@@ -171,21 +171,21 @@ public class ScheduledExecutor implements Scheduler {
     }
   }
 
-  public void scheduleHigh(@NotNull Runnable task) {
-    highQueue.offer(task);
+  public void scheduleHigh(@NotNull Runnable command) {
+    highQueue.offer(command);
     if (!status.compareAndSet(READING, RUNNING) && status.compareAndSet(IDLE, RUNNING)) {
       executor.execute(runner);
     }
   }
 
-  public void scheduleLow(@NotNull Runnable task) {
-    lowQueue.offer(task);
+  public void scheduleLow(@NotNull Runnable command) {
+    lowQueue.offer(command);
     if (!status.compareAndSet(READING, RUNNING) && status.compareAndSet(IDLE, RUNNING)) {
       executor.execute(runner);
     }
   }
 
-  public int pendingTasks() {
+  public int pendingCommands() {
     return highQueue.size() + lowQueue.size();
   }
 }
