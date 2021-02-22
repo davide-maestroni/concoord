@@ -83,17 +83,27 @@ public class Do<T> implements Task<T> {
       });
     }
 
+    private void nextFlowControl() {
+      currentFlowControl = flowControls.poll();
+      if (currentFlowControl != null) {
+        scheduler.scheduleLow(currentFlowControl);
+      }
+    }
+
     private class DoFlowControl implements FlowControl<T>, Awaiter<T>, Runnable {
 
+      private final Runnable read = new ReadState();
+      private final Runnable write = new WriteState();
       private final Awaiter<? super T> awaiter;
       private int maxEvents = 1;
       private int events;
+      private Runnable state;
       private int posts;
-      private boolean ended;
 
       private DoFlowControl(int maxEvents, @NotNull Awaiter<? super T> awaiter) {
         this.events = maxEvents;
         this.awaiter = awaiter;
+        this.state = new InitState();
       }
 
       public void postOutput(T message) {
@@ -125,76 +135,35 @@ public class Do<T> implements Task<T> {
         stopped = true;
       }
 
-      public void message(T message) throws Exception {
+      public void message(T message) {
         messages.add(message != null ? message : NULL);
         scheduler.scheduleLow(this);
       }
 
-      public void error(final Throwable error) throws Exception {
+      public void error(final Throwable error) {
         scheduler.scheduleLow(new Runnable() {
           public void run() {
             sendError(error);
-            scheduler.scheduleLow(currentFlowControl);
-            currentFlowControl = null;
+            nextFlowControl();
           }
         });
       }
 
-      public void end() throws Exception {
+      public void end() {
         scheduler.scheduleLow(new Runnable() {
           public void run() {
-            sendEnd();
+            state = read;
             scheduler.scheduleLow(currentFlowControl);
-            currentFlowControl = null;
           }
         });
       }
 
       public void run() {
-        // TODO: 22/02/21 fix this mess!!
-        if (currentFlowControl != null) {
-          flowControls.add(this);
-          return;
-        }
-        if (stopped) {
-          if (!ended) {
-            sendEnd();
-          }
-          if (flowControls.isEmpty()) {
-            return;
-          }
-          currentFlowControl = flowControls.poll();
-        } else {
-          currentFlowControl = this;
-        }
-        final CircularQueue<Awaitable<? extends T>> outputs = DoAwaitable.this.outputs;
-        if ((events > 0) && outputs.isEmpty()) {
-          try {
-            final Result<T> result = invocation.call();
-            posts = 0;
-            result.apply(this);
-          } catch (final Exception e) {
-            logger.log(new WrnMessage(new LogMessage("invocation failed with an exception"), e));
-            sendError(e);
-          }
-        }
-        if (!outputs.isEmpty()) {
-          final Awaitable<? extends T> awaitable = outputs.peek();
-          awaitable.await(Math.min(events, maxEvents), this);
-        } else {
-          if (stopped || ended) {
-            if (!ended) {
-              sendEnd();
-            }
-            currentFlowControl = null;
-          }
-          scheduler.scheduleLow(this);
-        }
+        state.run();
       }
 
       private void sendError(@NotNull Throwable throwable) {
         stopped = true;
-        ended = true;
         outputs.clear();
         try {
           awaiter.error(throwable);
@@ -207,7 +176,6 @@ public class Do<T> implements Task<T> {
       }
 
       private void sendEnd() {
-        ended = true;
         try {
           awaiter.end();
         } catch (final Exception e) {
@@ -216,6 +184,77 @@ public class Do<T> implements Task<T> {
               e
           ));
           sendError(e);
+        }
+      }
+
+      private class InitState implements Runnable {
+
+        public void run() {
+          final DoFlowControl thisFlowControl = DoFlowControl.this;
+          if (currentFlowControl == null) {
+            currentFlowControl = thisFlowControl;
+          }
+          if (currentFlowControl != thisFlowControl) {
+            flowControls.add(thisFlowControl);
+            return;
+          }
+          if (stopped) {
+            if (events >= 1) {
+              sendEnd();
+            }
+            nextFlowControl();
+          } else {
+            state = read;
+            state.run();
+          }
+        }
+      }
+
+      private class ReadState implements Runnable {
+
+        public void run() {
+          if (events < 1) {
+            nextFlowControl();
+          } else {
+            final DoFlowControl currentFlowControl = DoAwaitable.this.currentFlowControl;
+            final CircularQueue<Awaitable<? extends T>> outputs = DoAwaitable.this.outputs;
+            Awaitable<? extends T> awaitable = outputs.poll();
+            if (awaitable != null) {
+              state = write;
+              awaitable.await(Math.min(events, maxEvents), currentFlowControl);
+            } else if (stopped) {
+              sendEnd();
+              nextFlowControl();
+            } else {
+              try {
+                final Result<T> result = invocation.call();
+                posts = 0;
+                result.apply(currentFlowControl);
+                awaitable = outputs.poll();
+                if (awaitable != null) {
+                  state = write;
+                  awaitable.await(Math.min(events, maxEvents), currentFlowControl);
+                  return;
+                }
+              } catch (final Exception e) {
+                logger.log(new WrnMessage(new LogMessage("invocation failed with an exception"), e));
+                sendError(e);
+                events = 0;
+              }
+              scheduler.scheduleLow(currentFlowControl);
+            }
+          }
+        }
+      }
+
+      private class WriteState implements Runnable {
+
+        @SuppressWarnings("unchecked")
+        public void run() {
+          final Object message = messages.poll();
+          if (message != null) {
+            postOutput(message != NULL ? (T) message : null);
+          }
         }
       }
     }

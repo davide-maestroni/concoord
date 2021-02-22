@@ -26,7 +26,7 @@ public class SafeString {
   @Override
   public String toString() {
     try {
-      return toString.toString();
+      return String.valueOf(toString);
     } catch (final Exception ignored) {
       return null;
     }
