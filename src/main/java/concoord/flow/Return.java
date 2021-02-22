@@ -3,7 +3,7 @@ package concoord.flow;
 import concoord.concurrent.Awaitable;
 import org.jetbrains.annotations.NotNull;
 
-public class Return<T> extends Break<T> {
+public class Return<T> implements Result<T> {
 
   private final Result<T> result;
 
@@ -17,6 +17,6 @@ public class Return<T> extends Break<T> {
 
   public void apply(@NotNull FlowControl<? super T> flowControl) {
     result.apply(flowControl);
-    super.apply(flowControl);
+    flowControl.stop();
   }
 }

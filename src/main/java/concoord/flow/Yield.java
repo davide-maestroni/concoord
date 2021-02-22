@@ -18,30 +18,31 @@ package concoord.flow;
 import concoord.concurrent.Awaitable;
 import org.jetbrains.annotations.NotNull;
 
-public class Yield<T> extends Continue<T> {
+public class Yield<T> implements Result<T> {
 
+  private final int maxEvents;
   private final Result<T> result;
 
   public Yield(T output) {
-    this.result = new ResultMessage<T>(output);
+    this(1, output);
   }
 
   public Yield(int maxEvents, T output) {
-    super(maxEvents);
+    this.maxEvents = maxEvents;
     this.result = new ResultMessage<T>(output);
   }
 
   public Yield(@NotNull Awaitable<T> awaitable) {
-    this.result = new ResultAwaitable<T>(awaitable);
+    this(1, awaitable);
   }
 
   public Yield(int maxEvents, @NotNull Awaitable<T> awaitable) {
-    super(maxEvents);
+    this.maxEvents = maxEvents;
     this.result = new ResultAwaitable<T>(awaitable);
   }
 
   public void apply(@NotNull FlowControl<? super T> flowControl) {
     result.apply(flowControl);
-    super.apply(flowControl);
+    flowControl.limitInputs(maxEvents);
   }
 }
