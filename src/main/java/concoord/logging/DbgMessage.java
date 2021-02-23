@@ -17,10 +17,11 @@ package concoord.logging;
 
 import java.util.Locale;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 public class DbgMessage extends LogMessage {
 
-  public DbgMessage(@NotNull String message) {
+  public DbgMessage(@Nullable String message) {
     super(message);
   }
 
@@ -36,11 +37,15 @@ public class DbgMessage extends LogMessage {
     super(locale, format, args);
   }
 
+  public DbgMessage(LogMessage wrapped) {
+    super(wrapped);
+  }
+
   public DbgMessage(LogMessage wrapped, @NotNull Throwable error) {
     super(wrapped, error);
   }
 
-  public DbgMessage(LogMessage wrapped, @NotNull String message) {
+  public DbgMessage(LogMessage wrapped, @Nullable String message) {
     super(wrapped, message);
   }
 

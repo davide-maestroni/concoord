@@ -23,9 +23,10 @@ import concoord.flow.FlowControl;
 import concoord.flow.NullaryInvocation;
 import concoord.flow.Result;
 import concoord.logging.ErrMessage;
+import concoord.logging.InfMessage;
 import concoord.logging.LogMessage;
 import concoord.logging.Logger;
-import concoord.logging.SafeString;
+import concoord.logging.PrintIdentity;
 import concoord.logging.WrnMessage;
 import concoord.util.CircularQueue;
 import concoord.util.assertion.IfNull;
@@ -52,9 +53,9 @@ public class Do<T> implements Task<T> {
   private static class DoAwaitable<T> implements Awaitable<T> {
 
     private final Logger logger = new Logger(Awaitable.class, this);
+    private final CircularQueue<DoFlowControl> flowControls = new CircularQueue<DoFlowControl>();
     private final CircularQueue<Awaitable<? extends T>> outputs = new CircularQueue<Awaitable<? extends T>>();
     private final ConcurrentLinkedQueue<Object> messages = new ConcurrentLinkedQueue<Object>();
-    private final CircularQueue<DoFlowControl> flowControls = new CircularQueue<DoFlowControl>();
     private final Scheduler scheduler;
     private final NullaryInvocation<T> invocation;
     private DoFlowControl currentFlowControl;
@@ -63,6 +64,7 @@ public class Do<T> implements Task<T> {
     private DoAwaitable(@NotNull Scheduler scheduler, @NotNull NullaryInvocation<T> invocation) {
       this.scheduler = scheduler;
       this.invocation = invocation;
+      logger.log(new InfMessage("[scheduled] on: %s", new PrintIdentity(scheduler)));
     }
 
     public void await(int maxEvents) {
@@ -79,6 +81,7 @@ public class Do<T> implements Task<T> {
         public void run() {
           stopped = true;
           outputs.clear();
+          logger.log(new InfMessage("[aborted]"));
         }
       });
     }
@@ -87,13 +90,16 @@ public class Do<T> implements Task<T> {
       currentFlowControl = flowControls.poll();
       if (currentFlowControl != null) {
         scheduler.scheduleLow(currentFlowControl);
+      } else {
+        logger.log(new InfMessage("[settled]"));
       }
     }
 
     private class DoFlowControl implements FlowControl<T>, Awaiter<T>, Runnable {
 
-      private final Runnable read = new ReadState();
-      private final Runnable write = new WriteState();
+      private final ReadState read = new ReadState();
+      private final WriteState write = new WriteState();
+      private final EndState end = new EndState();
       private final Awaiter<? super T> awaiter;
       private int maxEvents = 1;
       private int events;
@@ -133,6 +139,7 @@ public class Do<T> implements Task<T> {
 
       public void stop() {
         stopped = true;
+        logger.log(new InfMessage("[complete]"));
       }
 
       public void message(T message) {
@@ -150,12 +157,7 @@ public class Do<T> implements Task<T> {
       }
 
       public void end() {
-        scheduler.scheduleLow(new Runnable() {
-          public void run() {
-            state = read;
-            scheduler.scheduleLow(currentFlowControl);
-          }
-        });
+        scheduler.scheduleLow(end);
       }
 
       public void run() {
@@ -169,10 +171,11 @@ public class Do<T> implements Task<T> {
           awaiter.error(throwable);
         } catch (final Exception e) {
           logger.log(new ErrMessage(
-              new LogMessage("failed to notify error to awaiter: %s", new SafeString(awaiter)),
+              new LogMessage("failed to notify error to awaiter: %s", new PrintIdentity(awaiter)),
               e
           ));
         }
+        logger.log(new InfMessage("[failed]"));
       }
 
       private void sendEnd() {
@@ -180,11 +183,12 @@ public class Do<T> implements Task<T> {
           awaiter.end();
         } catch (final Exception e) {
           logger.log(new ErrMessage(
-              new LogMessage("failed to notify end to awaiter: %s", new SafeString(awaiter)),
+              new LogMessage("failed to notify end to awaiter: %s", new PrintIdentity(awaiter)),
               e
           ));
           sendError(e);
         }
+        logger.log(new InfMessage("[ended]"));
       }
 
       private class InitState implements Runnable {
@@ -255,6 +259,14 @@ public class Do<T> implements Task<T> {
           if (message != null) {
             postOutput(message != NULL ? (T) message : null);
           }
+        }
+      }
+
+      private class EndState implements Runnable {
+
+        public void run() {
+          state = read;
+          state.run();
         }
       }
     }

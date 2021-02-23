@@ -27,11 +27,11 @@ public interface LogPrinter {
 
   boolean canPrintErr(@NotNull String name);
 
-  void printDbg(@NotNull String name, String message, Throwable error);
+  void printDbg(@NotNull String name, String message);
 
-  void printInf(@NotNull String name, String message, Throwable error);
+  void printInf(@NotNull String name, String message);
 
-  void printWrn(@NotNull String name, String message, Throwable error);
+  void printWrn(@NotNull String name, String message);
 
-  void printErr(@NotNull String name, String message, Throwable error);
+  void printErr(@NotNull String name, String message);
 }

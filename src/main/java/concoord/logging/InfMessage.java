@@ -17,6 +17,7 @@ package concoord.logging;
 
 import java.util.Locale;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 public class InfMessage extends LogMessage {
 
@@ -36,11 +37,15 @@ public class InfMessage extends LogMessage {
     super(locale, format, args);
   }
 
+  public InfMessage(LogMessage wrapped) {
+    super(wrapped);
+  }
+
   public InfMessage(LogMessage wrapped, @NotNull Throwable error) {
     super(wrapped, error);
   }
 
-  public InfMessage(LogMessage wrapped, @NotNull String message) {
+  public InfMessage(LogMessage wrapped, @Nullable String message) {
     super(wrapped, message);
   }
 

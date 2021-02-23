@@ -37,7 +37,6 @@ public class LoggerTest {
     TestMessage testMessage = printer.getDbgMessages().get(0);
     assertThat(testMessage.getName()).isEqualTo(LoggerTest.class.getName());
     assertThat(testMessage.getMessage()).isEqualTo("hello");
-    assertThat(testMessage.getError()).isNull();
   }
 
   @Test
@@ -53,7 +52,6 @@ public class LoggerTest {
     TestMessage testMessage = printer.getInfMessages().get(0);
     assertThat(testMessage.getName()).isEqualTo(LoggerTest.class.getName());
     assertThat(testMessage.getMessage()).isEqualTo("hello");
-    assertThat(testMessage.getError()).isNull();
   }
 
   @Test
@@ -69,7 +67,6 @@ public class LoggerTest {
     TestMessage testMessage = printer.getWrnMessages().get(0);
     assertThat(testMessage.getName()).isEqualTo(LoggerTest.class.getName());
     assertThat(testMessage.getMessage()).isEqualTo("hello");
-    assertThat(testMessage.getError()).isNull();
   }
 
   @Test
@@ -85,19 +82,16 @@ public class LoggerTest {
     TestMessage testMessage = printer.getErrMessages().get(0);
     assertThat(testMessage.getName()).isEqualTo(LoggerTest.class.getName());
     assertThat(testMessage.getMessage()).isEqualTo("hello");
-    assertThat(testMessage.getError()).isNull();
   }
 
   private static class TestMessage {
 
     private final String name;
     private final String message;
-    private final Throwable error;
 
-    public TestMessage(String name, String message, Throwable error) {
+    public TestMessage(String name, String message) {
       this.name = name;
       this.message = message;
-      this.error = error;
     }
 
     public String getName() {
@@ -106,10 +100,6 @@ public class LoggerTest {
 
     public String getMessage() {
       return message;
-    }
-
-    public Throwable getError() {
-      return error;
     }
   }
 
@@ -146,23 +136,23 @@ public class LoggerTest {
     }
 
     @Override
-    public void printDbg(@NotNull String name, String message, Throwable error) {
-      dbgMessages.add(new TestMessage(name, message, error));
+    public void printDbg(@NotNull String name, String message) {
+      dbgMessages.add(new TestMessage(name, message));
     }
 
     @Override
-    public void printInf(@NotNull String name, String message, Throwable error) {
-      infMessages.add(new TestMessage(name, message, error));
+    public void printInf(@NotNull String name, String message) {
+      infMessages.add(new TestMessage(name, message));
     }
 
     @Override
-    public void printWrn(@NotNull String name, String message, Throwable error) {
-      wrnMessages.add(new TestMessage(name, message, error));
+    public void printWrn(@NotNull String name, String message) {
+      wrnMessages.add(new TestMessage(name, message));
     }
 
     @Override
-    public void printErr(@NotNull String name, String message, Throwable error) {
-      errMessages.add(new TestMessage(name, message, error));
+    public void printErr(@NotNull String name, String message) {
+      errMessages.add(new TestMessage(name, message));
     }
 
     public void setCanPrintDbg(boolean canPrintDbg) {

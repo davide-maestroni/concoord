@@ -56,6 +56,7 @@ public class Logger {
 
   public void addPrinter(@NotNull LogPrinter printer) {
     // copy on write
+    final String name = this.name;
     synchronized (printersMutex) {
       HashMap<String, HashSet<LogPrinter>> newPrinters =
           new HashMap<String, HashSet<LogPrinter>>(printers);
@@ -71,6 +72,7 @@ public class Logger {
 
   public void removePrinter(@NotNull LogPrinter printer) {
     // copy on write
+    final String name = this.name;
     synchronized (printersMutex) {
       HashMap<String, HashSet<LogPrinter>> newPrinters =
           new HashMap<String, HashSet<LogPrinter>>(printers);
@@ -100,7 +102,6 @@ public class Logger {
     String messageText = null;
     final String name = this.name;
     final HashMap<String, HashSet<LogPrinter>> printers = Logger.printers;
-    final Throwable error = message.getError();
     for (String path : getNames()) {
       HashSet<LogPrinter> logPrinters = printers.get(path);
       if (logPrinters != null) {
@@ -109,7 +110,7 @@ public class Logger {
             if (messageText == null) {
               messageText = message.toString();
             }
-            logPrinter.printDbg(name, messageText, error);
+            logPrinter.printDbg(name, messageText);
           }
         }
       }
@@ -120,7 +121,6 @@ public class Logger {
     String messageText = null;
     final String name = this.name;
     final HashMap<String, HashSet<LogPrinter>> printers = Logger.printers;
-    final Throwable error = message.getError();
     for (String path : getNames()) {
       HashSet<LogPrinter> logPrinters = printers.get(path);
       if (logPrinters != null) {
@@ -129,7 +129,7 @@ public class Logger {
             if (messageText == null) {
               messageText = message.toString();
             }
-            logPrinter.printInf(name, messageText, error);
+            logPrinter.printInf(name, messageText);
           }
         }
       }
@@ -140,7 +140,6 @@ public class Logger {
     String messageText = null;
     final String name = this.name;
     final HashMap<String, HashSet<LogPrinter>> printers = Logger.printers;
-    final Throwable error = message.getError();
     for (String path : getNames()) {
       HashSet<LogPrinter> logPrinters = printers.get(path);
       if (logPrinters != null) {
@@ -149,7 +148,7 @@ public class Logger {
             if (messageText == null) {
               messageText = message.toString();
             }
-            logPrinter.printWrn(name, messageText, error);
+            logPrinter.printWrn(name, messageText);
           }
         }
       }
@@ -160,7 +159,6 @@ public class Logger {
     String messageText = null;
     final String name = this.name;
     final HashMap<String, HashSet<LogPrinter>> printers = Logger.printers;
-    final Throwable error = message.getError();
     for (String path : getNames()) {
       HashSet<LogPrinter> logPrinters = printers.get(path);
       if (logPrinters != null) {
@@ -169,7 +167,7 @@ public class Logger {
             if (messageText == null) {
               messageText = message.toString();
             }
-            logPrinter.printErr(name, messageText, error);
+            logPrinter.printErr(name, messageText);
           }
         }
       }
@@ -178,7 +176,7 @@ public class Logger {
 
   @NotNull
   private ArrayList<String> getNames() {
-    if (this.names == null) {
+    if (names == null) {
       final ArrayList<String> paths = new ArrayList<String>();
       paths.add(""); // add root
       final StringBuilder builder = new StringBuilder();
@@ -189,8 +187,8 @@ public class Logger {
         builder.append(part);
         paths.add(0, builder.toString());
       }
-      this.names = paths;
+      names = paths;
     }
-    return this.names;
+    return names;
   }
 }

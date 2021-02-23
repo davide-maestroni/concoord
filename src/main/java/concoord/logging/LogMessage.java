@@ -21,15 +21,16 @@ import org.jetbrains.annotations.Nullable;
 
 public class LogMessage {
 
-  private final Object toString;
-  private final Throwable error;
+  private static final String NO_MESSAGE = "<no message>";
 
-  public LogMessage(@NotNull String message) {
-    this((Object) message);
+  private final Object toString;
+
+  public LogMessage(@Nullable String message) {
+    this((Object) ((message != null) ? message : NO_MESSAGE));
   }
 
   public LogMessage(@NotNull Throwable error) {
-    this(new PrintStackTrace(error));
+    this(NO_MESSAGE + "\n%s", new PrintStackTrace(error));
   }
 
   public LogMessage(@NotNull String format, @NotNull Object... args) {
@@ -40,12 +41,16 @@ public class LogMessage {
     this(new Formatted(locale, format, args));
   }
 
-  public LogMessage(LogMessage wrapped, @NotNull Throwable error) {
-    this(new Formatted("%s\n%s", wrapped, new PrintStackTrace(error)), error);
+  public LogMessage(LogMessage wrapped) {
+    this((wrapped != null) ? wrapped : NO_MESSAGE);
   }
 
-  public LogMessage(LogMessage wrapped, @NotNull String message) {
-    this("%s - %s", wrapped, message);
+  public LogMessage(LogMessage wrapped, @NotNull Throwable error) {
+    this(new Formatted("%s\n%s", wrapped, new PrintStackTrace(error)));
+  }
+
+  public LogMessage(LogMessage wrapped, @Nullable String message) {
+    this("%s - %s", wrapped, (message != null) ? message : NO_MESSAGE);
   }
 
   public LogMessage(LogMessage wrapped, @NotNull String format, @NotNull Object... args) {
@@ -59,21 +64,6 @@ public class LogMessage {
 
   private LogMessage(@NotNull Object toString) {
     this.toString = toString;
-    this.error = null;
-  }
-
-  private LogMessage(@NotNull Object toString, @NotNull Throwable error) {
-    this.toString = toString;
-    this.error = error;
-  }
-
-  public boolean hasError() {
-    return getError() != null;
-  }
-
-  @Nullable
-  public Throwable getError() {
-    return error;
   }
 
   @Override

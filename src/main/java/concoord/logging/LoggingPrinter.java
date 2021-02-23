@@ -25,11 +25,12 @@ import org.jetbrains.annotations.NotNull;
 
 public class LoggingPrinter implements LogPrinter {
 
-  public void applyDefaultConfiguration(@NotNull concoord.logging.Logger logger, @NotNull Level level) {
-    final Logger rootLogger = Logger.getLogger(logger.getName());
-    rootLogger.setLevel(level);
-    final Handler[] handlers = rootLogger.getHandlers();
-    if (handlers != null) {
+  @NotNull
+  public LoggingPrinter configure(@NotNull Level level) {
+    final Logger logger = Logger.getLogger("");
+    logger.setLevel(level);
+    final Handler[] handlers = logger.getHandlers();
+    if ((handlers != null) && (handlers.length > 0)) {
       final LoggingFormatter formatter = new LoggingFormatter();
       for (Handler handler : handlers) {
         handler.setFormatter(formatter);
@@ -37,9 +38,9 @@ public class LoggingPrinter implements LogPrinter {
     } else {
       final ConsoleHandler handler = new ConsoleHandler();
       handler.setFormatter(new LoggingFormatter());
-      rootLogger.addHandler(handler);
+      logger.addHandler(handler);
     }
-    logger.addPrinter(this);
+    return this;
   }
 
   public boolean canPrintDbg(@NotNull String name) {
@@ -58,20 +59,20 @@ public class LoggingPrinter implements LogPrinter {
     return Logger.getLogger(name).isLoggable(Level.SEVERE);
   }
 
-  public void printDbg(@NotNull String name, String message, Throwable error) {
-    Logger.getLogger(name).log(Level.FINE, message, error);
+  public void printDbg(@NotNull String name, String message) {
+    Logger.getLogger(name).log(Level.FINE, message);
   }
 
-  public void printInf(@NotNull String name, String message, Throwable error) {
-    Logger.getLogger(name).log(Level.INFO, message, error);
+  public void printInf(@NotNull String name, String message) {
+    Logger.getLogger(name).log(Level.INFO, message);
   }
 
-  public void printWrn(@NotNull String name, String message, Throwable error) {
-    Logger.getLogger(name).log(Level.WARNING, message, error);
+  public void printWrn(@NotNull String name, String message) {
+    Logger.getLogger(name).log(Level.WARNING, message);
   }
 
-  public void printErr(@NotNull String name, String message, Throwable error) {
-    Logger.getLogger(name).log(Level.SEVERE, message, error);
+  public void printErr(@NotNull String name, String message) {
+    Logger.getLogger(name).log(Level.SEVERE, message);
   }
 
   private static class LoggingFormatter extends SimpleFormatter {
@@ -80,7 +81,6 @@ public class LoggingPrinter implements LogPrinter {
     public String format(LogRecord record) {
       record.setSourceClassName(record.getLoggerName());
       record.setSourceMethodName(Integer.toString(record.getThreadID()));
-      record.setThrown(null);
       return super.format(record);
     }
   }

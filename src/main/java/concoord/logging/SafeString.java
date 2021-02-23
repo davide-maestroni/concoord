@@ -17,6 +17,8 @@ package concoord.logging;
 
 public class SafeString {
 
+  // TODO: 23/02/21 remove?
+
   private final Object toString;
 
   public SafeString(Object toString) {
