@@ -137,6 +137,11 @@ public class JoiningIterableTest {
     }
 
     @Override
+    public void await(int maxEvents, @NotNull UnaryAwaiter<? super T> messageAwaiter,
+        @NotNull UnaryAwaiter<? super Throwable> errorAwaiter, @NotNull NullaryAwaiter endAwaiter) {
+    }
+
+    @Override
     public void abort() {
     }
   }
@@ -159,6 +164,18 @@ public class JoiningIterableTest {
       service.execute(() -> {
         try {
           awaiter.error(throwable);
+        } catch (Exception ex) {
+          throw new RuntimeException(ex);
+        }
+      });
+    }
+
+    @Override
+    public void await(int maxEvents, @NotNull UnaryAwaiter<? super T> messageAwaiter,
+        @NotNull UnaryAwaiter<? super Throwable> errorAwaiter, @NotNull NullaryAwaiter endAwaiter) {
+      service.execute(() -> {
+        try {
+          errorAwaiter.event(throwable);
         } catch (Exception ex) {
           throw new RuntimeException(ex);
         }
@@ -197,6 +214,28 @@ public class JoiningIterableTest {
         } catch (Exception e) {
           try {
             awaiter.error(e);
+          } catch (Exception ex) {
+            throw new RuntimeException(ex);
+          }
+        }
+      });
+    }
+
+    @Override
+    public void await(int maxEvents, @NotNull UnaryAwaiter<? super T> messageAwaiter,
+        @NotNull UnaryAwaiter<? super Throwable> errorAwaiter, @NotNull NullaryAwaiter endAwaiter) {
+      service.execute(() -> {
+        try {
+          for (int i = 0; i < maxEvents; ++i) {
+            if (iterator.hasNext()) {
+              messageAwaiter.event(iterator.next());
+            } else {
+              endAwaiter.event();
+            }
+          }
+        } catch (Exception e) {
+          try {
+            errorAwaiter.event(e);
           } catch (Exception ex) {
             throw new RuntimeException(ex);
           }

@@ -15,11 +15,13 @@
  */
 package concoord.concurrent;
 
+import org.jetbrains.annotations.NotNull;
+
 public interface Awaiter<T> {
 
   void message(T message) throws Exception;
 
-  void error(Throwable error) throws Exception;
+  void error(@NotNull Throwable error) throws Exception;
 
   void end() throws Exception;
 }

@@ -142,7 +142,7 @@ public class JoiningIterator<T> implements Iterator<T> {
       }
     }
 
-    public void error(Throwable error) {
+    public void error(@NotNull Throwable error) {
       synchronized (mutex) {
         throwable = error;
         mutex.notifyAll();

@@ -23,5 +23,8 @@ public interface Awaitable<T> {
 
   void await(int maxEvents, @NotNull Awaiter<? super T> awaiter);
 
+  void await(int maxEvents, @NotNull UnaryAwaiter<? super T> messageAwaiter,
+      @NotNull UnaryAwaiter<? super Throwable> errorAwaiter, @NotNull NullaryAwaiter endAwaiter);
+
   void abort();
 }

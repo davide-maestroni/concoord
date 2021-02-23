@@ -9,9 +9,9 @@ import concoord.concurrent.ScheduledExecutor;
 import concoord.flow.Return;
 import concoord.flow.Yield;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 
 public class DoTest {
@@ -31,7 +31,7 @@ public class DoTest {
       }
 
       @Override
-      public void error(Throwable error) {
+      public void error(@NotNull Throwable error) {
         testError.set(error);
       }
 
@@ -61,7 +61,7 @@ public class DoTest {
       }
 
       @Override
-      public void error(Throwable error) {
+      public void error(@NotNull Throwable error) {
         testError.set(error);
       }
 
@@ -91,7 +91,7 @@ public class DoTest {
       }
 
       @Override
-      public void error(Throwable error) {
+      public void error(@NotNull Throwable error) {
         testError.set(error);
       }
 
@@ -129,7 +129,7 @@ public class DoTest {
       }
 
       @Override
-      public void error(Throwable error) {
+      public void error(@NotNull Throwable error) {
         testError.set(error);
       }
 
@@ -161,7 +161,7 @@ public class DoTest {
       }
 
       @Override
-      public void error(Throwable error) {
+      public void error(@NotNull Throwable error) {
         testError.set(error);
       }
 
@@ -176,13 +176,12 @@ public class DoTest {
     assertThat(testEnd.get()).isFalse();
   }
 
-
   @Test
   public void first() {
     LazyExecutor lazyExecutor = new LazyExecutor();
     ScheduledExecutor scheduler = new ScheduledExecutor(lazyExecutor);
-    Awaitable<String> awaitable = new Do<>(() ->
-        new Return<>(new For<>(Arrays.asList("1", "2", "3")).on(scheduler))
+    Awaitable<String> awaitable = new Do<>(
+        () -> new Return<>(new For<>("1", "2", "3").on(scheduler))
     ).on(scheduler);
     AtomicReference<String> testMessage = new AtomicReference<>();
     AtomicReference<Throwable> testError = new AtomicReference<>();
@@ -194,7 +193,7 @@ public class DoTest {
       }
 
       @Override
-      public void error(Throwable error) {
+      public void error(@NotNull Throwable error) {
         testError.set(error);
       }
 

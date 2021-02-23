@@ -17,8 +17,11 @@ package concoord.lang;
 
 import concoord.concurrent.Awaitable;
 import concoord.concurrent.Awaiter;
+import concoord.concurrent.CombinedAwaiter;
+import concoord.concurrent.NullaryAwaiter;
 import concoord.concurrent.Scheduler;
 import concoord.concurrent.Task;
+import concoord.concurrent.UnaryAwaiter;
 import concoord.flow.FlowControl;
 import concoord.flow.NullaryInvocation;
 import concoord.flow.Result;
@@ -74,6 +77,11 @@ public class Do<T> implements Task<T> {
     public void await(int maxEvents, @NotNull Awaiter<? super T> awaiter) {
       new IfNull(awaiter, "awaiter").throwException();
       scheduler.scheduleLow(new DoFlowControl(maxEvents, awaiter));
+    }
+
+    public void await(int maxEvents, @NotNull UnaryAwaiter<? super T> messageAwaiter,
+        @NotNull UnaryAwaiter<? super Throwable> errorAwaiter, @NotNull NullaryAwaiter endAwaiter) {
+      await(maxEvents, new CombinedAwaiter<T>(messageAwaiter, errorAwaiter, endAwaiter));
     }
 
     public void abort() {
@@ -149,7 +157,7 @@ public class Do<T> implements Task<T> {
         scheduler.scheduleLow(this);
       }
 
-      public void error(final Throwable error) {
+      public void error(@NotNull final Throwable error) {
         scheduler.scheduleLow(new Runnable() {
           public void run() {
             sendError(error);

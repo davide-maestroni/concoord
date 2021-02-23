@@ -17,8 +17,11 @@ package concoord.lang;
 
 import concoord.concurrent.Awaitable;
 import concoord.concurrent.Awaiter;
+import concoord.concurrent.CombinedAwaiter;
+import concoord.concurrent.NullaryAwaiter;
 import concoord.concurrent.Scheduler;
 import concoord.concurrent.Task;
+import concoord.concurrent.UnaryAwaiter;
 import concoord.flow.FlowControl;
 import concoord.logging.ErrMessage;
 import concoord.logging.InfMessage;
@@ -28,6 +31,7 @@ import concoord.logging.PrintIdentity;
 import concoord.logging.WrnMessage;
 import concoord.util.CircularQueue;
 import concoord.util.assertion.IfNull;
+import java.util.Arrays;
 import java.util.Iterator;
 import org.jetbrains.annotations.NotNull;
 
@@ -35,12 +39,16 @@ public class For<T> implements Task<T> {
 
   private final Task<T> task;
 
-  public For(@NotNull final Iterable<? extends T> iterable) {
-    new IfNull(iterable, "iterable").throwException();
+  public For(@NotNull T... messages) {
+    this(Arrays.asList(messages));
+  }
+
+  public For(@NotNull final Iterable<? extends T> messages) {
+    new IfNull(messages, "messages").throwException();
     this.task = new Task<T>() {
       @NotNull
       public Awaitable<T> on(@NotNull Scheduler scheduler) {
-        return new ForIterableAwaitable<T>(scheduler, iterable.iterator());
+        return new ForIterableAwaitable<T>(scheduler, messages.iterator());
       }
     };
   }
@@ -72,6 +80,11 @@ public class For<T> implements Task<T> {
     public void await(int maxEvents, @NotNull Awaiter<? super T> awaiter) {
       new IfNull(awaiter, "awaiter").throwException();
       scheduler.scheduleLow(new ForIterableFlowControl(maxEvents, awaiter));
+    }
+
+    public void await(int maxEvents, @NotNull UnaryAwaiter<? super T> messageAwaiter,
+        @NotNull UnaryAwaiter<? super Throwable> errorAwaiter, @NotNull NullaryAwaiter endAwaiter) {
+      await(maxEvents, new CombinedAwaiter<T>(messageAwaiter, errorAwaiter, endAwaiter));
     }
 
     public void abort() {
