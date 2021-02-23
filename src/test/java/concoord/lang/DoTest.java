@@ -9,6 +9,7 @@ import concoord.concurrent.ScheduledExecutor;
 import concoord.flow.Return;
 import concoord.flow.Yield;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
@@ -171,6 +172,39 @@ public class DoTest {
     });
     lazyExecutor.advance(Integer.MAX_VALUE);
     assertThat(testMessages).hasSize(11).containsOnly("hello");
+    assertThat(testError.get()).isNull();
+    assertThat(testEnd.get()).isFalse();
+  }
+
+
+  @Test
+  public void first() {
+    LazyExecutor lazyExecutor = new LazyExecutor();
+    ScheduledExecutor scheduler = new ScheduledExecutor(lazyExecutor);
+    Awaitable<String> awaitable = new Do<>(() ->
+        new Return<>(new For<>(Arrays.asList("1", "2", "3")).on(scheduler))
+    ).on(scheduler);
+    AtomicReference<String> testMessage = new AtomicReference<>();
+    AtomicReference<Throwable> testError = new AtomicReference<>();
+    AtomicBoolean testEnd = new AtomicBoolean();
+    awaitable.await(1, new Awaiter<String>() {
+      @Override
+      public void message(String message) {
+        testMessage.set(message);
+      }
+
+      @Override
+      public void error(Throwable error) {
+        testError.set(error);
+      }
+
+      @Override
+      public void end() {
+        testEnd.set(true);
+      }
+    });
+    lazyExecutor.advance(Integer.MAX_VALUE);
+    assertThat(testMessage.get()).isEqualTo("1");
     assertThat(testError.get()).isNull();
     assertThat(testEnd.get()).isFalse();
   }

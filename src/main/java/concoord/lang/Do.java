@@ -101,12 +101,14 @@ public class Do<T> implements Task<T> {
       private final WriteState write = new WriteState();
       private final EndState end = new EndState();
       private final Awaiter<? super T> awaiter;
+      private final int totEvents;
       private int maxEvents = 1;
       private int events;
       private Runnable state;
       private int posts;
 
       private DoFlowControl(int maxEvents, @NotNull Awaiter<? super T> awaiter) {
+        this.totEvents = maxEvents;
         this.events = maxEvents;
         this.awaiter = awaiter;
         this.state = new InitState();
@@ -139,7 +141,7 @@ public class Do<T> implements Task<T> {
 
       public void stop() {
         stopped = true;
-        logger.log(new InfMessage("[complete]"));
+        logger.log(new InfMessage("[complete] after messages: %d", totEvents - events));
       }
 
       public void message(T message) {
@@ -164,18 +166,18 @@ public class Do<T> implements Task<T> {
         state.run();
       }
 
-      private void sendError(@NotNull Throwable throwable) {
+      private void sendError(@NotNull Throwable error) {
         stopped = true;
         outputs.clear();
         try {
-          awaiter.error(throwable);
+          awaiter.error(error);
         } catch (final Exception e) {
           logger.log(new ErrMessage(
               new LogMessage("failed to notify error to awaiter: %s", new PrintIdentity(awaiter)),
               e
           ));
         }
-        logger.log(new InfMessage("[failed]"));
+        logger.log(new InfMessage(new LogMessage("[failed] with error:"), error));
       }
 
       private void sendEnd() {
@@ -257,6 +259,7 @@ public class Do<T> implements Task<T> {
         public void run() {
           final Object message = messages.poll();
           if (message != null) {
+            posts = 0;
             postOutput(message != NULL ? (T) message : null);
           }
         }

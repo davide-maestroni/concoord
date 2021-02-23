@@ -96,10 +96,12 @@ public class For<T> implements Task<T> {
 
       private final ReadState read = new ReadState();
       private final Awaiter<? super T> awaiter;
+      private final int totEvents;
       private int events;
       private Runnable state;
 
       private ForIterableFlowControl(int maxEvents, @NotNull Awaiter<? super T> awaiter) {
+        this.totEvents = maxEvents;
         this.events = maxEvents;
         this.awaiter = awaiter;
         this.state = new InitState();
@@ -122,24 +124,24 @@ public class For<T> implements Task<T> {
 
       public void stop() {
         stopped = true;
-        logger.log(new InfMessage("[complete]"));
+        logger.log(new InfMessage("[complete] after messages: %d", totEvents - events));
       }
 
       public void run() {
         state.run();
       }
 
-      private void sendError(@NotNull Throwable throwable) {
+      private void sendError(@NotNull Throwable error) {
         stopped = true;
         try {
-          awaiter.error(throwable);
+          awaiter.error(error);
         } catch (final Exception e) {
           logger.log(new ErrMessage(
               new LogMessage("failed to notify error to awaiter: %s", new PrintIdentity(awaiter)),
               e
           ));
         }
-        logger.log(new InfMessage("[failed]"));
+        logger.log(new InfMessage(new LogMessage("[failed] with error:"), error));
       }
 
       private void sendEnd() {
