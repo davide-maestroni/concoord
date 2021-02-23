@@ -23,6 +23,7 @@ import concoord.concurrent.Scheduler;
 import concoord.concurrent.Task;
 import concoord.concurrent.UnaryAwaiter;
 import concoord.flow.FlowControl;
+import concoord.logging.DbgMessage;
 import concoord.logging.ErrMessage;
 import concoord.logging.InfMessage;
 import concoord.logging.LogMessage;
@@ -60,7 +61,7 @@ public class For<T> implements Task<T> {
 
   private static class ForIterableAwaitable<T> implements Awaitable<T> {
 
-    private final Logger logger = new Logger(Awaitable.class, this);
+    private final Logger forLogger = new Logger(Awaitable.class, this);
     private final CircularQueue<ForIterableFlowControl> flowControls = new CircularQueue<ForIterableFlowControl>();
     private final Scheduler scheduler;
     private final Iterator<? extends T> iterator;
@@ -70,7 +71,7 @@ public class For<T> implements Task<T> {
     private ForIterableAwaitable(@NotNull Scheduler scheduler, @NotNull Iterator<? extends T> iterator) {
       this.scheduler = scheduler;
       this.iterator = iterator;
-      logger.log(new InfMessage("[scheduled] on: %s", new PrintIdentity(scheduler)));
+      forLogger.log(new InfMessage("[scheduled] on: %s", new PrintIdentity(scheduler)));
     }
 
     public void await(int maxEvents) {
@@ -91,7 +92,7 @@ public class For<T> implements Task<T> {
       scheduler.scheduleHigh(new Runnable() {
         public void run() {
           stopped = true;
-          logger.log(new InfMessage("[aborted]"));
+          forLogger.log(new InfMessage("[aborted]"));
         }
       });
     }
@@ -101,12 +102,13 @@ public class For<T> implements Task<T> {
       if (currentFlowControl != null) {
         scheduler.scheduleLow(currentFlowControl);
       } else {
-        logger.log(new InfMessage("[settled]"));
+        forLogger.log(new InfMessage("[settled]"));
       }
     }
 
     private class ForIterableFlowControl implements FlowControl<T>, Runnable {
 
+      private final Logger flowLogger = new Logger(FlowControl.class, this);
       private final ReadState read = new ReadState();
       private final Awaiter<? super T> awaiter;
       private final int totEvents;
@@ -118,9 +120,11 @@ public class For<T> implements Task<T> {
         this.events = maxEvents;
         this.awaiter = awaiter;
         this.state = new InitState();
+        flowLogger.log(new DbgMessage("[initialized]"));
       }
 
       public void postOutput(T message) {
+        flowLogger.log(new DbgMessage("[posting] new message: %d", totEvents - events));
         --events;
         try {
           awaiter.message(message);
@@ -137,7 +141,8 @@ public class For<T> implements Task<T> {
 
       public void stop() {
         stopped = true;
-        logger.log(new InfMessage("[complete] after messages: %d", totEvents - events));
+        flowLogger.log(new DbgMessage("[stopped]"));
+        forLogger.log(new InfMessage("[complete]"));
       }
 
       public void run() {
@@ -149,25 +154,25 @@ public class For<T> implements Task<T> {
         try {
           awaiter.error(error);
         } catch (final Exception e) {
-          logger.log(new ErrMessage(
+          forLogger.log(new ErrMessage(
               new LogMessage("failed to notify error to awaiter: %s", new PrintIdentity(awaiter)),
               e
           ));
         }
-        logger.log(new InfMessage(new LogMessage("[failed] with error:"), error));
+        forLogger.log(new InfMessage(new LogMessage("[failed] with error:"), error));
       }
 
       private void sendEnd() {
         try {
           awaiter.end();
         } catch (final Exception e) {
-          logger.log(new ErrMessage(
+          forLogger.log(new ErrMessage(
               new LogMessage("failed to notify end to awaiter: %s", new PrintIdentity(awaiter)),
               e
           ));
           sendError(e);
         }
-        logger.log(new InfMessage("[ended]"));
+        forLogger.log(new InfMessage("[ended]"));
       }
 
       private class InitState implements Runnable {
@@ -188,6 +193,7 @@ public class For<T> implements Task<T> {
             nextFlowControl();
           } else {
             state = read;
+            flowLogger.log(new DbgMessage("[reading]"));
             state.run();
           }
         }
@@ -209,7 +215,7 @@ public class For<T> implements Task<T> {
                 stop();
               }
             } catch (final Exception e) {
-              logger.log(new WrnMessage(new LogMessage("invocation failed with an exception"), e));
+              forLogger.log(new WrnMessage(new LogMessage("invocation failed with an exception"), e));
               sendError(e);
               events = 0;
             }

@@ -25,6 +25,7 @@ import concoord.concurrent.UnaryAwaiter;
 import concoord.flow.FlowControl;
 import concoord.flow.NullaryInvocation;
 import concoord.flow.Result;
+import concoord.logging.DbgMessage;
 import concoord.logging.ErrMessage;
 import concoord.logging.InfMessage;
 import concoord.logging.LogMessage;
@@ -55,7 +56,7 @@ public class Do<T> implements Task<T> {
 
   private static class DoAwaitable<T> implements Awaitable<T> {
 
-    private final Logger logger = new Logger(Awaitable.class, this);
+    private final Logger doLogger = new Logger(Awaitable.class, this);
     private final CircularQueue<DoFlowControl> flowControls = new CircularQueue<DoFlowControl>();
     private final CircularQueue<Awaitable<? extends T>> outputs = new CircularQueue<Awaitable<? extends T>>();
     private final ConcurrentLinkedQueue<Object> messages = new ConcurrentLinkedQueue<Object>();
@@ -67,7 +68,7 @@ public class Do<T> implements Task<T> {
     private DoAwaitable(@NotNull Scheduler scheduler, @NotNull NullaryInvocation<T> invocation) {
       this.scheduler = scheduler;
       this.invocation = invocation;
-      logger.log(new InfMessage("[scheduled] on: %s", new PrintIdentity(scheduler)));
+      doLogger.log(new InfMessage("[scheduled] on: %s", new PrintIdentity(scheduler)));
     }
 
     public void await(int maxEvents) {
@@ -89,7 +90,7 @@ public class Do<T> implements Task<T> {
         public void run() {
           stopped = true;
           outputs.clear();
-          logger.log(new InfMessage("[aborted]"));
+          doLogger.log(new InfMessage("[aborted]"));
         }
       });
     }
@@ -99,12 +100,13 @@ public class Do<T> implements Task<T> {
       if (currentFlowControl != null) {
         scheduler.scheduleLow(currentFlowControl);
       } else {
-        logger.log(new InfMessage("[settled]"));
+        doLogger.log(new InfMessage("[settled]"));
       }
     }
 
     private class DoFlowControl implements FlowControl<T>, Awaiter<T>, Runnable {
 
+      private final Logger flowLogger = new Logger(FlowControl.class, this);
       private final ReadState read = new ReadState();
       private final WriteState write = new WriteState();
       private final EndState end = new EndState();
@@ -120,12 +122,14 @@ public class Do<T> implements Task<T> {
         this.events = maxEvents;
         this.awaiter = awaiter;
         this.state = new InitState();
+        flowLogger.log(new DbgMessage("[initialized]"));
       }
 
       public void postOutput(T message) {
         if (++posts > 1) {
           throw new IllegalStateException("multiple outputs posted by the result");
         }
+        flowLogger.log(new DbgMessage("[posting] new message: %d", totEvents - events));
         --events;
         try {
           awaiter.message(message);
@@ -139,17 +143,22 @@ public class Do<T> implements Task<T> {
           throw new IllegalStateException("multiple outputs posted by the result");
         }
         if (awaitable != null) {
+          flowLogger.log(new DbgMessage("[posting] new awaitable: %s", new PrintIdentity(awaitable)));
           outputs.add(awaitable);
+        } else {
+          flowLogger.log(new WrnMessage("[posting] 'null' awaitable: ignored"));
         }
       }
 
       public void limitInputs(int maxEvents) {
+        flowLogger.log(new DbgMessage("[limiting] event number: %d", maxEvents));
         this.maxEvents = maxEvents;
       }
 
       public void stop() {
         stopped = true;
-        logger.log(new InfMessage("[complete] after messages: %d", totEvents - events));
+        flowLogger.log(new DbgMessage("[stopped]"));
+        doLogger.log(new InfMessage("[complete]"));
       }
 
       public void message(T message) {
@@ -180,25 +189,25 @@ public class Do<T> implements Task<T> {
         try {
           awaiter.error(error);
         } catch (final Exception e) {
-          logger.log(new ErrMessage(
+          doLogger.log(new ErrMessage(
               new LogMessage("failed to notify error to awaiter: %s", new PrintIdentity(awaiter)),
               e
           ));
         }
-        logger.log(new InfMessage(new LogMessage("[failed] with error:"), error));
+        doLogger.log(new InfMessage(new LogMessage("[failed] with error:"), error));
       }
 
       private void sendEnd() {
         try {
           awaiter.end();
         } catch (final Exception e) {
-          logger.log(new ErrMessage(
+          doLogger.log(new ErrMessage(
               new LogMessage("failed to notify end to awaiter: %s", new PrintIdentity(awaiter)),
               e
           ));
           sendError(e);
         }
-        logger.log(new InfMessage("[ended]"));
+        doLogger.log(new InfMessage("[ended]"));
       }
 
       private class InitState implements Runnable {
@@ -219,6 +228,7 @@ public class Do<T> implements Task<T> {
             nextFlowControl();
           } else {
             state = read;
+            flowLogger.log(new DbgMessage("[reading]"));
             state.run();
           }
         }
@@ -235,23 +245,26 @@ public class Do<T> implements Task<T> {
             Awaitable<? extends T> awaitable = outputs.poll();
             if (awaitable != null) {
               state = write;
+              flowLogger.log(new DbgMessage("[writing]"));
               awaitable.await(Math.min(events, maxEvents), currentFlowControl);
             } else if (stopped) {
               sendEnd();
               nextFlowControl();
             } else {
               try {
+                flowLogger.log(new DbgMessage("[invoking] function: %s", new PrintIdentity(invocation)));
                 final Result<T> result = invocation.call();
                 posts = 0;
                 result.apply(currentFlowControl);
                 awaitable = outputs.poll();
                 if (awaitable != null) {
                   state = write;
+                  flowLogger.log(new DbgMessage("[writing]"));
                   awaitable.await(Math.min(events, maxEvents), currentFlowControl);
                   return;
                 }
               } catch (final Exception e) {
-                logger.log(new WrnMessage(new LogMessage("invocation failed with an exception"), e));
+                doLogger.log(new WrnMessage(new LogMessage("invocation failed with an exception"), e));
                 sendError(e);
                 events = 0;
               }
@@ -277,6 +290,7 @@ public class Do<T> implements Task<T> {
 
         public void run() {
           state = read;
+          flowLogger.log(new DbgMessage("[reading]"));
           state.run();
         }
       }
