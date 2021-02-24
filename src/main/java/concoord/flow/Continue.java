@@ -30,6 +30,6 @@ public class Continue<T> implements Result<T> {
   }
 
   public void apply(@NotNull FlowControl<? super T> flowControl) {
-    flowControl.limitInputs(maxEvents);
+    flowControl.nextInputs(maxEvents);
   }
 }

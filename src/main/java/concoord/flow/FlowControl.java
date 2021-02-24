@@ -23,7 +23,7 @@ public interface FlowControl<T> {
 
   void postOutput(Awaitable<? extends T> awaitable);
 
-  void limitInputs(int maxEvents);
+  void nextInputs(int maxEvents);
 
   void stop();
 }

@@ -181,7 +181,7 @@ public class DoTest {
     LazyExecutor lazyExecutor = new LazyExecutor();
     ScheduledExecutor scheduler = new ScheduledExecutor(lazyExecutor);
     Awaitable<String> awaitable = new Do<>(
-        () -> new Return<>(new For<>("1", "2", "3").on(scheduler))
+        () -> new Return<>(new Iter<>("1", "2", "3").on(scheduler))
     ).on(scheduler);
     AtomicReference<String> testMessage = new AtomicReference<>();
     AtomicReference<Throwable> testError = new AtomicReference<>();

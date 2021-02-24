@@ -43,6 +43,6 @@ public class Yield<T> implements Result<T> {
 
   public void apply(@NotNull FlowControl<? super T> flowControl) {
     result.apply(flowControl);
-    flowControl.limitInputs(maxEvents);
+    flowControl.nextInputs(maxEvents);
   }
 }

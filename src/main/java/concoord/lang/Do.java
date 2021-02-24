@@ -112,7 +112,6 @@ public class Do<T> implements Task<T> {
       private final EndState end = new EndState();
       private final Awaiter<? super T> awaiter;
       private final int totEvents;
-      private int maxEvents = 1;
       private int events;
       private Runnable state;
       private int posts;
@@ -143,16 +142,17 @@ public class Do<T> implements Task<T> {
           throw new IllegalStateException("multiple outputs posted by the result");
         }
         if (awaitable != null) {
-          flowLogger.log(new DbgMessage("[posting] new awaitable: %s", new PrintIdentity(awaitable)));
+          flowLogger.log(
+              new DbgMessage("[posting] new awaitable: %s", new PrintIdentity(awaitable))
+          );
           outputs.add(awaitable);
         } else {
           flowLogger.log(new WrnMessage("[posting] 'null' awaitable: ignored"));
         }
       }
 
-      public void limitInputs(int maxEvents) {
-        flowLogger.log(new DbgMessage("[limiting] event number: %d", maxEvents));
-        this.maxEvents = maxEvents;
+      public void nextInputs(int maxEvents) {
+        flowLogger.log(new DbgMessage("[limiting] event number ignored: %d", maxEvents));
       }
 
       public void stop() {
@@ -189,10 +189,15 @@ public class Do<T> implements Task<T> {
         try {
           awaiter.error(error);
         } catch (final Exception e) {
-          doLogger.log(new ErrMessage(
-              new LogMessage("failed to notify error to awaiter: %s", new PrintIdentity(awaiter)),
-              e
-          ));
+          doLogger.log(
+              new ErrMessage(
+                  new LogMessage(
+                      "failed to notify error to awaiter: %s",
+                      new PrintIdentity(awaiter)
+                  ),
+                  e
+              )
+          );
         }
         doLogger.log(new InfMessage(new LogMessage("[failed] with error:"), error));
       }
@@ -201,10 +206,12 @@ public class Do<T> implements Task<T> {
         try {
           awaiter.end();
         } catch (final Exception e) {
-          doLogger.log(new ErrMessage(
-              new LogMessage("failed to notify end to awaiter: %s", new PrintIdentity(awaiter)),
-              e
-          ));
+          doLogger.log(
+              new ErrMessage(
+                  new LogMessage("failed to notify end to awaiter: %s", new PrintIdentity(awaiter)),
+                  e
+              )
+          );
           sendError(e);
         }
         doLogger.log(new InfMessage("[ended]"));
@@ -246,13 +253,15 @@ public class Do<T> implements Task<T> {
             if (awaitable != null) {
               state = write;
               flowLogger.log(new DbgMessage("[writing]"));
-              awaitable.await(Math.min(events, maxEvents), currentFlowControl);
+              awaitable.await(events, currentFlowControl);
             } else if (stopped) {
               sendEnd();
               nextFlowControl();
             } else {
               try {
-                flowLogger.log(new DbgMessage("[invoking] function: %s", new PrintIdentity(invocation)));
+                flowLogger.log(
+                    new DbgMessage("[invoking] function: %s", new PrintIdentity(invocation))
+                );
                 final Result<T> result = invocation.call();
                 posts = 0;
                 result.apply(currentFlowControl);
@@ -260,11 +269,13 @@ public class Do<T> implements Task<T> {
                 if (awaitable != null) {
                   state = write;
                   flowLogger.log(new DbgMessage("[writing]"));
-                  awaitable.await(Math.min(events, maxEvents), currentFlowControl);
+                  awaitable.await(events, currentFlowControl);
                   return;
                 }
               } catch (final Exception e) {
-                doLogger.log(new WrnMessage(new LogMessage("invocation failed with an exception"), e));
+                doLogger.log(
+                    new WrnMessage(new LogMessage("invocation failed with an exception"), e)
+                );
                 sendError(e);
                 events = 0;
               }
