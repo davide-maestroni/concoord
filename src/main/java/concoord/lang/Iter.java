@@ -124,8 +124,12 @@ public class Iter<T> implements Task<T> {
       }
 
       public void postOutput(T message) {
-        flowLogger.log(new DbgMessage("[posting] new message: %d", totEvents - events));
-        --events;
+        if (totEvents < Integer.MAX_VALUE) {
+          flowLogger.log(new DbgMessage("[posting] new message: %d", totEvents - events));
+          --events;
+        } else {
+          flowLogger.log(new DbgMessage("[posting] new message"));
+        }
         try {
           awaiter.message(message);
         } catch (final Exception e) {

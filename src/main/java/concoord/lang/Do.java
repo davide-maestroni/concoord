@@ -23,7 +23,7 @@ import concoord.concurrent.Scheduler;
 import concoord.concurrent.Task;
 import concoord.concurrent.UnaryAwaiter;
 import concoord.flow.FlowControl;
-import concoord.flow.NullaryInvocation;
+import concoord.flow.NullaryFunction;
 import concoord.flow.Result;
 import concoord.logging.DbgMessage;
 import concoord.logging.ErrMessage;
@@ -41,17 +41,17 @@ public class Do<T> implements Task<T> {
 
   private static final Object NULL = new Object();
 
-  private final NullaryInvocation<T> invocation;
+  private final NullaryFunction<T> function;
 
-  public Do(@NotNull NullaryInvocation<T> invocation) {
-    new IfNull(invocation, "invocation").throwException();
-    this.invocation = invocation;
+  public Do(@NotNull NullaryFunction<T> function) {
+    new IfNull(function, "function").throwException();
+    this.function = function;
   }
 
   @NotNull
   public Awaitable<T> on(@NotNull Scheduler scheduler) {
     new IfNull(scheduler, "scheduler").throwException();
-    return new DoAwaitable<T>(scheduler, invocation);
+    return new DoAwaitable<T>(scheduler, function);
   }
 
   private static class DoAwaitable<T> implements Awaitable<T> {
@@ -61,13 +61,13 @@ public class Do<T> implements Task<T> {
     private final CircularQueue<Awaitable<? extends T>> outputs = new CircularQueue<Awaitable<? extends T>>();
     private final ConcurrentLinkedQueue<Object> messages = new ConcurrentLinkedQueue<Object>();
     private final Scheduler scheduler;
-    private final NullaryInvocation<T> invocation;
+    private final NullaryFunction<T> function;
     private DoFlowControl currentFlowControl;
     private boolean stopped;
 
-    private DoAwaitable(@NotNull Scheduler scheduler, @NotNull NullaryInvocation<T> invocation) {
+    private DoAwaitable(@NotNull Scheduler scheduler, @NotNull NullaryFunction<T> function) {
       this.scheduler = scheduler;
-      this.invocation = invocation;
+      this.function = function;
       doLogger.log(new InfMessage("[scheduled] on: %s", new PrintIdentity(scheduler)));
     }
 
@@ -128,8 +128,12 @@ public class Do<T> implements Task<T> {
         if (++posts > 1) {
           throw new IllegalStateException("multiple outputs posted by the result");
         }
-        flowLogger.log(new DbgMessage("[posting] new message: %d", totEvents - events));
-        --events;
+        if (totEvents < Integer.MAX_VALUE) {
+          flowLogger.log(new DbgMessage("[posting] new message: %d", totEvents - events));
+          --events;
+        } else {
+          flowLogger.log(new DbgMessage("[posting] new message"));
+        }
         try {
           awaiter.message(message);
         } catch (final Exception e) {
@@ -260,9 +264,9 @@ public class Do<T> implements Task<T> {
             } else {
               try {
                 flowLogger.log(
-                    new DbgMessage("[invoking] function: %s", new PrintIdentity(invocation))
+                    new DbgMessage("[invoking] function: %s", new PrintIdentity(function))
                 );
-                final Result<T> result = invocation.call();
+                final Result<T> result = function.call();
                 posts = 0;
                 result.apply(currentFlowControl);
                 awaitable = outputs.poll();
