@@ -28,38 +28,38 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 
-public class JoiningIterableTest {
+public class JoinTest {
 
   @Test
   public void join() {
     IterableAwaitable<String> awaitable = new IterableAwaitable<>(Arrays.asList("a", "b", "c"));
-    assertThat(new JoiningIterable<>(awaitable, 1, 1, TimeUnit.SECONDS).toList()).containsExactly("a", "b", "c");
+    assertThat(new Join<>(awaitable, 1, 1, TimeUnit.SECONDS).toList()).containsExactly("a", "b", "c");
   }
 
   @Test
   public void joinTotal() {
     IterableAwaitable<String> awaitable = new IterableAwaitable<>(Arrays.asList("a", "b", "c"));
-    assertThat(new JoiningIterable<>(awaitable, 10, 1, 1, TimeUnit.SECONDS).toList()).containsExactly("a", "b", "c");
+    assertThat(new Join<>(awaitable, 10, 1, 1, TimeUnit.SECONDS).toList()).containsExactly("a", "b", "c");
   }
 
   @Test
   public void joinRemove() {
     IterableAwaitable<String> awaitable = new IterableAwaitable<>(Collections.emptyList());
-    assertThatThrownBy(() -> new JoiningIterable<>(awaitable, 1, 1, TimeUnit.SECONDS).iterator().remove())
+    assertThatThrownBy(() -> new Join<>(awaitable, 1, 1, TimeUnit.SECONDS).iterator().remove())
         .isInstanceOf(UnsupportedOperationException.class);
   }
 
   @Test
   public void joinTotalRemove() {
     IterableAwaitable<String> awaitable = new IterableAwaitable<>(Collections.emptyList());
-    assertThatThrownBy(() -> new JoiningIterable<>(awaitable, 10, 1, 1, TimeUnit.SECONDS).iterator().remove())
+    assertThatThrownBy(() -> new Join<>(awaitable, 10, 1, 1, TimeUnit.SECONDS).iterator().remove())
         .isInstanceOf(UnsupportedOperationException.class);
   }
 
   @Test
   public void joinException() {
     ExceptionAwaitable<String> awaitable = new ExceptionAwaitable<>(new ArithmeticException());
-    assertThatThrownBy(() -> new JoiningIterable<>(awaitable, 1, 1, TimeUnit.SECONDS).toList())
+    assertThatThrownBy(() -> new Join<>(awaitable, 1, 1, TimeUnit.SECONDS).toList())
         .isInstanceOf(JoinException.class)
         .hasCauseInstanceOf(ArithmeticException.class);
   }
@@ -67,7 +67,7 @@ public class JoiningIterableTest {
   @Test
   public void joinTotalException() {
     ExceptionAwaitable<String> awaitable = new ExceptionAwaitable<>(new ArithmeticException());
-    assertThatThrownBy(() -> new JoiningIterable<>(awaitable, 10, 1, 1, TimeUnit.SECONDS).toList())
+    assertThatThrownBy(() -> new Join<>(awaitable, 10, 1, 1, TimeUnit.SECONDS).toList())
         .isInstanceOf(JoinException.class)
         .hasCauseInstanceOf(ArithmeticException.class);
   }
@@ -75,14 +75,14 @@ public class JoiningIterableTest {
   @Test
   public void joinTimeout() {
     DummyAwaitable<String> awaitable = new DummyAwaitable<>();
-    assertThatThrownBy(() -> new JoiningIterable<>(awaitable, 1, 1, TimeUnit.SECONDS).toList())
+    assertThatThrownBy(() -> new Join<>(awaitable, 1, 1, TimeUnit.SECONDS).toList())
         .isInstanceOf(JoinTimeoutException.class);
   }
 
   @Test
   public void joinTotalTimeout() {
     DummyAwaitable<String> awaitable = new DummyAwaitable<>();
-    assertThatThrownBy(() -> new JoiningIterable<>(awaitable, 10, 1, 1, TimeUnit.SECONDS).toList())
+    assertThatThrownBy(() -> new Join<>(awaitable, 10, 1, 1, TimeUnit.SECONDS).toList())
         .isInstanceOf(JoinTimeoutException.class);
   }
 
@@ -92,7 +92,7 @@ public class JoiningIterableTest {
     AtomicReference<Throwable> throwable = new AtomicReference<>();
     Thread thread = new Thread(() -> {
       try {
-        new JoiningIterable<>(awaitable, 1, 1, TimeUnit.MINUTES).toList();
+        new Join<>(awaitable, 1, 1, TimeUnit.MINUTES).toList();
       } catch (Throwable t) {
         throwable.set(t);
       }
@@ -112,7 +112,7 @@ public class JoiningIterableTest {
     AtomicReference<Throwable> throwable = new AtomicReference<>();
     Thread thread = new Thread(() -> {
       try {
-        new JoiningIterable<>(awaitable, 10, 1, 1, TimeUnit.MINUTES).toList();
+        new Join<>(awaitable, 10, 1, 1, TimeUnit.MINUTES).toList();
       } catch (Throwable t) {
         throwable.set(t);
       }
