@@ -23,7 +23,6 @@ import concoord.concurrent.Scheduler;
 import concoord.concurrent.Task;
 import concoord.concurrent.UnaryAwaiter;
 import concoord.flow.FlowControl;
-import concoord.flow.NullaryFunction;
 import concoord.flow.Result;
 import concoord.logging.DbgMessage;
 import concoord.logging.ErrMessage;
@@ -41,17 +40,23 @@ public class Do<T> implements Task<T> {
 
   private static final Object NULL = new Object();
 
-  private final NullaryFunction<T> function;
+  private final Block<T> block;
 
-  public Do(@NotNull NullaryFunction<T> function) {
-    new IfNull(function, "function").throwException();
-    this.function = function;
+  public Do(@NotNull Block<T> block) {
+    new IfNull(block, "block").throwException();
+    this.block = block;
   }
 
   @NotNull
   public Awaitable<T> on(@NotNull Scheduler scheduler) {
     new IfNull(scheduler, "scheduler").throwException();
-    return new DoAwaitable<T>(scheduler, function);
+    return new DoAwaitable<T>(scheduler, block);
+  }
+
+  public interface Block<T> {
+
+    @NotNull
+    Result<T> call() throws Exception;
   }
 
   private static class DoAwaitable<T> implements Awaitable<T> {
@@ -61,13 +66,13 @@ public class Do<T> implements Task<T> {
     private final CircularQueue<Awaitable<? extends T>> outputs = new CircularQueue<Awaitable<? extends T>>();
     private final ConcurrentLinkedQueue<Object> messages = new ConcurrentLinkedQueue<Object>();
     private final Scheduler scheduler;
-    private final NullaryFunction<T> function;
+    private final Block<T> block;
     private DoFlowControl currentFlowControl;
     private boolean stopped;
 
-    private DoAwaitable(@NotNull Scheduler scheduler, @NotNull NullaryFunction<T> function) {
+    private DoAwaitable(@NotNull Scheduler scheduler, @NotNull Block<T> block) {
       this.scheduler = scheduler;
-      this.function = function;
+      this.block = block;
       doLogger.log(new InfMessage("[scheduled] on: %s", new PrintIdentity(scheduler)));
     }
 
@@ -149,9 +154,9 @@ public class Do<T> implements Task<T> {
           flowLogger.log(
               new DbgMessage("[posting] new awaitable: %s", new PrintIdentity(awaitable))
           );
-          outputs.add(awaitable);
+          outputs.offer(awaitable);
         } else {
-          flowLogger.log(new WrnMessage("[posting] 'null' awaitable: ignored"));
+          flowLogger.log(new WrnMessage("[posting] awaitable ignored: null"));
         }
       }
 
@@ -166,7 +171,7 @@ public class Do<T> implements Task<T> {
       }
 
       public void message(T message) {
-        messages.add(message != null ? message : NULL);
+        messages.offer(message != null ? message : NULL);
         scheduler.scheduleLow(this);
       }
 
@@ -229,7 +234,7 @@ public class Do<T> implements Task<T> {
             currentFlowControl = thisFlowControl;
           }
           if (currentFlowControl != thisFlowControl) {
-            flowControls.add(thisFlowControl);
+            flowControls.offer(thisFlowControl);
             return;
           }
           if (stopped) {
@@ -263,10 +268,8 @@ public class Do<T> implements Task<T> {
               nextFlowControl();
             } else {
               try {
-                flowLogger.log(
-                    new DbgMessage("[invoking] function: %s", new PrintIdentity(function))
-                );
-                final Result<T> result = function.call();
+                flowLogger.log(new DbgMessage("[invoking] block: %s", new PrintIdentity(block)));
+                final Result<T> result = block.call();
                 posts = 0;
                 result.apply(currentFlowControl);
                 awaitable = outputs.poll();
