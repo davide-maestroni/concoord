@@ -13,17 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package concoord.lang;
+package concoord.tuple;
 
-import concoord.concurrent.Awaitable;
-import concoord.concurrent.Scheduler;
-import concoord.concurrent.Task;
-import org.jetbrains.annotations.NotNull;
+public class Binary<T1, T2> {
 
-public class ForAny<T> implements Task<T> {
+  private final T1 first;
+  private final T2 second;
 
-  @NotNull
-  public Awaitable<T> on(@NotNull Scheduler scheduler) {
-    return null;
+  public Binary(T1 first, T2 second) {
+    this.first = first;
+    this.second = second;
+  }
+
+  public T1 first() {
+    return first;
+  }
+
+  public T2 second() {
+    return second;
   }
 }

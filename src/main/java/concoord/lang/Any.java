@@ -20,7 +20,7 @@ import concoord.concurrent.Scheduler;
 import concoord.concurrent.Task;
 import org.jetbrains.annotations.NotNull;
 
-public class While<T> implements Task<T> {
+public class Any<T> implements Task<T> {
 
   @NotNull
   public Awaitable<T> on(@NotNull Scheduler scheduler) {
