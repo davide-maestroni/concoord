@@ -105,7 +105,7 @@ public class For<T, M> implements Task<T> {
         public void run() {
           stopped = true;
           outputs.clear();
-          doLogger.log(new InfMessage("[aborted]"));
+          doLogger.log(new InfMessage("[aborted]")); // TODO: 25/02/21 FIX IT!!
         }
       });
     }
@@ -132,6 +132,7 @@ public class For<T, M> implements Task<T> {
       private int events;
       private Runnable state;
       private int posts;
+      private boolean ended;
 
       private ForFlowControl(int maxEvents, @NotNull Awaiter<? super T> awaiter) {
         this.totEvents = maxEvents;
@@ -258,7 +259,7 @@ public class For<T, M> implements Task<T> {
           } else {
             state = read;
             flowLogger.log(new DbgMessage("[reading]"));
-            input.run();
+            state.run();
           }
         }
       }
@@ -271,7 +272,7 @@ public class For<T, M> implements Task<T> {
 
         public void message(M message) throws Exception {
           inputs.offer(message != null ? message : NULL);
-          scheduler.scheduleLow(read);
+          scheduler.scheduleLow(ForFlowControl.this);
         }
 
         public void error(@NotNull final Throwable error) {
@@ -284,7 +285,11 @@ public class For<T, M> implements Task<T> {
         }
 
         public void end() {
-          scheduler.scheduleLow(read);
+          scheduler.scheduleLow(new Runnable() {
+            public void run() {
+              ended = true;
+            }
+          });
         }
       }
 
@@ -295,30 +300,38 @@ public class For<T, M> implements Task<T> {
           if (events < 1) {
             nextFlowControl();
           } else {
-            final ForFlowControl currentFlowControl = ForAwaitable.this.currentFlowControl;
+            final ForFlowControl flowControl = ForFlowControl.this;
             final CircularQueue<Awaitable<? extends T>> outputs = ForAwaitable.this.outputs;
             Awaitable<? extends T> awaitable = outputs.poll();
             if (awaitable != null) {
               state = write;
               flowLogger.log(new DbgMessage("[writing]"));
-              awaitable.await(events, currentFlowControl);
+              awaitable.await(events, flowControl);
             } else if (stopped) {
               sendEnd();
               nextFlowControl();
-            } else if (inputs.isEmpty()) {
-              scheduler.scheduleLow(input);
             } else {
               try {
-                flowLogger.log(new DbgMessage("[invoking] block: %s", new PrintIdentity(block)));
                 final Object message = inputs.poll();
+                if (message == null) {
+                  if (ended) {
+                    stopped = true;
+                    sendEnd();
+                    nextFlowControl();
+                  } else {
+                    scheduler.scheduleLow(input);
+                  }
+                  return;
+                }
+                flowLogger.log(new DbgMessage("[invoking] block: %s", new PrintIdentity(block)));
                 final Result<T> result = block.call(message != NULL ? (M) message : null);
                 posts = 0;
-                result.apply(currentFlowControl);
+                result.apply(flowControl);
                 awaitable = outputs.poll();
                 if (awaitable != null) {
                   state = write;
                   flowLogger.log(new DbgMessage("[writing]"));
-                  awaitable.await(events, currentFlowControl);
+                  awaitable.await(events, flowControl);
                   return;
                 }
               } catch (final Exception e) {
@@ -328,7 +341,7 @@ public class For<T, M> implements Task<T> {
                 sendError(e);
                 events = 0;
               }
-              scheduler.scheduleLow(currentFlowControl);
+              scheduler.scheduleLow(flowControl);
             }
           }
         }

@@ -256,13 +256,13 @@ public class Do<T> implements Task<T> {
           if (events < 1) {
             nextFlowControl();
           } else {
-            final DoFlowControl currentFlowControl = DoAwaitable.this.currentFlowControl;
+            final DoFlowControl flowControl = DoFlowControl.this;
             final CircularQueue<Awaitable<? extends T>> outputs = DoAwaitable.this.outputs;
             Awaitable<? extends T> awaitable = outputs.poll();
             if (awaitable != null) {
               state = write;
               flowLogger.log(new DbgMessage("[writing]"));
-              awaitable.await(events, currentFlowControl);
+              awaitable.await(events, flowControl);
             } else if (stopped) {
               sendEnd();
               nextFlowControl();
@@ -271,12 +271,12 @@ public class Do<T> implements Task<T> {
                 flowLogger.log(new DbgMessage("[invoking] block: %s", new PrintIdentity(block)));
                 final Result<T> result = block.call();
                 posts = 0;
-                result.apply(currentFlowControl);
+                result.apply(flowControl);
                 awaitable = outputs.poll();
                 if (awaitable != null) {
                   state = write;
                   flowLogger.log(new DbgMessage("[writing]"));
-                  awaitable.await(events, currentFlowControl);
+                  awaitable.await(events, flowControl);
                   return;
                 }
               } catch (final Exception e) {
@@ -286,7 +286,7 @@ public class Do<T> implements Task<T> {
                 sendError(e);
                 events = 0;
               }
-              scheduler.scheduleLow(currentFlowControl);
+              scheduler.scheduleLow(flowControl);
             }
           }
         }
