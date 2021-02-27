@@ -66,6 +66,7 @@ public class For<T, M> implements Task<T> {
     private final Awaitable<M> awaitable;
     private final Block<T, ? super M> block;
     private State<T> state = input;
+    private int events;
 
     private ForAwaitable(@NotNull Scheduler scheduler, @NotNull Awaitable<M> awaitable,
         @NotNull Block<T, ? super M> block) {
@@ -112,7 +113,8 @@ public class For<T, M> implements Task<T> {
 
       public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) {
         state = message;
-        awaitable.await(Math.max(1, flowControl.inputEvents()), ForAwaitable.this);
+        events = Math.max(1, flowControl.inputEvents());
+        awaitable.await(events, ForAwaitable.this);
         return false;
       }
     }
@@ -126,8 +128,12 @@ public class For<T, M> implements Task<T> {
           flowControl.logger().log(
               new DbgMessage("[executing] block: %s", new PrintIdentity(block))
           );
+          --events;
           block.execute(message != NULL ? (M) message : null).apply(flowControl);
           return true;
+        } if (events < 1) {
+          events = Math.max(1, flowControl.inputEvents());
+          awaitable.await(events, ForAwaitable.this);
         }
         return false;
       }

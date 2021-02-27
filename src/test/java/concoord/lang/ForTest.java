@@ -46,6 +46,6 @@ public class ForTest {
     lazyExecutor.advance(Integer.MAX_VALUE);
     assertThat(testMessages).containsExactly("N1", "N2", "N3");
     assertThat(testError.get()).isNull();
-    assertThat(testEnd.get()).isFalse();
+    assertThat(testEnd.get()).isTrue();
   }
 }
