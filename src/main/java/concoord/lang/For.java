@@ -41,6 +41,8 @@ public class For<T, M> implements Task<T> {
     this.block = block;
   }
 
+  // TODO: 27/02/21 public For(@NotNull Task<M> task, @NotNull Block<T, ? super M> block)
+
   @NotNull
   public Awaitable<T> on(@NotNull Scheduler scheduler) {
     new IfNull(scheduler, "scheduler").throwException();
@@ -50,18 +52,20 @@ public class For<T, M> implements Task<T> {
   public interface Block<T, M> {
 
     @NotNull
-    Result<T> call(M message) throws Exception;
+    Result<T> execute(M message) throws Exception;
   }
 
-  private static class ForAwaitable<T, M> extends BaseAwaitable<T> {
+  private static class ForAwaitable<T, M> extends BaseAwaitable<T> implements Awaiter<M> {
 
     private static final Object NULL = new Object();
 
     private final ConcurrentLinkedQueue<Object> inputs = new ConcurrentLinkedQueue<Object>();
+    private final InputState input = new InputState();
+    private final MessageState message = new MessageState();
     private final Scheduler scheduler;
     private final Awaitable<M> awaitable;
     private final Block<T, ? super M> block;
-    private boolean ended;
+    private State<T> state = input;
 
     private ForAwaitable(@NotNull Scheduler scheduler, @NotNull Awaitable<M> awaitable,
         @NotNull Block<T, ? super M> block) {
@@ -72,50 +76,87 @@ public class For<T, M> implements Task<T> {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     protected boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
-      final Object message = inputs.poll();
-      if (message == null) {
-        if (ended) {
-          flowControl.stop();
-        } else {
-          scheduler.scheduleLow(new InputState(flowControl));
-          return false;
-        }
-      } else {
-        flowControl.logger().log(new DbgMessage("[executing] block: %s", new PrintIdentity(block)));
-        block.call(message != NULL ? (M) message : null).apply(flowControl);
-      }
-      return true;
+      return state.executeBlock(flowControl);
     }
 
-    private class InputState implements Runnable, Awaiter<M> {
+    public void message(M message) {
+      inputs.offer(message != null ? message : NULL);
+      scheduleFlow();
+    }
 
-      private final AwaitableFlowControl<T> flowControl;
+    public void error(@NotNull final Throwable error) {
+      scheduler.scheduleLow(new Runnable() {
+        public void run() {
+          state = new ErrorState(error);
+          scheduleFlow();
+        }
+      });
+    }
 
-      private InputState(@NotNull AwaitableFlowControl<T> flowControl) {
-        this.flowControl = flowControl;
+    public void end() {
+      scheduler.scheduleLow(new Runnable() {
+        public void run() {
+          state = new EndState();
+          scheduleFlow();
+        }
+      });
+    }
+
+    private interface State<T> {
+
+      boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception;
+    }
+
+    private class InputState implements State<T> {
+
+      public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) {
+        state = message;
+        awaitable.await(Math.max(1, flowControl.inputEvents()), ForAwaitable.this);
+        return false;
+      }
+    }
+
+    private class MessageState implements State<T> {
+
+      @SuppressWarnings("unchecked")
+      public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
+        final Object message = inputs.poll();
+        if (message != null) {
+          flowControl.logger().log(
+              new DbgMessage("[executing] block: %s", new PrintIdentity(block))
+          );
+          block.execute(message != NULL ? (M) message : null).apply(flowControl);
+          return true;
+        }
+        return false;
+      }
+    }
+
+    private class ErrorState extends MessageState {
+
+      private final Throwable error;
+
+      private ErrorState(@NotNull Throwable error) {
+        this.error = error;
       }
 
-      public void run() {
-        awaitable.await(Math.max(1, flowControl.inputEvents()), this);
+      public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
+        if (!super.executeBlock(flowControl)) {
+          flowControl.abort(error);
+          return false;
+        }
+        return true;
       }
+    }
 
-      public void message(M message) throws Exception {
-        inputs.offer(message != null ? message : NULL);
-        scheduler.scheduleLow(flowControl);
-      }
+    private class EndState extends MessageState {
 
-      public void error(@NotNull Throwable error) throws Exception {
-        flowControl.error(error);
-      }
-
-      public void end() {
-        scheduler.scheduleLow(new Runnable() {
-          public void run() {
-            ended = true;
-          }
-        });
+      public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
+        if (!super.executeBlock(flowControl)) {
+          flowControl.stop();
+        }
+        return true;
       }
     }
   }

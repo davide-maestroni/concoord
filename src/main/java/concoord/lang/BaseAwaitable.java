@@ -78,6 +78,12 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
   protected abstract boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl)
       throws Exception;
 
+  protected void scheduleFlow() {
+    if (currentFlowControl != null) {
+      scheduler.scheduleLow(currentFlowControl);
+    }
+  }
+
   private void nextFlowControl() {
     currentFlowControl = flowControls.poll();
     if (currentFlowControl != null) {
@@ -87,7 +93,9 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
     }
   }
 
-  protected interface AwaitableFlowControl<T> extends FlowControl<T>, Awaiter<T>, Runnable {
+  protected interface AwaitableFlowControl<T> extends FlowControl<T> {
+
+    void abort(Throwable error);
 
     int inputEvents();
 
@@ -107,7 +115,7 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
     }
   }
 
-  private class InternalFlowControl implements AwaitableFlowControl<T> {
+  private class InternalFlowControl implements AwaitableFlowControl<T>, Awaiter<T>, Runnable {
 
     private final Logger flowLogger = new Logger(FlowControl.class, this);
     private final ReadState read = new ReadState();
@@ -178,8 +186,7 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
     public void error(@NotNull final Throwable error) {
       scheduler.scheduleLow(new Runnable() {
         public void run() {
-          sendError(error);
-          nextFlowControl();
+          error(error);
         }
       });
     }
@@ -190,6 +197,11 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
 
     public void run() {
       state.run();
+    }
+
+    public void abort(Throwable error) {
+      sendError(error);
+      nextFlowControl();
     }
 
     public int inputEvents() {
@@ -204,6 +216,12 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
     private void sendError(@NotNull Throwable error) {
       stopped = true;
       outputs.clear();
+      state = new Runnable() {
+        public void run() {
+          // noop
+        }
+      };
+      awaitableLogger.log(new InfMessage(new LogMessage("[failed] with error:"), error));
       try {
         awaiter.error(error);
       } catch (final Exception e) {
@@ -217,10 +235,10 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
             )
         );
       }
-      awaitableLogger.log(new InfMessage(new LogMessage("[failed] with error:"), error));
     }
 
     private void sendEnd() {
+      awaitableLogger.log(new InfMessage("[ended]"));
       try {
         awaiter.end();
       } catch (final Exception e) {
@@ -232,7 +250,6 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
         );
         sendError(e);
       }
-      awaitableLogger.log(new InfMessage("[ended]"));
     }
 
     private class InitState implements Runnable {
@@ -262,34 +279,33 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
     private class ReadState implements Runnable {
 
       public void run() {
-        if (events < 1) {
+        final InternalFlowControl flowControl = InternalFlowControl.this;
+        Awaitable<? extends T> awaitable = outputs.peek();
+        if (awaitable != null) {
+          state = write;
+          flowLogger.log(new DbgMessage("[writing]"));
+          awaitable.await(events, flowControl);
+        } else if (stopped) {
+          sendEnd();
           nextFlowControl();
         } else {
-          final InternalFlowControl flowControl = InternalFlowControl.this;
-          final CircularQueue<Awaitable<? extends T>> outputs = BaseAwaitable.this.outputs;
-          Awaitable<? extends T> awaitable = outputs.poll();
-          if (awaitable != null) {
-            state = write;
-            flowLogger.log(new DbgMessage("[writing]"));
-            awaitable.await(events, flowControl);
-          } else if (stopped) {
-            sendEnd();
-            nextFlowControl();
-          } else {
-            try {
-              posts = 0;
-              if (!executeBlock(flowControl)) {
-                return;
-              }
-            } catch (final Exception e) {
-              awaitableLogger.log(
-                  new WrnMessage(new LogMessage("invocation failed with an exception"), e)
-              );
-              sendError(e);
-              events = 0;
+          try {
+            posts = 0;
+            if (!executeBlock(flowControl)) {
+              return;
             }
-            scheduler.scheduleLow(flowControl);
+            if (events < 1) {
+              nextFlowControl();
+              return;
+            }
+          } catch (final Exception e) {
+            awaitableLogger.log(
+                new WrnMessage(new LogMessage("invocation failed with an exception"), e)
+            );
+            sendError(e);
+            events = 0;
           }
+          scheduler.scheduleLow(flowControl);
         }
       }
     }
@@ -302,6 +318,9 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
         if (message != null) {
           posts = 0;
           postOutput(message != NULL ? (T) message : null);
+          if (events < 1) {
+            nextFlowControl();
+          }
         }
       }
     }
@@ -309,6 +328,7 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
     private class EndState implements Runnable {
 
       public void run() {
+        outputs.poll();
         state = read;
         flowLogger.log(new DbgMessage("[reading]"));
         state.run();
