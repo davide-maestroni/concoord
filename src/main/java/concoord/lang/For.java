@@ -29,24 +29,36 @@ import org.jetbrains.annotations.NotNull;
 
 public class For<T, M> implements Task<T> {
 
-  private final Awaitable<M> awaitable;
   private final Block<T, ? super M> block;
+  private final Task<M> task;
 
-  public For(@NotNull Awaitable<M> awaitable, @NotNull Block<T, ? super M> block) {
+  public For(@NotNull final Awaitable<M> awaitable, @NotNull Block<T, ? super M> block) {
     new IfSomeOf(
-        new IfNull(block, "awaitable"),
+        new IfNull(awaitable, "awaitable"),
         new IfNull(block, "block")
     ).throwException();
-    this.awaitable = awaitable;
     this.block = block;
+    this.task = new Task<M>() {
+      @NotNull
+      public Awaitable<M> on(@NotNull Scheduler scheduler) {
+        return awaitable;
+      }
+    };
   }
 
-  // TODO: 27/02/21 public For(@NotNull Task<M> task, @NotNull Block<T, ? super M> block)
+  public For(@NotNull final Task<M> task, @NotNull Block<T, ? super M> block) {
+    new IfSomeOf(
+        new IfNull(task, "task"),
+        new IfNull(block, "block")
+    ).throwException();
+    this.block = block;
+    this.task = task;
+  }
 
   @NotNull
   public Awaitable<T> on(@NotNull Scheduler scheduler) {
     new IfNull(scheduler, "scheduler").throwException();
-    return new ForAwaitable<T, M>(scheduler, awaitable, block);
+    return new ForAwaitable<T, M>(scheduler, task.on(scheduler), block);
   }
 
   public interface Block<T, M> {
@@ -131,7 +143,8 @@ public class For<T, M> implements Task<T> {
           --events;
           block.execute(message != NULL ? (M) message : null).apply(flowControl);
           return true;
-        } if (events < 1) {
+        }
+        if (events < 1) {
           events = Math.max(1, flowControl.inputEvents());
           awaitable.await(events, ForAwaitable.this);
         }

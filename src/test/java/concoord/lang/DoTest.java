@@ -8,13 +8,30 @@ import concoord.concurrent.LazyExecutor;
 import concoord.concurrent.ScheduledExecutor;
 import concoord.flow.Return;
 import concoord.flow.Yield;
+import concoord.logging.InfMessage;
+import concoord.logging.Logger;
+import concoord.logging.LoggingPrinter;
 import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.logging.Level;
 import org.jetbrains.annotations.NotNull;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 
 public class DoTest {
+
+//  @BeforeAll
+//  public static void setup() {
+//    new Logger().addPrinter(new LoggingPrinter().configure(Level.INFO));
+//  }
+//
+//  @BeforeEach
+//  public void start(TestInfo testInfo) {
+//    new Logger(this).log(new InfMessage("starting: %s", testInfo.getDisplayName()));
+//  }
 
   @Test
   public void basic() {
