@@ -24,19 +24,19 @@ public class Yield<T> implements Result<T> {
   private final Result<T> result;
 
   public Yield(T output) {
-    this(1, output);
+    this(output, 1);
   }
 
-  public Yield(int maxEvents, T output) {
+  public Yield(T output, int maxEvents) {
     this.maxEvents = maxEvents;
     this.result = new ResultMessage<T>(output);
   }
 
   public Yield(@NotNull Awaitable<T> awaitable) {
-    this(1, awaitable);
+    this(awaitable, 1);
   }
 
-  public Yield(int maxEvents, @NotNull Awaitable<T> awaitable) {
+  public Yield(@NotNull Awaitable<T> awaitable, int maxEvents) {
     this.maxEvents = maxEvents;
     this.result = new ResultAwaitable<T>(awaitable);
   }

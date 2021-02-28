@@ -130,7 +130,7 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
 
     private InternalFlowControl(int maxEvents, @NotNull Awaiter<? super T> awaiter) {
       this.totEvents = maxEvents;
-      this.events = maxEvents;
+      this.events = (maxEvents >= 0) ? maxEvents : 1;
       this.awaiter = awaiter;
       this.state = new InitState();
       flowLogger.log(new DbgMessage("[initialized]"));
@@ -140,7 +140,7 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
       if (++posts > 1) {
         throw new IllegalStateException("multiple outputs posted by the result");
       }
-      if (totEvents < Integer.MAX_VALUE) {
+      if (totEvents >= 0) {
         flowLogger.log(new DbgMessage("[posting] new message: %d", totEvents - events));
         --events;
       } else {
@@ -174,6 +174,7 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
 
     public void stop() {
       stopped = true;
+      inputEvents = Integer.MAX_VALUE;
       flowLogger.log(new DbgMessage("[stopped]"));
       awaitableLogger.log(new InfMessage("[complete]"));
     }

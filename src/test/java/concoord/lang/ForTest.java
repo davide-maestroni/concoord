@@ -6,7 +6,6 @@ import concoord.concurrent.Awaitable;
 import concoord.concurrent.Awaiter;
 import concoord.concurrent.LazyExecutor;
 import concoord.concurrent.ScheduledExecutor;
-import concoord.flow.Return;
 import concoord.flow.Yield;
 import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -21,8 +20,8 @@ public class ForTest {
     LazyExecutor lazyExecutor = new LazyExecutor();
     ScheduledExecutor scheduler = new ScheduledExecutor(lazyExecutor);
     Awaitable<String> awaitable = new For<>(
-        new Iter<>("1", "2", "3").on(scheduler),
-        (m) -> new Yield<>("N" + m)
+        new Iter<>("1", "2", "3"),
+        (m) -> new Yield<>("N" + m, Integer.MAX_VALUE)
     ).on(scheduler);
     ArrayList<String> testMessages = new ArrayList<>();
     AtomicReference<Throwable> testError = new AtomicReference<>();
