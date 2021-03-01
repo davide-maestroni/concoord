@@ -18,8 +18,9 @@ package concoord.concurrent;
 import concoord.logging.ErrMessage;
 import concoord.logging.LogMessage;
 import concoord.logging.Logger;
-import concoord.logging.WrnMessage;
+import concoord.util.assertion.IfEqual;
 import concoord.util.assertion.IfNull;
+import concoord.util.assertion.IfSomeOf;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -39,48 +40,50 @@ public class ScheduledExecutor implements Scheduler {
   private final Runnable runner;
 
   public ScheduledExecutor(@NotNull Executor executor) {
-    new IfNull(executor, "executor").throwException();
-    this.executor = executor;
-    this.runner = new Runnable() {
-      public void run() {
-        while (true) {
-          status.set(READING);
-          Runnable command = highQueue.poll();
-          if (command == null) {
-            command = lowQueue.poll();
-            if (command == null) {
-              // move to IDLE
-              if (status.compareAndSet(READING, IDLE)) {
-                return;
-              } else {
-                continue;
-              }
-            }
-          }
-
-          status.set(RUNNING);
-          try {
-            command.run();
-          } catch (final Throwable t) {
-            logger.log(new ErrMessage(new LogMessage("uncaught exception"), t));
-            if (t instanceof RuntimeException) {
-              throw (RuntimeException) t;
-            } else {
-              throw new RuntimeException(t);
-            }
-          }
-        }
-      }
-    };
+    this(executor, -1);
   }
 
   public ScheduledExecutor(@NotNull Executor executor, int throughput) {
-    new IfNull(executor, "executor").throwException();
+    new IfSomeOf(
+        new IfNull(executor, "executor"),
+        new IfEqual<Integer>(throughput, "throughput", 0)
+    ).throwException();
     this.executor = executor;
-    if (throughput <= 1) {
-      if (throughput <= 0) {
-        logger.log(new WrnMessage("throughput changed to 1, it was: %d", throughput));
-      }
+    if (throughput < 0) {
+      // infinite throughput
+      this.runner = new Runnable() {
+        public void run() {
+          while (true) {
+            status.set(READING);
+            Runnable command = highQueue.poll();
+            if (command == null) {
+              command = lowQueue.poll();
+              if (command == null) {
+                // move to IDLE
+                if (status.compareAndSet(READING, IDLE)) {
+                  return;
+                } else {
+                  continue;
+                }
+              }
+            }
+
+            status.set(RUNNING);
+            try {
+              command.run();
+            } catch (final Throwable t) {
+              logger.log(new ErrMessage(new LogMessage("uncaught exception"), t));
+              if (t instanceof RuntimeException) {
+                throw (RuntimeException) t;
+              } else {
+                throw new RuntimeException(t);
+              }
+            }
+          }
+        }
+      };
+
+    } else if (throughput == 1) {
       this.runner = new Runnable() {
         public void run() {
           while (true) {

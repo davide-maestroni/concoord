@@ -20,7 +20,7 @@ public class ForTest {
     LazyExecutor lazyExecutor = new LazyExecutor();
     ScheduledExecutor scheduler = new ScheduledExecutor(lazyExecutor);
     Awaitable<String> awaitable = new For<>(
-        new Iter<>("1", "2", "3"),
+        new Iter<>("1", "2", "3").on(scheduler),
         (m) -> new Yield<>("N" + m, Integer.MAX_VALUE)
     ).on(scheduler);
     ArrayList<String> testMessages = new ArrayList<>();

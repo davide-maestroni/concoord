@@ -29,36 +29,29 @@ import org.jetbrains.annotations.NotNull;
 
 public class For<T, M> implements Task<T> {
 
+  private final int maxEvents;
+  private final Awaitable<M> awaitable;
   private final Block<T, ? super M> block;
-  private final Task<M> task;
 
   public For(@NotNull final Awaitable<M> awaitable, @NotNull Block<T, ? super M> block) {
+    this(1, awaitable, block);
+  }
+
+  public For(int maxEvents, @NotNull final Awaitable<M> awaitable,
+      @NotNull Block<T, ? super M> block) {
     new IfSomeOf(
         new IfNull(awaitable, "awaitable"),
         new IfNull(block, "block")
     ).throwException();
+    this.maxEvents = maxEvents;
+    this.awaitable = awaitable;
     this.block = block;
-    this.task = new Task<M>() {
-      @NotNull
-      public Awaitable<M> on(@NotNull Scheduler scheduler) {
-        return awaitable;
-      }
-    };
-  }
-
-  public For(@NotNull final Task<M> task, @NotNull Block<T, ? super M> block) {
-    new IfSomeOf(
-        new IfNull(task, "task"),
-        new IfNull(block, "block")
-    ).throwException();
-    this.block = block;
-    this.task = task;
   }
 
   @NotNull
   public Awaitable<T> on(@NotNull Scheduler scheduler) {
     new IfNull(scheduler, "scheduler").throwException();
-    return new ForAwaitable<T, M>(scheduler, task.on(scheduler), block);
+    return new ForAwaitable<T, M>(scheduler, maxEvents, awaitable, block);
   }
 
   public interface Block<T, M> {
@@ -75,15 +68,17 @@ public class For<T, M> implements Task<T> {
     private final InputState input = new InputState();
     private final MessageState message = new MessageState();
     private final Scheduler scheduler;
+    private final int maxEvents;
     private final Awaitable<M> awaitable;
     private final Block<T, ? super M> block;
     private State<T> state = input;
     private int events;
 
-    private ForAwaitable(@NotNull Scheduler scheduler, @NotNull Awaitable<M> awaitable,
-        @NotNull Block<T, ? super M> block) {
+    private ForAwaitable(@NotNull Scheduler scheduler, int maxEvents,
+        @NotNull Awaitable<M> awaitable, @NotNull Block<T, ? super M> block) {
       super(scheduler);
       this.scheduler = scheduler;
+      this.maxEvents = maxEvents;
       this.awaitable = awaitable;
       this.block = block;
     }
@@ -125,8 +120,11 @@ public class For<T, M> implements Task<T> {
 
       public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) {
         state = message;
-        events = Math.max(1, flowControl.inputEvents());
+        events = maxEvents;
         awaitable.await(events, ForAwaitable.this);
+        if (maxEvents < 0) {
+          events = 1;
+        }
         return false;
       }
     }
@@ -140,12 +138,14 @@ public class For<T, M> implements Task<T> {
           flowControl.logger().log(
               new DbgMessage("[executing] block: %s", new PrintIdentity(block))
           );
-          --events;
+          if (maxEvents >= 0) {
+            --events;
+          }
           block.execute(message != NULL ? (M) message : null).apply(flowControl);
           return true;
         }
         if (events < 1) {
-          events = Math.max(1, flowControl.inputEvents());
+          events = flowControl.inputEvents();
           awaitable.await(events, ForAwaitable.this);
         }
         return false;
