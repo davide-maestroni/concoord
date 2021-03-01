@@ -19,7 +19,7 @@ import org.jetbrains.annotations.NotNull;
 
 public interface Awaitable<T> {
 
-  void await(int maxEvents); // TODO: 25/02/21 maxEvents < 0 => indefinite number
+  void await(int maxEvents);
 
   void await(int maxEvents, @NotNull Awaiter<? super T> awaiter);
 
@@ -29,4 +29,5 @@ public interface Awaitable<T> {
   void abort();
 
   // TODO: 25/02/21 cancel(awaiter)?
+  // TODO: 01/03/21 abort created awaitables?
 }

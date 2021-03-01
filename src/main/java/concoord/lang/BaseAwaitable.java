@@ -20,6 +20,7 @@ import concoord.concurrent.Awaiter;
 import concoord.concurrent.CombinedAwaiter;
 import concoord.concurrent.NullaryAwaiter;
 import concoord.concurrent.Scheduler;
+import concoord.concurrent.Task;
 import concoord.concurrent.UnaryAwaiter;
 import concoord.flow.FlowControl;
 import concoord.logging.DbgMessage;
@@ -29,8 +30,8 @@ import concoord.logging.LogMessage;
 import concoord.logging.Logger;
 import concoord.logging.PrintIdentity;
 import concoord.logging.WrnMessage;
-import concoord.util.CircularQueue;
 import concoord.util.assertion.IfNull;
+import concoord.util.collection.CircularQueue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import org.jetbrains.annotations.NotNull;
 
@@ -70,7 +71,7 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
       public void run() {
         stopped = true;
         outputs.clear();
-        awaitableLogger.log(new InfMessage("[aborted]")); // TODO: 25/02/21 FIX IT!!
+        awaitableLogger.log(new InfMessage("[aborted]"));
       }
     });
   }
@@ -167,6 +168,20 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
       }
     }
 
+    public void postOutput(Task<? extends T> task) {
+      if (++posts > 1) {
+        throw new IllegalStateException("multiple outputs posted by the result");
+      }
+      if (task != null) {
+        flowLogger.log(
+            new DbgMessage("[posting] new task: %s", new PrintIdentity(task))
+        );
+        outputs.offer(task.on(scheduler));
+      } else {
+        flowLogger.log(new WrnMessage("[posting] task ignored: null"));
+      }
+    }
+
     public void nextInputs(int maxEvents) {
       flowLogger.log(new DbgMessage("[limiting] event number: %d", maxEvents));
       inputEvents = maxEvents;
@@ -174,7 +189,6 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
 
     public void stop() {
       stopped = true;
-      inputEvents = Integer.MAX_VALUE;
       flowLogger.log(new DbgMessage("[stopped]"));
       awaitableLogger.log(new InfMessage("[complete]"));
     }

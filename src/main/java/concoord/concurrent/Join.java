@@ -15,10 +15,10 @@
  */
 package concoord.concurrent;
 
-import concoord.util.CircularQueue;
 import concoord.util.assertion.IfNull;
 import concoord.util.assertion.IfSomeOf;
 import concoord.util.assertion.Precondition;
+import concoord.util.collection.CircularQueue;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;

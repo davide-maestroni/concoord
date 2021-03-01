@@ -19,64 +19,64 @@ import org.jetbrains.annotations.Nullable;
 
 public class IfLessThan extends IfAnyOf {
 
-  public IfLessThan(Integer value, int limit) {
-    this(value, "number", limit);
+  public IfLessThan(Integer number, int limit) {
+    this(number, "number", limit);
   }
 
-  public IfLessThan(final Integer value, final String name, final int limit) {
-    super(new IfNull(value, name), new AbstractPrecondition() {
+  public IfLessThan(final Integer number, final String name, final int limit) {
+    super(new IfNull(number, name), new AbstractPrecondition() {
       @Nullable
       public RuntimeException getException() {
-        if (value < limit) {
-          return new IllegalArgumentException(name + " cannot be less than " + limit + ", but it was: " + value);
+        if (number < limit) {
+          return new IllegalArgumentException(name + " cannot be less than " + limit + ", but it was: " + number);
         }
         return null;
       }
     });
   }
 
-  public IfLessThan(Long value, long limit) {
-    this(value, "number", limit);
+  public IfLessThan(Long number, long limit) {
+    this(number, "number", limit);
   }
 
-  public IfLessThan(final Long value, final String name, final long limit) {
-    super(new IfNull(value, name), new AbstractPrecondition() {
+  public IfLessThan(final Long number, final String name, final long limit) {
+    super(new IfNull(number, name), new AbstractPrecondition() {
       @Nullable
       public RuntimeException getException() {
-        if (value < limit) {
-          return new IllegalArgumentException(name + " cannot be less than " + limit + ", but it was: " + value);
+        if (number < limit) {
+          return new IllegalArgumentException(name + " cannot be less than " + limit + ", but it was: " + number);
         }
         return null;
       }
     });
   }
 
-  public IfLessThan(Float value, int limit) {
-    this(value, "number", limit);
+  public IfLessThan(Float number, int limit) {
+    this(number, "number", limit);
   }
 
-  public IfLessThan(final Float value, final String name, final int limit) {
-    super(new IfNull(value, name), new AbstractPrecondition() {
+  public IfLessThan(final Float number, final String name, final int limit) {
+    super(new IfNull(number, name), new AbstractPrecondition() {
       @Nullable
       public RuntimeException getException() {
-        if (value < limit) {
-          return new IllegalArgumentException(name + " cannot be less than " + limit + ", but it was: " + value);
+        if (number < limit) {
+          return new IllegalArgumentException(name + " cannot be less than " + limit + ", but it was: " + number);
         }
         return null;
       }
     });
   }
 
-  public IfLessThan(Double value, int limit) {
-    this(value, "number", limit);
+  public IfLessThan(Double number, int limit) {
+    this(number, "number", limit);
   }
 
-  public IfLessThan(final Double value, final String name, final int limit) {
-    super(new IfNull(value, name), new AbstractPrecondition() {
+  public IfLessThan(final Double number, final String name, final int limit) {
+    super(new IfNull(number, name), new AbstractPrecondition() {
       @Nullable
       public RuntimeException getException() {
-        if (value < limit) {
-          return new IllegalArgumentException(name + " cannot be less than " + limit + ", but it was: " + value);
+        if (number < limit) {
+          return new IllegalArgumentException(name + " cannot be less than " + limit + ", but it was: " + number);
         }
         return null;
       }

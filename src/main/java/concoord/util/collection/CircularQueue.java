@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package concoord.util;
+package concoord.util.collection;
 
 import concoord.util.assertion.IfLessThan;
 import java.lang.reflect.Array;
@@ -36,7 +36,7 @@ public class CircularQueue<E> extends AbstractCollection<E> implements Queue<E> 
   private int size;
 
   /**
-   * Creates a new empty queue with a pre-defined initial capacity.
+   * Constructs a new empty queue with a pre-defined initial capacity.
    */
   public CircularQueue() {
     data = new Object[DEFAULT_SIZE];
@@ -44,7 +44,7 @@ public class CircularQueue<E> extends AbstractCollection<E> implements Queue<E> 
   }
 
   /**
-   * Creates a new empty queue with the specified minimum capacity.
+   * Constructs a new empty queue with the specified minimum capacity.
    *
    * @param minCapacity the minimum capacity.
    * @throws IllegalArgumentException if the specified capacity is less than 1.
@@ -155,7 +155,10 @@ public class CircularQueue<E> extends AbstractCollection<E> implements Queue<E> 
    * {@inheritDoc}
    */
   public E remove() {
-    return removeFirst();
+    if (isEmpty()) {
+      throw new NoSuchElementException();
+    }
+    return unsafeRemoveFirst();
   }
 
   /**
@@ -226,8 +229,8 @@ public class CircularQueue<E> extends AbstractCollection<E> implements Queue<E> 
   }
 
   /**
-   * Removes the element at the specified position in this queue. Shifts any subsequent elements to
-   * the left (subtracts one from their indices).
+   * Removes the element at the specified position in this queue. Shifts any subsequent elements to the left (subtracts
+   * one from their indices).
    *
    * @param index the index of the element to be removed.
    * @return the element that was removed from the queue.
@@ -309,13 +312,6 @@ public class CircularQueue<E> extends AbstractCollection<E> implements Queue<E> 
     }
     --size;
     return isForward;
-  }
-
-  private E removeFirst() {
-    if (isEmpty()) {
-      throw new NoSuchElementException();
-    }
-    return unsafeRemoveFirst();
   }
 
   @SuppressWarnings("unchecked")
