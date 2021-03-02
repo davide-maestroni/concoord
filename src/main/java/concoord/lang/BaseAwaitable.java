@@ -20,7 +20,6 @@ import concoord.concurrent.Awaiter;
 import concoord.concurrent.CombinedAwaiter;
 import concoord.concurrent.NullaryAwaiter;
 import concoord.concurrent.Scheduler;
-import concoord.concurrent.Task;
 import concoord.concurrent.UnaryAwaiter;
 import concoord.flow.FlowControl;
 import concoord.logging.DbgMessage;
@@ -71,7 +70,7 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
       public void run() {
         stopped = true;
         outputs.clear();
-        awaitableLogger.log(new InfMessage("[aborted]"));
+        awaitableLogger.log(new InfMessage("[aborted]")); // TODO: 02/03/21 Fix it!
       }
     });
   }
@@ -165,20 +164,6 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
         outputs.offer(awaitable);
       } else {
         flowLogger.log(new WrnMessage("[posting] awaitable ignored: null"));
-      }
-    }
-
-    public void postOutput(Task<? extends T> task) {
-      if (++posts > 1) {
-        throw new IllegalStateException("multiple outputs posted by the result");
-      }
-      if (task != null) {
-        flowLogger.log(
-            new DbgMessage("[posting] new task: %s", new PrintIdentity(task))
-        );
-        outputs.offer(task.on(scheduler));
-      } else {
-        flowLogger.log(new WrnMessage("[posting] task ignored: null"));
       }
     }
 

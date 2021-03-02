@@ -16,15 +16,12 @@
 package concoord.flow;
 
 import concoord.concurrent.Awaitable;
-import concoord.concurrent.Task;
 
 public interface FlowControl<T> {
 
   void postOutput(T message);
 
   void postOutput(Awaitable<? extends T> awaitable);
-
-  void postOutput(Task<? extends T> task);
 
   void nextInputs(int maxEvents);
 
