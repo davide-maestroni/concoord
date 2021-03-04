@@ -15,7 +15,6 @@
  */
 package concoord.data;
 
-import concoord.data.LastOf.LastIterator;
 import concoord.tuple.Binary;
 import concoord.util.assertion.IfNull;
 import concoord.util.assertion.IfSomeOf;
@@ -26,8 +25,8 @@ import org.jetbrains.annotations.NotNull;
 
 public class ExpiringAfter<M> implements Buffer<M> {
 
-  private final WeakHashMap<LastIterator<M>, Void> iterators =
-      new WeakHashMap<LastIterator<M>, Void>();
+  private final WeakHashMap<ExpiringIterator<M>, Void> iterators =
+      new WeakHashMap<ExpiringIterator<M>, Void>();
   private final Buffer<Binary<Long, M>> buffer;
   private final TimeUnit timeUnit;
   private final long timeout;
@@ -44,12 +43,15 @@ public class ExpiringAfter<M> implements Buffer<M> {
   }
 
   public void add(M message) {
-    buffer.add(new Binary<Long, M>(System.currentTimeMillis(), message));
+    buffer.add(
+        new Binary<Long, M>(System.currentTimeMillis() + timeUnit.toMillis(timeout), message)
+    );
     pruneExpired();
   }
 
   public void remove(int index) {
     buffer.remove(index);
+    pruneExpired();
   }
 
   public M get(int index) {
@@ -57,11 +59,56 @@ public class ExpiringAfter<M> implements Buffer<M> {
   }
 
   public int size() {
-    return 0;
+    return buffer.size();
   }
 
   @NotNull
   public Iterator<M> iterator() {
-    return null;
+    final ExpiringIterator<M> iterator = new ExpiringIterator<M>(buffer);
+    iterators.put(iterator, null);
+    return iterator;
+  }
+
+  private void pruneExpired() {
+    final long now = System.currentTimeMillis();
+    for (int i = 0; i < buffer.size(); ++i) {
+      final Binary<Long, M> binary = buffer.get(i);
+      if (binary.first() <= now) {
+        // expired
+        buffer.remove(i);
+        for (final ExpiringIterator<M> iterator : iterators.keySet()) {
+          iterator.advanceHead(i);
+        }
+        --i;
+      }
+    }
+  }
+
+  private static class ExpiringIterator<M> implements Iterator<M> {
+
+    private final Buffer<Binary<Long, M>> buffer;
+    private int index = 0;
+
+    private ExpiringIterator(@NotNull Buffer<Binary<Long, M>> buffer) {
+      this.buffer = buffer;
+    }
+
+    public boolean hasNext() {
+      return buffer.size() > index;
+    }
+
+    public M next() {
+      return buffer.get(index++).second();
+    }
+
+    public void remove() {
+      throw new UnsupportedOperationException("remove");
+    }
+
+    private void advanceHead(int offset) {
+      if (offset <= index) {
+        index = Math.max(0, index - 1);
+      }
+    }
   }
 }
