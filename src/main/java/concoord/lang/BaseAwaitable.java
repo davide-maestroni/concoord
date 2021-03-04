@@ -81,13 +81,16 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
         try {
           cancelAwaitable();
           stopped = true;
-          if ((flowControl != null) && (flowControl.events > 0)) {
-            flowControl.sendEnd();
+          if (flowControl != null) {
+            flowControl.state = new NoopState();
+            if (flowControl.events != 0) {
+              flowControl.sendEnd();
+            }
           }
           awaitableLogger.log(new InfMessage("[aborted]"));
         } catch (Exception e) {
           awaitableLogger.log(new ErrMessage(new LogMessage("failed to cancel execution"), e));
-          if ((flowControl != null) && (flowControl.events > 0)) {
+          if ((flowControl != null) && (flowControl.events != 0)) {
             flowControl.sendError(e);
           }
         }
@@ -194,7 +197,7 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
 
     private InternalFlowControl(int maxEvents, @NotNull Awaiter<? super T> awaiter) {
       this.totEvents = maxEvents;
-      this.events = (maxEvents >= 0) ? maxEvents : 1;
+      this.events = maxEvents;
       this.awaiter = awaiter;
       this.state = new InitState();
       flowLogger.log(new DbgMessage("[initialized]"));
@@ -295,10 +298,11 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
             try {
               cancelAwaitable();
               state = new NoopState();
-              sendEnd();
             } catch (final Exception e) {
               awaitableLogger.log(new ErrMessage(new LogMessage("failed to cancel execution"), e));
-              sendError(e);
+              if (events != 0) {
+                sendError(e);
+              }
             }
             nextFlowControl();
           }
@@ -359,7 +363,7 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
           return;
         }
         if (stopped) {
-          if (events > 0) {
+          if (events != 0) {
             sendEnd();
           }
           nextFlowControl();
@@ -389,7 +393,7 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
             if (!executeBlock(flowControl)) {
               return;
             }
-            if (events < 1) {
+            if (events == 0) {
               nextFlowControl();
               return;
             }
@@ -398,7 +402,8 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
                 new WrnMessage(new LogMessage("invocation failed with an exception"), e)
             );
             sendError(e);
-            events = 0;
+            nextFlowControl();
+            return;
           }
           scheduler.scheduleLow(flowControl);
         }
@@ -413,7 +418,7 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
         if (message != null) {
           posts = 0;
           postOutput(message != NULL ? (T) message : null);
-          if (events < 1) {
+          if (events == 0) {
             nextFlowControl();
           }
         }
