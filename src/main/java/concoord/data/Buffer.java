@@ -13,13 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package concoord.flow;
+package concoord.data;
 
+import java.util.Iterator;
 import org.jetbrains.annotations.NotNull;
 
-public class Break<T> implements Result<T> {
+public interface Buffer<M> extends Iterable<M> {
 
-  public void apply(@NotNull FlowControl<? super T> flowControl) {
-    flowControl.stop();
-  }
+  void add(M message);
+
+  void remove(int index);
+
+  M get(int index);
+
+  int size();
+
+  @NotNull
+  Iterator<M> iterator();
 }
