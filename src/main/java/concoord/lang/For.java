@@ -34,11 +34,11 @@ public class For<T, M> implements Task<T> {
   private final Awaitable<M> awaitable;
   private final Block<T, ? super M> block;
 
-  public For(@NotNull final Awaitable<M> awaitable, @NotNull Block<T, ? super M> block) {
+  public For(@NotNull Awaitable<M> awaitable, @NotNull Block<T, ? super M> block) {
     this(1, awaitable, block);
   }
 
-  public For(int maxEvents, @NotNull final Awaitable<M> awaitable,
+  public For(int maxEvents, @NotNull Awaitable<M> awaitable,
       @NotNull Block<T, ? super M> block) {
     new IfSomeOf(
         new IfNull(awaitable, "awaitable"),

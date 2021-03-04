@@ -48,6 +48,7 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
   private InternalFlowControl currentFlowControl;
   private Awaitable<? extends T> awaitable;
   private Cancelable cancelable;
+  private boolean hasOutputs;
   private boolean stopped;
 
   public BaseAwaitable(@NotNull Scheduler scheduler) {
@@ -134,6 +135,8 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
 
     int inputEvents();
 
+    boolean outputEvents();
+
     @NotNull
     Logger logger();
   }
@@ -215,6 +218,7 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
       }
       try {
         awaiter.message(message);
+        hasOutputs = true;
       } catch (final Exception e) {
         sendError(e);
       }
@@ -271,6 +275,10 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
       return inputEvents;
     }
 
+    public boolean outputEvents() {
+      return hasOutputs;
+    }
+
     @NotNull
     public Logger logger() {
       return flowLogger;
@@ -322,6 +330,7 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
       try {
         awaiter.error(error);
         status.set(ERROR);
+        hasOutputs = true;
       } catch (final Exception e) {
         awaitableLogger.log(
             new ErrMessage(
@@ -340,6 +349,7 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
       try {
         awaiter.end();
         status.set(DONE);
+        hasOutputs = true;
       } catch (final Exception e) {
         awaitableLogger.log(
             new ErrMessage(

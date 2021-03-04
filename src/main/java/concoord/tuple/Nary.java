@@ -13,17 +13,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package concoord.lang;
+package concoord.tuple;
 
-import concoord.concurrent.Awaitable;
-import concoord.concurrent.Scheduler;
-import concoord.concurrent.Task;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import org.jetbrains.annotations.NotNull;
 
-public class DoWhile<T> implements Task<T> {
+public class Nary<T> {
 
-  @NotNull
-  public Awaitable<T> on(@NotNull Scheduler scheduler) {
-    return null;
+  private final List<T> elements;
+
+  public Nary(@NotNull List<T> elements) {
+    this.elements = new ArrayList<T>(elements);
+  }
+
+  public Nary(@NotNull T... elements) {
+    this.elements = Arrays.asList(elements);
+  }
+
+  public T get(int index) {
+    return elements.get(index);
   }
 }

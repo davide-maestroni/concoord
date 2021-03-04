@@ -55,6 +55,7 @@ public class Iter<T> implements Task<T> {
 
   @NotNull
   public Awaitable<T> on(@NotNull Scheduler scheduler) {
+    new IfNull(scheduler, "scheduler").throwException();
     return task.on(scheduler);
   }
 
@@ -64,6 +65,7 @@ public class Iter<T> implements Task<T> {
 
     private IterAwaitable(@NotNull Scheduler scheduler, @NotNull Iterator<? extends T> iterator) {
       super(scheduler);
+      new IfNull(iterator, "iterator").throwException();
       this.iterator = iterator;
     }
 
