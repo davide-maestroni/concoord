@@ -19,15 +19,17 @@ import org.jetbrains.annotations.NotNull;
 
 public interface Awaitable<T> {
 
-  void await(int maxEvents);
+  @NotNull
+  Cancelable await(int maxEvents);
 
-  void await(int maxEvents, @NotNull Awaiter<? super T> awaiter);
+  @NotNull
+  Cancelable await(int maxEvents, @NotNull Awaiter<? super T> awaiter);
 
-  void await(int maxEvents, @NotNull UnaryAwaiter<? super T> messageAwaiter,
+  @NotNull
+  Cancelable await(int maxEvents, @NotNull UnaryAwaiter<? super T> messageAwaiter,
       @NotNull UnaryAwaiter<? super Throwable> errorAwaiter, @NotNull NullaryAwaiter endAwaiter);
 
   void abort();
 
-  // TODO: 25/02/21 cancel(awaiter)?
   // TODO: 01/03/21 abort created awaitables?
 }

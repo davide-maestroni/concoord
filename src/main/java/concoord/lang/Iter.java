@@ -78,5 +78,8 @@ public class Iter<T> implements Task<T> {
       }
       return true;
     }
+
+    protected void cancelExecution() {
+    }
   }
 }

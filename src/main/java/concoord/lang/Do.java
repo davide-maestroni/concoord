@@ -59,5 +59,8 @@ public class Do<T> implements Task<T> {
       block.execute().apply(flowControl);
       return true;
     }
+
+    protected void cancelExecution() {
+    }
   }
 }

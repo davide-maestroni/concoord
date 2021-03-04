@@ -17,6 +17,7 @@ package concoord.lang;
 
 import concoord.concurrent.Awaitable;
 import concoord.concurrent.Awaiter;
+import concoord.concurrent.Cancelable;
 import concoord.concurrent.Scheduler;
 import concoord.concurrent.Task;
 import concoord.flow.Result;
@@ -71,6 +72,7 @@ public class For<T, M> implements Task<T> {
     private final int maxEvents;
     private final Awaitable<M> awaitable;
     private final Block<T, ? super M> block;
+    private Cancelable cancelable;
     private State<T> state = input;
     private int events;
 
@@ -86,6 +88,11 @@ public class For<T, M> implements Task<T> {
     @Override
     protected boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
       return state.executeBlock(flowControl);
+    }
+
+    @Override
+    protected void cancelExecution() {
+      state.cancelExecution();
     }
 
     public void message(M message) {
@@ -114,6 +121,8 @@ public class For<T, M> implements Task<T> {
     private interface State<T> {
 
       boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception;
+
+      void cancelExecution();
     }
 
     private class InputState implements State<T> {
@@ -121,11 +130,18 @@ public class For<T, M> implements Task<T> {
       public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) {
         state = message;
         events = maxEvents;
-        awaitable.await(events, ForAwaitable.this);
+        cancelable = awaitable.await(events, ForAwaitable.this);
         if (maxEvents < 0) {
           events = 1;
         }
         return false;
+      }
+
+      public void cancelExecution() {
+        final Cancelable cancelable = ForAwaitable.this.cancelable;
+        if (cancelable != null) {
+          cancelable.cancel();
+        }
       }
     }
 
@@ -146,9 +162,16 @@ public class For<T, M> implements Task<T> {
         }
         if (events < 1) {
           events = flowControl.inputEvents();
-          awaitable.await(events, ForAwaitable.this);
+          cancelable = awaitable.await(events, ForAwaitable.this);
         }
         return false;
+      }
+
+      public void cancelExecution() {
+        final Cancelable cancelable = ForAwaitable.this.cancelable;
+        if (cancelable != null) {
+          cancelable.cancel();
+        }
       }
     }
 
@@ -160,6 +183,7 @@ public class For<T, M> implements Task<T> {
         this.error = error;
       }
 
+      @Override
       public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
         if (!super.executeBlock(flowControl)) {
           flowControl.abort(error);
@@ -167,15 +191,24 @@ public class For<T, M> implements Task<T> {
         }
         return true;
       }
+
+      @Override
+      public void cancelExecution() {
+      }
     }
 
     private class EndState extends MessageState {
 
+      @Override
       public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
         if (!super.executeBlock(flowControl)) {
           flowControl.stop();
         }
         return true;
+      }
+
+      @Override
+      public void cancelExecution() {
       }
     }
   }

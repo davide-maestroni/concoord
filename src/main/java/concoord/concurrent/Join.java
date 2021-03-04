@@ -102,19 +102,22 @@ public class Join<T> implements Iterable<T> {
       final TimeoutProvider timeoutProvider = this.timeoutProvider;
       synchronized (mutex) {
         while (true) {
-          if (!queue.isEmpty()) {
-            return true;
-          }
-          if (isDone) {
-            return false;
-          }
-          if (throwable != null) {
-            throw new JoinException(throwable);
-          }
           long timeoutMs = timeoutProvider.getNextTimeout(startTimeMs);
-          if (timeoutMs > 0) {
+          if (timeoutMs >= 0) {
             // await events
             awaitable.await(maxEvents, awaiter);
+            if (!queue.isEmpty()) {
+              return true;
+            }
+            if (isDone) {
+              return false;
+            }
+            if (throwable != null) {
+              throw new JoinException(throwable);
+            }
+            if (timeoutMs == 0) {
+              break;
+            }
             try {
               mutex.wait(timeoutMs);
             } catch (final InterruptedException e) {

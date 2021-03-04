@@ -18,11 +18,9 @@ package concoord.concurrent;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import concoord.lang.Do;
+import concoord.lang.Iter;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.jetbrains.annotations.NotNull;
@@ -32,33 +30,35 @@ public class JoinTest {
 
   @Test
   public void join() {
-    IterableAwaitable<String> awaitable = new IterableAwaitable<>(Arrays.asList("a", "b", "c"));
+    Awaitable<String> awaitable = new Iter<>(Arrays.asList("a", "b", "c")).on(new Trampoline());
     assertThat(new Join<>(awaitable, 1, 1, TimeUnit.SECONDS).toList()).containsExactly("a", "b", "c");
   }
 
   @Test
   public void joinTotal() {
-    IterableAwaitable<String> awaitable = new IterableAwaitable<>(Arrays.asList("a", "b", "c"));
+    Awaitable<String> awaitable = new Iter<>(Arrays.asList("a", "b", "c")).on(new Trampoline());
     assertThat(new Join<>(awaitable, 10, 1, 1, TimeUnit.SECONDS).toList()).containsExactly("a", "b", "c");
   }
 
   @Test
   public void joinRemove() {
-    IterableAwaitable<String> awaitable = new IterableAwaitable<>(Collections.emptyList());
+    Awaitable<String> awaitable = new Iter<>(Arrays.asList("a", "b", "c")).on(new Trampoline());
     assertThatThrownBy(() -> new Join<>(awaitable, 1, 1, TimeUnit.SECONDS).iterator().remove())
         .isInstanceOf(UnsupportedOperationException.class);
   }
 
   @Test
   public void joinTotalRemove() {
-    IterableAwaitable<String> awaitable = new IterableAwaitable<>(Collections.emptyList());
+    Awaitable<String> awaitable = new Iter<>(Arrays.asList("a", "b", "c")).on(new Trampoline());
     assertThatThrownBy(() -> new Join<>(awaitable, 10, 1, 1, TimeUnit.SECONDS).iterator().remove())
         .isInstanceOf(UnsupportedOperationException.class);
   }
 
   @Test
   public void joinException() {
-    ExceptionAwaitable<String> awaitable = new ExceptionAwaitable<>(new ArithmeticException());
+    Awaitable<String> awaitable = new Do<String>(() -> {
+      throw new ArithmeticException();
+    }).on(new Trampoline());
     assertThatThrownBy(() -> new Join<>(awaitable, 1, 1, TimeUnit.SECONDS).toList())
         .isInstanceOf(JoinException.class)
         .hasCauseInstanceOf(ArithmeticException.class);
@@ -66,7 +66,9 @@ public class JoinTest {
 
   @Test
   public void joinTotalException() {
-    ExceptionAwaitable<String> awaitable = new ExceptionAwaitable<>(new ArithmeticException());
+    Awaitable<String> awaitable = new Do<String>(() -> {
+      throw new ArithmeticException();
+    }).on(new Trampoline());
     assertThatThrownBy(() -> new Join<>(awaitable, 10, 1, 1, TimeUnit.SECONDS).toList())
         .isInstanceOf(JoinException.class)
         .hasCauseInstanceOf(ArithmeticException.class);
@@ -128,17 +130,23 @@ public class JoinTest {
 
   private static class DummyAwaitable<T> implements Awaitable<T> {
 
+    @NotNull
     @Override
-    public void await(int maxEvents) {
+    public Cancelable await(int maxEvents) {
+      return new DummyCancelable();
     }
 
+    @NotNull
     @Override
-    public void await(int maxEvents, @NotNull Awaiter<? super T> awaiter) {
+    public Cancelable await(int maxEvents, @NotNull Awaiter<? super T> awaiter) {
+      return new DummyCancelable();
     }
 
+    @NotNull
     @Override
-    public void await(int maxEvents, @NotNull UnaryAwaiter<? super T> messageAwaiter,
+    public Cancelable await(int maxEvents, @NotNull UnaryAwaiter<? super T> messageAwaiter,
         @NotNull UnaryAwaiter<? super Throwable> errorAwaiter, @NotNull NullaryAwaiter endAwaiter) {
+      return new DummyCancelable();
     }
 
     @Override
@@ -146,105 +154,20 @@ public class JoinTest {
     }
   }
 
-  private static class ExceptionAwaitable<T> implements Awaitable<T> {
+  private static class DummyCancelable implements Cancelable {
 
-    private final ExecutorService service = Executors.newSingleThreadExecutor();
-    private final Throwable throwable;
-
-    private ExceptionAwaitable(@NotNull Throwable throwable) {
-      this.throwable = throwable;
+    @Override
+    public boolean isError() {
+      return false;
     }
 
     @Override
-    public void await(int maxEvents) {
+    public boolean isDone() {
+      return false;
     }
 
     @Override
-    public void await(int maxEvents, @NotNull Awaiter<? super T> awaiter) {
-      service.execute(() -> {
-        try {
-          awaiter.error(throwable);
-        } catch (Exception ex) {
-          throw new RuntimeException(ex);
-        }
-      });
-    }
-
-    @Override
-    public void await(int maxEvents, @NotNull UnaryAwaiter<? super T> messageAwaiter,
-        @NotNull UnaryAwaiter<? super Throwable> errorAwaiter, @NotNull NullaryAwaiter endAwaiter) {
-      service.execute(() -> {
-        try {
-          errorAwaiter.event(throwable);
-        } catch (Exception ex) {
-          throw new RuntimeException(ex);
-        }
-      });
-    }
-
-    @Override
-    public void abort() {
-    }
-  }
-
-  private static class IterableAwaitable<T> implements Awaitable<T> {
-
-    private final ExecutorService service = Executors.newSingleThreadExecutor();
-    private final Iterator<T> iterator;
-
-    private IterableAwaitable(@NotNull Iterable<T> values) {
-      this.iterator = values.iterator();
-    }
-
-    @Override
-    public void await(int maxEvents) {
-    }
-
-    @Override
-    public void await(int maxEvents, @NotNull Awaiter<? super T> awaiter) {
-      service.execute(() -> {
-        try {
-          for (int i = 0; i < maxEvents; ++i) {
-            if (iterator.hasNext()) {
-              awaiter.message(iterator.next());
-            } else {
-              awaiter.end();
-            }
-          }
-        } catch (Exception e) {
-          try {
-            awaiter.error(e);
-          } catch (Exception ex) {
-            throw new RuntimeException(ex);
-          }
-        }
-      });
-    }
-
-    @Override
-    public void await(int maxEvents, @NotNull UnaryAwaiter<? super T> messageAwaiter,
-        @NotNull UnaryAwaiter<? super Throwable> errorAwaiter, @NotNull NullaryAwaiter endAwaiter) {
-      service.execute(() -> {
-        try {
-          for (int i = 0; i < maxEvents; ++i) {
-            if (iterator.hasNext()) {
-              messageAwaiter.event(iterator.next());
-            } else {
-              endAwaiter.event();
-            }
-          }
-        } catch (Exception e) {
-          try {
-            errorAwaiter.event(e);
-          } catch (Exception ex) {
-            throw new RuntimeException(ex);
-          }
-        }
-      });
-    }
-
-    @Override
-    public void abort() {
+    public void cancel() {
     }
   }
 }
