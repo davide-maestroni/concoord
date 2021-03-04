@@ -15,50 +15,42 @@
  */
 package concoord.data;
 
-import java.util.ArrayList;
+import concoord.util.assertion.IfNull;
 import java.util.Iterator;
 import org.jetbrains.annotations.NotNull;
 
-public class First<M> implements Buffer<M> {
+public class FirstOf<M> implements Buffer<M> {
 
-  private final ArrayList<M> data = new ArrayList<M>();
+  private final Buffer<M> buffer;
   private final int maxMessages;
 
-  public First(int maxMessages) {
+  public FirstOf(int maxMessages, @NotNull Buffer<M> buffer) {
+    new IfNull(buffer, "buffer").throwException();
     this.maxMessages = maxMessages;
+    this.buffer = buffer;
   }
 
   public void add(M message) {
-    final ArrayList<M> data = this.data;
-    if (data.size() < maxMessages) {
-      data.add(message);
+    final Buffer<M> buffer = this.buffer;
+    if (buffer.size() < maxMessages) {
+      buffer.add(message);
     }
+  }
+
+  public void remove(int index) {
+    buffer.remove(index);
+  }
+
+  public M get(int index) {
+    return buffer.get(index);
+  }
+
+  public int size() {
+    return buffer.size();
   }
 
   @NotNull
   public Iterator<M> iterator() {
-    return new LastIterator<M>(data);
-  }
-
-  private static class LastIterator<M> implements Iterator<M> {
-
-    private final ArrayList<M> data;
-    private int index = 0;
-
-    private LastIterator(@NotNull ArrayList<M> data) {
-      this.data = data;
-    }
-
-    public boolean hasNext() {
-      return data.size() > index;
-    }
-
-    public M next() {
-      return data.get(index++);
-    }
-
-    public void remove() {
-      throw new UnsupportedOperationException("remove");
-    }
+    return buffer.iterator();
   }
 }

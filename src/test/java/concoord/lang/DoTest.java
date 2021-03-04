@@ -169,7 +169,8 @@ public class DoTest {
     ArrayList<String> messages = new ArrayList<>();
     AtomicReference<Throwable> testError = new AtomicReference<>();
     AtomicBoolean testEnd = new AtomicBoolean();
-    Cancelable cancelable = awaitable.await(-1, messages::add, testError::set, () -> testEnd.set(true));
+    Cancelable cancelable =
+        awaitable.await(-1, messages::add, testError::set, () -> testEnd.set(true));
     lazyExecutor.advance(4);
     cancelable.cancel();
     lazyExecutor.advance(Integer.MAX_VALUE);
@@ -188,7 +189,8 @@ public class DoTest {
     ArrayList<String> messages = new ArrayList<>();
     AtomicReference<Throwable> testError = new AtomicReference<>();
     AtomicBoolean testEnd = new AtomicBoolean();
-    Cancelable cancelable = awaitable.await(-1, messages::add, testError::set, () -> testEnd.set(true));
+    Cancelable cancelable =
+        awaitable.await(-1, messages::add, testError::set, () -> testEnd.set(true));
     lazyExecutor.advance(5);
     cancelable.cancel();
     lazyExecutor.advance(Integer.MAX_VALUE);

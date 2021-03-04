@@ -31,13 +31,15 @@ public class JoinTest {
   @Test
   public void join() {
     Awaitable<String> awaitable = new Iter<>(Arrays.asList("a", "b", "c")).on(new Trampoline());
-    assertThat(new Join<>(awaitable, 1, 1, TimeUnit.SECONDS).toList()).containsExactly("a", "b", "c");
+    assertThat(new Join<>(awaitable, 1, 1, TimeUnit.SECONDS).toList())
+        .containsExactly("a", "b", "c");
   }
 
   @Test
   public void joinTotal() {
     Awaitable<String> awaitable = new Iter<>(Arrays.asList("a", "b", "c")).on(new Trampoline());
-    assertThat(new Join<>(awaitable, 10, 1, 1, TimeUnit.SECONDS).toList()).containsExactly("a", "b", "c");
+    assertThat(new Join<>(awaitable, 10, 1, 1, TimeUnit.SECONDS).toList())
+        .containsExactly("a", "b", "c");
   }
 
   @Test

@@ -15,65 +15,221 @@
  */
 package concoord.data;
 
+import concoord.util.assertion.IfNull;
+import concoord.util.collection.CircularQueue;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
+import java.util.Queue;
 import org.jetbrains.annotations.NotNull;
 
 public class Buffered<M> implements Buffer<M> {
 
-  private final Buffer<M> data;
+  private final Buffer<M> buffer;
 
-  public Buffered(@NotNull final Collection<M> data) {
-    this.data = new Buffer<M>() {
-      public void add(M message) {
-        data.add(message);
+  public Buffered(@NotNull Collection<M> data) {
+    new IfNull(data, "data").throwException();
+    this.buffer = new BufferedCollection<M>(data);
+  }
+
+  public Buffered(@NotNull List<M> data) {
+    new IfNull(data, "data").throwException();
+    this.buffer = new BufferedList<M>(data);
+  }
+
+  public Buffered(@NotNull Queue<M> data) {
+    new IfNull(data, "data").throwException();
+    this.buffer = new BufferedQueue<M>(data);
+  }
+
+  public Buffered(@NotNull CircularQueue<M> data) {
+    new IfNull(data, "data").throwException();
+    this.buffer = new BufferedCircularQueue<M>(data);
+  }
+
+  public void add(M message) {
+    buffer.add(message);
+  }
+
+  public void remove(int index) {
+    buffer.remove(index);
+  }
+
+  public M get(int index) {
+    return buffer.get(index);
+  }
+
+  public int size() {
+    return buffer.size();
+  }
+
+  @NotNull
+  public Iterator<M> iterator() {
+    return buffer.iterator();
+  }
+
+  private static class BufferedCollection<M> implements Buffer<M> {
+
+    private final Collection<M> data;
+
+    private BufferedCollection(@NotNull Collection<M> data) {
+      this.data = data;
+    }
+
+    public void add(M message) {
+      data.add(message);
+    }
+
+    public void remove(int index) {
+      final Iterator<M> iterator = data.iterator();
+      for (int i = 0; i <= index; ++i) {
+        iterator.next();
       }
+      iterator.remove();
+    }
 
-      public void remove(int index) {
+    public M get(int index) {
+      final Iterator<M> iterator = data.iterator();
+      for (int i = 0; i < index; ++i) {
+        iterator.next();
+      }
+      return iterator.next();
+    }
+
+    public int size() {
+      return data.size();
+    }
+
+    @NotNull
+    public Iterator<M> iterator() {
+      return new BufferedIterator<M>(this);
+    }
+  }
+
+  private static class BufferedList<M> implements Buffer<M> {
+
+    private final List<M> data;
+
+    private BufferedList(@NotNull List<M> data) {
+      this.data = data;
+    }
+
+    public void add(M message) {
+      data.add(message);
+    }
+
+    public void remove(int index) {
+      data.remove(index);
+    }
+
+    public M get(int index) {
+      return data.get(index);
+    }
+
+    public int size() {
+      return data.size();
+    }
+
+    @NotNull
+    public Iterator<M> iterator() {
+      return new BufferedIterator<M>(this);
+    }
+  }
+
+  private static class BufferedQueue<M> implements Buffer<M> {
+
+    private final Queue<M> data;
+
+    private BufferedQueue(@NotNull Queue<M> data) {
+      this.data = data;
+    }
+
+    public void add(M message) {
+      data.add(message);
+    }
+
+    public void remove(int index) {
+      if (index == 0) {
+        data.remove();
+      } else {
         final Iterator<M> iterator = data.iterator();
         for (int i = 0; i <= index; ++i) {
           iterator.next();
         }
         iterator.remove();
       }
+    }
 
-      public M get(int index) {
-        final Iterator<M> iterator = data.iterator();
-        for (int i = 0; i < index; ++i) {
-          iterator.next();
-        }
-        return iterator.next();
+    public M get(int index) {
+      if (index == 0) {
+        return data.peek();
       }
-
-      public int size() {
-        return data.size();
+      final Iterator<M> iterator = data.iterator();
+      for (int i = 0; i < index; ++i) {
+        iterator.next();
       }
+      return iterator.next();
+    }
 
-      @NotNull
-      public Iterator<M> iterator() {
-        return null;
-      }
-    };
+    public int size() {
+      return data.size();
+    }
+
+    @NotNull
+    public Iterator<M> iterator() {
+      return new BufferedIterator<M>(this);
+    }
   }
 
-  public void add(M message) {
+  private static class BufferedCircularQueue<M> implements Buffer<M> {
 
+    private final CircularQueue<M> data;
+
+    private BufferedCircularQueue(@NotNull CircularQueue<M> data) {
+      this.data = data;
+    }
+
+    public void add(M message) {
+      data.add(message);
+    }
+
+    public void remove(int index) {
+      data.remove(index);
+    }
+
+    public M get(int index) {
+      return data.get(index);
+    }
+
+    public int size() {
+      return data.size();
+    }
+
+    @NotNull
+    public Iterator<M> iterator() {
+      return new BufferedIterator<M>(this);
+    }
   }
 
-  public void remove(int index) {
+  private static class BufferedIterator<M> implements Iterator<M> {
 
-  }
+    private final Buffer<M> data;
+    private int index = 0;
 
-  public M get(int index) {
-    return null;
-  }
+    private BufferedIterator(@NotNull Buffer<M> buffer) {
+      this.data = buffer;
+    }
 
-  public int size() {
-    return 0;
-  }
+    public boolean hasNext() {
+      return data.size() > index;
+    }
 
-  @NotNull
-  public Iterator<M> iterator() {
-    return null;
+    public M next() {
+      return data.get(index++);
+    }
+
+    public void remove() {
+      throw new UnsupportedOperationException("remove");
+    }
   }
 }

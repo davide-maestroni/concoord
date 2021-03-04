@@ -15,56 +15,69 @@
  */
 package concoord.data;
 
-import concoord.util.collection.CircularQueue;
-import java.util.Collection;
+import concoord.util.assertion.IfNull;
 import java.util.Iterator;
 import java.util.WeakHashMap;
 import org.jetbrains.annotations.NotNull;
 
-public class Last<M> implements Buffer<M> {
+public class LastOf<M> implements Buffer<M> {
 
   private final WeakHashMap<LastIterator<M>, Void> iterators =
       new WeakHashMap<LastIterator<M>, Void>();
-  private final CircularQueue<M> data = new CircularQueue<M>();
+  private final Buffer<M> buffer;
   private final int maxMessages;
 
-  public Last(int maxMessages) {
+  public LastOf(int maxMessages, @NotNull Buffer<M> buffer) {
+    new IfNull(buffer, "buffer").throwException();
     this.maxMessages = maxMessages;
+    this.buffer = buffer;
   }
 
   public void add(M message) {
-    final CircularQueue<M> data = this.data;
-    data.offer(message);
-    if (data.size() > maxMessages) {
-      data.remove();
+    final Buffer<M> buffer = this.buffer;
+    buffer.add(message);
+    if (buffer.size() > maxMessages) {
+      buffer.remove(0);
       for (final LastIterator<M> iterator : iterators.keySet()) {
         iterator.advanceHead();
       }
     }
   }
 
+  public void remove(int index) {
+    buffer.remove(index);
+  }
+
+  public M get(int index) {
+    return buffer.get(index);
+  }
+
+  public int size() {
+    return buffer.size();
+  }
+
   @NotNull
   public Iterator<M> iterator() {
-    final LastIterator<M> iterator = new LastIterator<M>(data);
+    final LastIterator<M> iterator = new LastIterator<M>(buffer);
     iterators.put(iterator, null);
     return iterator;
   }
 
   private static class LastIterator<M> implements Iterator<M> {
 
-    private final CircularQueue<M> data;
+    private final Buffer<M> buffer;
     private int index = 0;
 
-    private LastIterator(@NotNull CircularQueue<M> data) {
-      this.data = data;
+    private LastIterator(@NotNull Buffer<M> buffer) {
+      this.buffer = buffer;
     }
 
     public boolean hasNext() {
-      return data.size() > index;
+      return buffer.size() > index;
     }
 
     public M next() {
-      return data.get(index++);
+      return buffer.get(index++);
     }
 
     public void remove() {

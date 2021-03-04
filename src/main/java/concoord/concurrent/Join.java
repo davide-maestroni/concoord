@@ -84,17 +84,19 @@ public class Join<T> implements Iterable<T> {
     private Throwable throwable;
     private boolean isDone;
 
-    private JoinIterator(@NotNull Awaitable<T> awaitable, int maxEvents, long nextTimeout, @NotNull TimeUnit timeUnit) {
+    private JoinIterator(@NotNull Awaitable<T> awaitable, int maxEvents, long nextTimeout,
+        @NotNull TimeUnit timeUnit) {
       this.awaitable = awaitable;
       this.maxEvents = maxEvents;
       this.timeoutProvider = new UnboundTimeoutProvider(timeUnit.toMillis(nextTimeout));
     }
 
-    private JoinIterator(@NotNull Awaitable<T> awaitable, int maxEvents, long nextTimeout, long totalTimeout,
-        @NotNull TimeUnit timeUnit) {
+    private JoinIterator(@NotNull Awaitable<T> awaitable, int maxEvents, long nextTimeout,
+        long totalTimeout, @NotNull TimeUnit timeUnit) {
       this.awaitable = awaitable;
       this.maxEvents = maxEvents;
-      this.timeoutProvider = new BoundTimeoutProvider(timeUnit.toMillis(nextTimeout), timeUnit.toMillis(totalTimeout));
+      this.timeoutProvider = new BoundTimeoutProvider(timeUnit.toMillis(nextTimeout),
+          timeUnit.toMillis(totalTimeout));
     }
 
     public boolean hasNext() {
@@ -128,7 +130,8 @@ public class Join<T> implements Iterable<T> {
           }
         }
         // timeout
-        throw new JoinTimeoutException("no event received after ms: " + (startTimeMs - System.currentTimeMillis()));
+        throw new JoinTimeoutException("no event received after ms: "
+            + (startTimeMs - System.currentTimeMillis()));
       }
     }
 

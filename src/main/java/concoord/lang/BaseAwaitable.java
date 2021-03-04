@@ -181,7 +181,8 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
     }
   }
 
-  private class InternalFlowControl implements AwaitableFlowControl<T>, Awaiter<T>, Cancelable, Runnable {
+  private class InternalFlowControl implements AwaitableFlowControl<T>, Awaiter<T>, Cancelable,
+      Runnable {
 
     private static final int ERROR = -1;
     private static final int DONE = 1;

@@ -27,7 +27,8 @@ public class Novenary<T1, T2, T3, T4, T5, T6, T7, T8, T9> {
   private final T8 eighth;
   private final T9 ninth;
 
-  public Novenary(T1 first, T2 second, T3 third, T4 fourth, T5 fifth, T6 sixth, T7 seventh, T8 eighth, T9 ninth) {
+  public Novenary(T1 first, T2 second, T3 third, T4 fourth, T5 fifth, T6 sixth, T7 seventh,
+      T8 eighth, T9 ninth) {
     this.first = first;
     this.second = second;
     this.third = third;

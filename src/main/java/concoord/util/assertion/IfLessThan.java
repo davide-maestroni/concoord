@@ -28,7 +28,8 @@ public class IfLessThan extends IfAnyOf {
       @Nullable
       public RuntimeException getException() {
         if (number < limit) {
-          return new IllegalArgumentException(name + " cannot be less than " + limit + ", but it was: " + number);
+          return new IllegalArgumentException(name + " cannot be less than " + limit
+              + ", but it was: " + number);
         }
         return null;
       }
@@ -44,7 +45,8 @@ public class IfLessThan extends IfAnyOf {
       @Nullable
       public RuntimeException getException() {
         if (number < limit) {
-          return new IllegalArgumentException(name + " cannot be less than " + limit + ", but it was: " + number);
+          return new IllegalArgumentException(name + " cannot be less than " + limit
+              + ", but it was: " + number);
         }
         return null;
       }
@@ -60,7 +62,8 @@ public class IfLessThan extends IfAnyOf {
       @Nullable
       public RuntimeException getException() {
         if (number < limit) {
-          return new IllegalArgumentException(name + " cannot be less than " + limit + ", but it was: " + number);
+          return new IllegalArgumentException(name + " cannot be less than " + limit
+              + ", but it was: " + number);
         }
         return null;
       }
@@ -76,7 +79,8 @@ public class IfLessThan extends IfAnyOf {
       @Nullable
       public RuntimeException getException() {
         if (number < limit) {
-          return new IllegalArgumentException(name + " cannot be less than " + limit + ", but it was: " + number);
+          return new IllegalArgumentException(name + " cannot be less than " + limit
+              + ", but it was: " + number);
         }
         return null;
       }
