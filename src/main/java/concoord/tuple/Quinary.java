@@ -85,4 +85,14 @@ public class Quinary<T1, T2, T3, T4, T5> {
     result = 31 * result + (fifth != null ? fifth.hashCode() : 0);
     return result;
   }
+
+  @Override
+  public String toString() {
+    return "Quinary{first=" + first
+        + ", second=" + second
+        + ", third=" + third
+        + ", fourth=" + fourth
+        + ", fifth=" + fifth
+        + '}';
+  }
 }

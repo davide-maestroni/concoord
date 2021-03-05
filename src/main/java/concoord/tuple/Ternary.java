@@ -65,4 +65,12 @@ public class Ternary<T1, T2, T3> {
     result = 31 * result + (third != null ? third.hashCode() : 0);
     return result;
   }
+
+  @Override
+  public String toString() {
+    return "Ternary{first=" + first
+        + ", second=" + second
+        + ", third=" + third
+        + '}';
+  }
 }

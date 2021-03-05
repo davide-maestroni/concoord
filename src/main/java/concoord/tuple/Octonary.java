@@ -116,4 +116,17 @@ public class Octonary<T1, T2, T3, T4, T5, T6, T7, T8> {
     result = 31 * result + (eighth != null ? eighth.hashCode() : 0);
     return result;
   }
+
+  @Override
+  public String toString() {
+    return "Octonary{first=" + first
+        + ", second=" + second
+        + ", third=" + third
+        + ", fourth=" + fourth
+        + ", fifth=" + fifth
+        + ", sixth=" + sixth
+        + ", seventh=" + seventh
+        + ", eighth=" + eighth
+        + '}';
+  }
 }

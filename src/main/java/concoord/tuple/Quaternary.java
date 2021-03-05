@@ -75,4 +75,13 @@ public class Quaternary<T1, T2, T3, T4> {
     result = 31 * result + (fourth != null ? fourth.hashCode() : 0);
     return result;
   }
+
+  @Override
+  public String toString() {
+    return "Quaternary{first=" + first
+        + ", second=" + second
+        + ", third=" + third
+        + ", fourth=" + fourth
+        + '}';
+  }
 }

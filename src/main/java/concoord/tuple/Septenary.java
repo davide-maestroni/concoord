@@ -105,4 +105,16 @@ public class Septenary<T1, T2, T3, T4, T5, T6, T7> {
     result = 31 * result + (seventh != null ? seventh.hashCode() : 0);
     return result;
   }
+
+  @Override
+  public String toString() {
+    return "Septenary{first=" + first
+        + ", second=" + second
+        + ", third=" + third
+        + ", fourth=" + fourth
+        + ", fifth=" + fifth
+        + ", sixth=" + sixth
+        + ", seventh=" + seventh
+        + '}';
+  }
 }

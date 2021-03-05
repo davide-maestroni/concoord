@@ -55,4 +55,11 @@ public class Binary<T1, T2> {
     result = 31 * result + (second != null ? second.hashCode() : 0);
     return result;
   }
+
+  @Override
+  public String toString() {
+    return "Binary{first=" + first
+        + ", second=" + second
+        + '}';
+  }
 }

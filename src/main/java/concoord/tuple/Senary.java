@@ -95,4 +95,15 @@ public class Senary<T1, T2, T3, T4, T5, T6> {
     result = 31 * result + (sixth != null ? sixth.hashCode() : 0);
     return result;
   }
+
+  @Override
+  public String toString() {
+    return "Senary{first=" + first
+        + ", second=" + second
+        + ", third=" + third
+        + ", fourth=" + fourth
+        + ", fifth=" + fifth
+        + ", sixth=" + sixth
+        + '}';
+  }
 }

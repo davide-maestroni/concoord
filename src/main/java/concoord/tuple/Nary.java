@@ -54,4 +54,9 @@ public class Nary<T> {
   public int hashCode() {
     return elements != null ? elements.hashCode() : 0;
   }
+
+  @Override
+  public String toString() {
+    return "Nary{elements=" + elements + '}';
+  }
 }

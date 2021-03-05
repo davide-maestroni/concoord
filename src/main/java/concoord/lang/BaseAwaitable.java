@@ -187,6 +187,7 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
       Runnable {
 
     private static final int ERROR = -1;
+    private static final int RUNNING = 0;
     private static final int DONE = 1;
 
     private final Logger flowLogger = new Logger(FlowControl.class, this);
@@ -248,9 +249,19 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
     }
 
     public void stop() {
-      stopped = true;
-      flowLogger.log(new DbgMessage("[stopped]"));
-      awaitableLogger.log(new InfMessage("[complete]"));
+      try {
+        cancelExecution();
+        stopped = true;
+        flowLogger.log(new DbgMessage("[stopped]"));
+        awaitableLogger.log(new InfMessage("[complete]"));
+      } catch (final Exception e) {
+        awaitableLogger.log(new ErrMessage(new LogMessage("failed to cancel execution"), e));
+        new IfInterrupt(e).throwException();
+        if (events != 0) {
+          sendError(e);
+        }
+        nextFlowControl();
+      }
     }
 
     public void message(T message) {
@@ -297,6 +308,9 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
     }
 
     public void cancel() {
+      if (status.get() != RUNNING) {
+        return;
+      }
       scheduler.scheduleHigh(new Runnable() {
         public void run() {
           final Iterator<InternalFlowControl> iterator = flowControls.iterator();
