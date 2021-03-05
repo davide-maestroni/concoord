@@ -15,7 +15,6 @@
  */
 package concoord.data;
 
-import concoord.tuple.Binary;
 import concoord.util.assertion.IfNull;
 import concoord.util.assertion.IfSomeOf;
 import java.util.Iterator;
@@ -24,20 +23,19 @@ import org.jetbrains.annotations.NotNull;
 
 public class ExpiringAfter<M> implements Buffer<M> {
 
-  private final Buffer<Binary<Long, M>> buffer;
+  private final Buffer<Timed<M>> buffer;
   private final TimeUnit timeUnit;
   private final long timeout;
 
   public ExpiringAfter(long timeout, @NotNull TimeUnit timeUnit) {
-    this(timeout, timeUnit, new Buffered<Binary<Long, M>>());
+    this(timeout, timeUnit, new Buffered<Timed<M>>());
   }
 
   public ExpiringAfter(long timeout, @NotNull TimeUnit timeUnit, int initialCapacity) {
-    this(timeout, timeUnit, new Buffered<Binary<Long, M>>(initialCapacity));
+    this(timeout, timeUnit, new Buffered<Timed<M>>(initialCapacity));
   }
 
-  public ExpiringAfter(long timeout, @NotNull TimeUnit timeUnit,
-      @NotNull Buffer<Binary<Long, M>> buffer) {
+  public ExpiringAfter(long timeout, @NotNull TimeUnit timeUnit, @NotNull Buffer<Timed<M>> buffer) {
     new IfSomeOf(
         new IfNull("buffer", buffer),
         new IfNull("timeUnit", timeUnit)
@@ -49,7 +47,7 @@ public class ExpiringAfter<M> implements Buffer<M> {
 
   public void add(M message) {
     buffer.add(
-        new Binary<Long, M>(System.currentTimeMillis() + timeUnit.toMillis(timeout), message)
+        new Timed<M>(System.currentTimeMillis() + timeUnit.toMillis(timeout), message)
     );
     pruneExpired();
   }
@@ -60,7 +58,7 @@ public class ExpiringAfter<M> implements Buffer<M> {
   }
 
   public M get(int index) {
-    return buffer.get(index).second();
+    return buffer.get(index).getMessage();
   }
 
   public int size() {
@@ -76,8 +74,8 @@ public class ExpiringAfter<M> implements Buffer<M> {
   private void pruneExpired() {
     final long now = System.currentTimeMillis();
     for (int i = 0; i < buffer.size(); ++i) {
-      final Binary<Long, M> binary = buffer.get(i);
-      if (binary.first() <= now) {
+      final Timed<M> timed = buffer.get(i);
+      if (timed.getExpireMillis() <= now) {
         // expired
         buffer.remove(i);
         --i;
@@ -85,11 +83,30 @@ public class ExpiringAfter<M> implements Buffer<M> {
     }
   }
 
+  public static class Timed<M> {
+
+    private final long expireMillis;
+    private final M message;
+
+    private Timed(long expireMillis, M message) {
+      this.expireMillis = expireMillis;
+      this.message = message;
+    }
+
+    public long getExpireMillis() {
+      return expireMillis;
+    }
+
+    public M getMessage() {
+      return message;
+    }
+  }
+
   private static class ExpiringIterator<M> implements Iterator<M> {
 
-    private final Iterator<Binary<Long, M>> iterator;
+    private final Iterator<Timed<M>> iterator;
 
-    private ExpiringIterator(@NotNull Iterator<Binary<Long, M>> iterator) {
+    private ExpiringIterator(@NotNull Iterator<Timed<M>> iterator) {
       this.iterator = iterator;
     }
 
@@ -98,7 +115,7 @@ public class ExpiringAfter<M> implements Buffer<M> {
     }
 
     public M next() {
-      return iterator.next().second();
+      return iterator.next().getMessage();
     }
 
     public void remove() {

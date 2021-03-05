@@ -43,6 +43,7 @@ public class AllTest {
     AtomicBoolean testEnd = new AtomicBoolean();
     awaitable.await(-1, messages::add, testError::set, () -> testEnd.set(true));
     lazyExecutor.advance(Integer.MAX_VALUE);
-    assertThat(messages).containsExactly(new Tuple<>("1", 1), new Tuple<>("2", 2), new Tuple<>("3", 3));
+    assertThat(messages)
+        .containsExactly(new Tuple<>("1", 1), new Tuple<>("2", 2), new Tuple<>("3", 3));
   }
 }

@@ -45,7 +45,8 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
     awaitables = Arrays.asList(first, second);
   }
 
-  public All(@NotNull Awaitable<T1> first, @NotNull Awaitable<T2> second, @NotNull Awaitable<T3> third) {
+  public All(@NotNull Awaitable<T1> first, @NotNull Awaitable<T2> second,
+      @NotNull Awaitable<T3> third) {
     new IfSomeOf(
         new IfNull("first", first),
         new IfNull("second", second),
@@ -54,8 +55,8 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
     awaitables = Arrays.asList(first, second, third);
   }
 
-  public All(@NotNull Awaitable<T1> first, @NotNull Awaitable<T2> second, @NotNull Awaitable<T3> third,
-      @NotNull Awaitable<T4> fourth) {
+  public All(@NotNull Awaitable<T1> first, @NotNull Awaitable<T2> second,
+      @NotNull Awaitable<T3> third, @NotNull Awaitable<T4> fourth) {
     new IfSomeOf(
         new IfNull("first", first),
         new IfNull("second", second),
@@ -65,8 +66,9 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
     awaitables = Arrays.asList(first, second, third, fourth);
   }
 
-  public All(@NotNull Awaitable<T1> first, @NotNull Awaitable<T2> second, @NotNull Awaitable<T3> third,
-      @NotNull Awaitable<T4> fourth, @NotNull Awaitable<T5> fifth) {
+  public All(@NotNull Awaitable<T1> first, @NotNull Awaitable<T2> second,
+      @NotNull Awaitable<T3> third, @NotNull Awaitable<T4> fourth,
+      @NotNull Awaitable<T5> fifth) {
     new IfSomeOf(
         new IfNull("first", first),
         new IfNull("second", second),
@@ -77,8 +79,9 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
     awaitables = Arrays.asList(first, second, third, fourth, fifth);
   }
 
-  public All(@NotNull Awaitable<T1> first, @NotNull Awaitable<T2> second, @NotNull Awaitable<T3> third,
-      @NotNull Awaitable<T4> fourth, @NotNull Awaitable<T5> fifth, @NotNull Awaitable<T6> sixth) {
+  public All(@NotNull Awaitable<T1> first, @NotNull Awaitable<T2> second,
+      @NotNull Awaitable<T3> third, @NotNull Awaitable<T4> fourth, @NotNull Awaitable<T5> fifth,
+      @NotNull Awaitable<T6> sixth) {
     new IfSomeOf(
         new IfNull("first", first),
         new IfNull("second", second),
@@ -90,9 +93,9 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
     awaitables = Arrays.asList(first, second, third, fourth, fifth, sixth);
   }
 
-  public All(@NotNull Awaitable<T1> first, @NotNull Awaitable<T2> second, @NotNull Awaitable<T3> third,
-      @NotNull Awaitable<T4> fourth, @NotNull Awaitable<T5> fifth, @NotNull Awaitable<T6> sixth,
-      @NotNull Awaitable<T7> seventh) {
+  public All(@NotNull Awaitable<T1> first, @NotNull Awaitable<T2> second,
+      @NotNull Awaitable<T3> third, @NotNull Awaitable<T4> fourth, @NotNull Awaitable<T5> fifth,
+      @NotNull Awaitable<T6> sixth, @NotNull Awaitable<T7> seventh) {
     new IfSomeOf(
         new IfNull("first", first),
         new IfNull("second", second),
@@ -105,9 +108,9 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
     awaitables = Arrays.asList(first, second, third, fourth, fifth, sixth, seventh);
   }
 
-  public All(@NotNull Awaitable<T1> first, @NotNull Awaitable<T2> second, @NotNull Awaitable<T3> third,
-      @NotNull Awaitable<T4> fourth, @NotNull Awaitable<T5> fifth, @NotNull Awaitable<T6> sixth,
-      @NotNull Awaitable<T7> seventh, @NotNull Awaitable<T8> eighth) {
+  public All(@NotNull Awaitable<T1> first, @NotNull Awaitable<T2> second,
+      @NotNull Awaitable<T3> third, @NotNull Awaitable<T4> fourth, @NotNull Awaitable<T5> fifth,
+      @NotNull Awaitable<T6> sixth, @NotNull Awaitable<T7> seventh, @NotNull Awaitable<T8> eighth) {
     new IfSomeOf(
         new IfNull("first", first),
         new IfNull("second", second),
@@ -121,9 +124,10 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
     awaitables = Arrays.asList(first, second, third, fourth, fifth, sixth, seventh, eighth);
   }
 
-  public All(@NotNull Awaitable<T1> first, @NotNull Awaitable<T2> second, @NotNull Awaitable<T3> third,
-      @NotNull Awaitable<T4> fourth, @NotNull Awaitable<T5> fifth, @NotNull Awaitable<T6> sixth,
-      @NotNull Awaitable<T7> seventh, @NotNull Awaitable<T8> eighth, @NotNull Awaitable<T9> ninth) {
+  public All(@NotNull Awaitable<T1> first, @NotNull Awaitable<T2> second,
+      @NotNull Awaitable<T3> third, @NotNull Awaitable<T4> fourth, @NotNull Awaitable<T5> fifth,
+      @NotNull Awaitable<T6> sixth, @NotNull Awaitable<T7> seventh, @NotNull Awaitable<T8> eighth,
+      @NotNull Awaitable<T9> ninth) {
     new IfSomeOf(
         new IfNull("first", first),
         new IfNull("second", second),
@@ -138,10 +142,10 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
     awaitables = Arrays.asList(first, second, third, fourth, fifth, sixth, seventh, eighth, ninth);
   }
 
-  public All(@NotNull Awaitable<T1> first, @NotNull Awaitable<T2> second, @NotNull Awaitable<T3> third,
-      @NotNull Awaitable<T4> fourth, @NotNull Awaitable<T5> fifth, @NotNull Awaitable<T6> sixth,
-      @NotNull Awaitable<T7> seventh, @NotNull Awaitable<T8> eighth, @NotNull Awaitable<T9> ninth,
-      @NotNull Awaitable<T10> tenth) {
+  public All(@NotNull Awaitable<T1> first, @NotNull Awaitable<T2> second,
+      @NotNull Awaitable<T3> third, @NotNull Awaitable<T4> fourth, @NotNull Awaitable<T5> fifth,
+      @NotNull Awaitable<T6> sixth, @NotNull Awaitable<T7> seventh, @NotNull Awaitable<T8> eighth,
+      @NotNull Awaitable<T9> ninth, @NotNull Awaitable<T10> tenth) {
     new IfSomeOf(
         new IfNull("first", first),
         new IfNull("second", second),
@@ -154,7 +158,8 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
         new IfNull("ninth", ninth),
         new IfNull("tenth", tenth)
     ).throwException();
-    awaitables = Arrays.asList(first, second, third, fourth, fifth, sixth, seventh, eighth, ninth, tenth);
+    awaitables =
+        Arrays.asList(first, second, third, fourth, fifth, sixth, seventh, eighth, ninth, tenth);
   }
 
   public All(@NotNull Awaitable<?>... awaitables) {
@@ -174,7 +179,8 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
   }
 
   @NotNull
-  public Awaitable<Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>> on(@NotNull Scheduler scheduler) {
+  public Awaitable<Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>> on(
+      @NotNull Scheduler scheduler) {
     new IfNull("scheduler", scheduler).throwException();
     return new AllAwaitable<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>(scheduler, awaitables);
   }
