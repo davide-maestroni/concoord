@@ -56,4 +56,43 @@ public class Senary<T1, T2, T3, T4, T5, T6> {
   public T6 sixth() {
     return sixth;
   }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+
+    Senary<?, ?, ?, ?, ?, ?> senary = (Senary<?, ?, ?, ?, ?, ?>) o;
+    if (first != null ? !first.equals(senary.first) : senary.first != null) {
+      return false;
+    }
+    if (second != null ? !second.equals(senary.second) : senary.second != null) {
+      return false;
+    }
+    if (third != null ? !third.equals(senary.third) : senary.third != null) {
+      return false;
+    }
+    if (fourth != null ? !fourth.equals(senary.fourth) : senary.fourth != null) {
+      return false;
+    }
+    if (fifth != null ? !fifth.equals(senary.fifth) : senary.fifth != null) {
+      return false;
+    }
+    return sixth != null ? sixth.equals(senary.sixth) : senary.sixth == null;
+  }
+
+  @Override
+  public int hashCode() {
+    int result = first != null ? first.hashCode() : 0;
+    result = 31 * result + (second != null ? second.hashCode() : 0);
+    result = 31 * result + (third != null ? third.hashCode() : 0);
+    result = 31 * result + (fourth != null ? fourth.hashCode() : 0);
+    result = 31 * result + (fifth != null ? fifth.hashCode() : 0);
+    result = 31 * result + (sixth != null ? sixth.hashCode() : 0);
+    return result;
+  }
 }

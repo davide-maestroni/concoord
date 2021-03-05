@@ -30,6 +30,7 @@ import concoord.logging.LogMessage;
 import concoord.logging.Logger;
 import concoord.logging.PrintIdentity;
 import concoord.logging.WrnMessage;
+import concoord.util.assertion.IfInterrupt;
 import concoord.util.assertion.IfNull;
 import concoord.util.collection.CircularQueue;
 import java.util.Iterator;
@@ -89,8 +90,9 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
             }
           }
           awaitableLogger.log(new InfMessage("[aborted]"));
-        } catch (Exception e) {
+        } catch (final Exception e) {
           awaitableLogger.log(new ErrMessage(new LogMessage("failed to cancel execution"), e));
+          new IfInterrupt(e).throwException();
           if ((flowControl != null) && (flowControl.events != 0)) {
             flowControl.sendError(e);
           }
@@ -221,6 +223,7 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
         awaiter.message(message);
         hasOutputs = true;
       } catch (final Exception e) {
+        new IfInterrupt(e).throwException();
         sendError(e);
       }
     }
@@ -309,6 +312,7 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
               state = new NoopState();
             } catch (final Exception e) {
               awaitableLogger.log(new ErrMessage(new LogMessage("failed to cancel execution"), e));
+              new IfInterrupt(e).throwException();
               if (events != 0) {
                 sendError(e);
               }
@@ -342,6 +346,7 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
                 e
             )
         );
+        new IfInterrupt(e).throwException();
       }
     }
 
@@ -358,6 +363,7 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
                 e
             )
         );
+        new IfInterrupt(e).throwException();
         sendError(e);
       }
     }
@@ -412,6 +418,7 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
             awaitableLogger.log(
                 new WrnMessage(new LogMessage("invocation failed with an exception"), e)
             );
+            new IfInterrupt(e).throwException();
             sendError(e);
             nextFlowControl();
             return;

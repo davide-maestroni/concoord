@@ -38,4 +38,31 @@ public class Ternary<T1, T2, T3> {
   public T3 third() {
     return third;
   }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+
+    Ternary<?, ?, ?> ternary = (Ternary<?, ?, ?>) o;
+    if (first != null ? !first.equals(ternary.first) : ternary.first != null) {
+      return false;
+    }
+    if (second != null ? !second.equals(ternary.second) : ternary.second != null) {
+      return false;
+    }
+    return third != null ? third.equals(ternary.third) : ternary.third == null;
+  }
+
+  @Override
+  public int hashCode() {
+    int result = first != null ? first.hashCode() : 0;
+    result = 31 * result + (second != null ? second.hashCode() : 0);
+    result = 31 * result + (third != null ? third.hashCode() : 0);
+    return result;
+  }
 }

@@ -21,11 +21,20 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Queue;
+import java.util.WeakHashMap;
 import org.jetbrains.annotations.NotNull;
 
 public class Buffered<M> implements Buffer<M> {
 
   private final Buffer<M> buffer;
+
+  public Buffered() {
+    this(new CircularQueue<M>());
+  }
+
+  public Buffered(int initialCapacity) {
+    this(new CircularQueue<M>(initialCapacity));
+  }
 
   public Buffered(@NotNull Collection<M> data) {
     new IfNull(data, "data").throwException();
@@ -68,7 +77,26 @@ public class Buffered<M> implements Buffer<M> {
     return buffer.iterator();
   }
 
-  private static class BufferedCollection<M> implements Buffer<M> {
+  private static abstract class BaseBuffer<M> implements Buffer<M> {
+
+    private final WeakHashMap<BufferedIterator<M>, Void> iterators =
+        new WeakHashMap<BufferedIterator<M>, Void>();
+
+    public void remove(int index) {
+      for (final BufferedIterator<M> iterator : iterators.keySet()) {
+        iterator.advance(index);
+      }
+    }
+
+    @NotNull
+    public final Iterator<M> iterator() {
+      final BufferedIterator<M> iterator = new BufferedIterator<M>(this);
+      iterators.put(iterator, null);
+      return iterator;
+    }
+  }
+
+  private static class BufferedCollection<M> extends BaseBuffer<M> {
 
     private final Collection<M> data;
 
@@ -80,12 +108,14 @@ public class Buffered<M> implements Buffer<M> {
       data.add(message);
     }
 
+    @Override
     public void remove(int index) {
       final Iterator<M> iterator = data.iterator();
       for (int i = 0; i <= index; ++i) {
         iterator.next();
       }
       iterator.remove();
+      super.remove(index);
     }
 
     public M get(int index) {
@@ -99,14 +129,9 @@ public class Buffered<M> implements Buffer<M> {
     public int size() {
       return data.size();
     }
-
-    @NotNull
-    public Iterator<M> iterator() {
-      return new BufferedIterator<M>(this);
-    }
   }
 
-  private static class BufferedList<M> implements Buffer<M> {
+  private static class BufferedList<M> extends BaseBuffer<M> {
 
     private final List<M> data;
 
@@ -118,8 +143,10 @@ public class Buffered<M> implements Buffer<M> {
       data.add(message);
     }
 
+    @Override
     public void remove(int index) {
       data.remove(index);
+      super.remove(index);
     }
 
     public M get(int index) {
@@ -129,14 +156,9 @@ public class Buffered<M> implements Buffer<M> {
     public int size() {
       return data.size();
     }
-
-    @NotNull
-    public Iterator<M> iterator() {
-      return new BufferedIterator<M>(this);
-    }
   }
 
-  private static class BufferedQueue<M> implements Buffer<M> {
+  private static class BufferedQueue<M> extends BaseBuffer<M> {
 
     private final Queue<M> data;
 
@@ -148,6 +170,7 @@ public class Buffered<M> implements Buffer<M> {
       data.add(message);
     }
 
+    @Override
     public void remove(int index) {
       if (index == 0) {
         data.remove();
@@ -158,6 +181,7 @@ public class Buffered<M> implements Buffer<M> {
         }
         iterator.remove();
       }
+      super.remove(index);
     }
 
     public M get(int index) {
@@ -174,14 +198,9 @@ public class Buffered<M> implements Buffer<M> {
     public int size() {
       return data.size();
     }
-
-    @NotNull
-    public Iterator<M> iterator() {
-      return new BufferedIterator<M>(this);
-    }
   }
 
-  private static class BufferedCircularQueue<M> implements Buffer<M> {
+  private static class BufferedCircularQueue<M> extends BaseBuffer<M> {
 
     private final CircularQueue<M> data;
 
@@ -193,8 +212,14 @@ public class Buffered<M> implements Buffer<M> {
       data.add(message);
     }
 
+    @Override
     public void remove(int index) {
-      data.remove(index);
+      if (index == 0) {
+        data.remove();
+      } else {
+        data.remove(index);
+      }
+      super.remove(index);
     }
 
     public M get(int index) {
@@ -203,11 +228,6 @@ public class Buffered<M> implements Buffer<M> {
 
     public int size() {
       return data.size();
-    }
-
-    @NotNull
-    public Iterator<M> iterator() {
-      return new BufferedIterator<M>(this);
     }
   }
 
@@ -230,6 +250,12 @@ public class Buffered<M> implements Buffer<M> {
 
     public void remove() {
       throw new UnsupportedOperationException("remove");
+    }
+
+    private void advance(int offset) {
+      if (offset <= index) {
+        index = Math.max(0, index - 1);
+      }
     }
   }
 }

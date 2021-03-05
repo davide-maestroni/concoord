@@ -32,4 +32,27 @@ public class Binary<T1, T2> {
   public T2 second() {
     return second;
   }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+
+    Binary<?, ?> binary = (Binary<?, ?>) o;
+    if (first != null ? !first.equals(binary.first) : binary.first != null) {
+      return false;
+    }
+    return second != null ? second.equals(binary.second) : binary.second == null;
+  }
+
+  @Override
+  public int hashCode() {
+    int result = first != null ? first.hashCode() : 0;
+    result = 31 * result + (second != null ? second.hashCode() : 0);
+    return result;
+  }
 }

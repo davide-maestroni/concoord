@@ -62,4 +62,47 @@ public class Septenary<T1, T2, T3, T4, T5, T6, T7> {
   public T7 seventh() {
     return seventh;
   }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+
+    Septenary<?, ?, ?, ?, ?, ?, ?> septenary = (Septenary<?, ?, ?, ?, ?, ?, ?>) o;
+    if (first != null ? !first.equals(septenary.first) : septenary.first != null) {
+      return false;
+    }
+    if (second != null ? !second.equals(septenary.second) : septenary.second != null) {
+      return false;
+    }
+    if (third != null ? !third.equals(septenary.third) : septenary.third != null) {
+      return false;
+    }
+    if (fourth != null ? !fourth.equals(septenary.fourth) : septenary.fourth != null) {
+      return false;
+    }
+    if (fifth != null ? !fifth.equals(septenary.fifth) : septenary.fifth != null) {
+      return false;
+    }
+    if (sixth != null ? !sixth.equals(septenary.sixth) : septenary.sixth != null) {
+      return false;
+    }
+    return seventh != null ? seventh.equals(septenary.seventh) : septenary.seventh == null;
+  }
+
+  @Override
+  public int hashCode() {
+    int result = first != null ? first.hashCode() : 0;
+    result = 31 * result + (second != null ? second.hashCode() : 0);
+    result = 31 * result + (third != null ? third.hashCode() : 0);
+    result = 31 * result + (fourth != null ? fourth.hashCode() : 0);
+    result = 31 * result + (fifth != null ? fifth.hashCode() : 0);
+    result = 31 * result + (sixth != null ? sixth.hashCode() : 0);
+    result = 31 * result + (seventh != null ? seventh.hashCode() : 0);
+    return result;
+  }
 }

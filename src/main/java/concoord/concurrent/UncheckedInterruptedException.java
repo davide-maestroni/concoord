@@ -13,24 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package concoord.logging;
+package concoord.concurrent;
 
-public class SafeString {
+import org.jetbrains.annotations.NotNull;
 
-  // TODO: 23/02/21 remove?
+public class UncheckedInterruptedException extends RuntimeException {
 
-  private final Object toString;
-
-  public SafeString(Object toString) {
-    this.toString = toString;
+  public UncheckedInterruptedException(@NotNull InterruptedException cause) {
+    this("thread interrupted!", cause);
   }
 
-  @Override
-  public String toString() {
-    try {
-      return String.valueOf(toString);
-    } catch (final Exception ignored) {
-      return null;
-    }
+  public UncheckedInterruptedException(String message, @NotNull InterruptedException cause) {
+    super(message, cause);
   }
 }

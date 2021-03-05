@@ -15,7 +15,7 @@
  */
 package concoord.tuple;
 
-import java.util.ArrayList;
+import concoord.util.assertion.IfNull;
 import java.util.Arrays;
 import java.util.List;
 import org.jetbrains.annotations.NotNull;
@@ -25,7 +25,8 @@ public class Nary<T> {
   private final List<T> elements;
 
   public Nary(@NotNull List<T> elements) {
-    this.elements = new ArrayList<T>(elements);
+    new IfNull(elements, "elements").throwException();
+    this.elements = elements;
   }
 
   public Nary(@NotNull T... elements) {
@@ -34,5 +35,23 @@ public class Nary<T> {
 
   public T get(int index) {
     return elements.get(index);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+
+    Nary<?> nary = (Nary<?>) o;
+    return elements != null ? elements.equals(nary.elements) : nary.elements == null;
+  }
+
+  @Override
+  public int hashCode() {
+    return elements != null ? elements.hashCode() : 0;
   }
 }

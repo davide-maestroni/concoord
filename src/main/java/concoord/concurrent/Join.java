@@ -123,7 +123,7 @@ public class Join<T> implements Iterable<T> {
             try {
               mutex.wait(timeoutMs);
             } catch (final InterruptedException e) {
-              throw new JoinException(e);
+              throw new UncheckedInterruptedException(e);
             }
           } else {
             break;

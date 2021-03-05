@@ -69,4 +69,51 @@ public class Octonary<T1, T2, T3, T4, T5, T6, T7, T8> {
   public T8 eighth() {
     return eighth;
   }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+
+    Octonary<?, ?, ?, ?, ?, ?, ?, ?> octonary = (Octonary<?, ?, ?, ?, ?, ?, ?, ?>) o;
+    if (first != null ? !first.equals(octonary.first) : octonary.first != null) {
+      return false;
+    }
+    if (second != null ? !second.equals(octonary.second) : octonary.second != null) {
+      return false;
+    }
+    if (third != null ? !third.equals(octonary.third) : octonary.third != null) {
+      return false;
+    }
+    if (fourth != null ? !fourth.equals(octonary.fourth) : octonary.fourth != null) {
+      return false;
+    }
+    if (fifth != null ? !fifth.equals(octonary.fifth) : octonary.fifth != null) {
+      return false;
+    }
+    if (sixth != null ? !sixth.equals(octonary.sixth) : octonary.sixth != null) {
+      return false;
+    }
+    if (seventh != null ? !seventh.equals(octonary.seventh) : octonary.seventh != null) {
+      return false;
+    }
+    return eighth != null ? eighth.equals(octonary.eighth) : octonary.eighth == null;
+  }
+
+  @Override
+  public int hashCode() {
+    int result = first != null ? first.hashCode() : 0;
+    result = 31 * result + (second != null ? second.hashCode() : 0);
+    result = 31 * result + (third != null ? third.hashCode() : 0);
+    result = 31 * result + (fourth != null ? fourth.hashCode() : 0);
+    result = 31 * result + (fifth != null ? fifth.hashCode() : 0);
+    result = 31 * result + (sixth != null ? sixth.hashCode() : 0);
+    result = 31 * result + (seventh != null ? seventh.hashCode() : 0);
+    result = 31 * result + (eighth != null ? eighth.hashCode() : 0);
+    return result;
+  }
 }

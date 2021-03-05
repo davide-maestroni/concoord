@@ -17,15 +17,20 @@ package concoord.data;
 
 import concoord.util.assertion.IfNull;
 import java.util.Iterator;
-import java.util.WeakHashMap;
 import org.jetbrains.annotations.NotNull;
 
 public class LastOf<M> implements Buffer<M> {
 
-  private final WeakHashMap<LastIterator<M>, Void> iterators =
-      new WeakHashMap<LastIterator<M>, Void>();
   private final Buffer<M> buffer;
   private final int maxMessages;
+
+  public LastOf(int maxMessages) {
+    this(maxMessages, new Buffered<M>());
+  }
+
+  public LastOf(int maxMessages, int initialCapacity) {
+    this(maxMessages, new Buffered<M>(initialCapacity));
+  }
 
   public LastOf(int maxMessages, @NotNull Buffer<M> buffer) {
     new IfNull(buffer, "buffer").throwException();
@@ -38,9 +43,6 @@ public class LastOf<M> implements Buffer<M> {
     buffer.add(message);
     if (buffer.size() > maxMessages) {
       buffer.remove(0);
-      for (final LastIterator<M> iterator : iterators.keySet()) {
-        iterator.advanceHead();
-      }
     }
   }
 
@@ -58,34 +60,6 @@ public class LastOf<M> implements Buffer<M> {
 
   @NotNull
   public Iterator<M> iterator() {
-    final LastIterator<M> iterator = new LastIterator<M>(buffer);
-    iterators.put(iterator, null);
-    return iterator;
-  }
-
-  private static class LastIterator<M> implements Iterator<M> {
-
-    private final Buffer<M> buffer;
-    private int index = 0;
-
-    private LastIterator(@NotNull Buffer<M> buffer) {
-      this.buffer = buffer;
-    }
-
-    public boolean hasNext() {
-      return buffer.size() > index;
-    }
-
-    public M next() {
-      return buffer.get(index++);
-    }
-
-    public void remove() {
-      throw new UnsupportedOperationException("remove");
-    }
-
-    private void advanceHead() {
-      index = Math.max(0, index - 1);
-    }
+    return buffer.iterator();
   }
 }

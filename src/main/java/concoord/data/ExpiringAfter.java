@@ -19,17 +19,22 @@ import concoord.tuple.Binary;
 import concoord.util.assertion.IfNull;
 import concoord.util.assertion.IfSomeOf;
 import java.util.Iterator;
-import java.util.WeakHashMap;
 import java.util.concurrent.TimeUnit;
 import org.jetbrains.annotations.NotNull;
 
 public class ExpiringAfter<M> implements Buffer<M> {
 
-  private final WeakHashMap<ExpiringIterator<M>, Void> iterators =
-      new WeakHashMap<ExpiringIterator<M>, Void>();
   private final Buffer<Binary<Long, M>> buffer;
   private final TimeUnit timeUnit;
   private final long timeout;
+
+  public ExpiringAfter(long timeout, @NotNull TimeUnit timeUnit) {
+    this(timeout, timeUnit, new Buffered<Binary<Long, M>>());
+  }
+
+  public ExpiringAfter(long timeout, @NotNull TimeUnit timeUnit, int initialCapacity) {
+    this(timeout, timeUnit, new Buffered<Binary<Long, M>>(initialCapacity));
+  }
 
   public ExpiringAfter(long timeout, @NotNull TimeUnit timeUnit,
       @NotNull Buffer<Binary<Long, M>> buffer) {
@@ -59,14 +64,13 @@ public class ExpiringAfter<M> implements Buffer<M> {
   }
 
   public int size() {
+    pruneExpired();
     return buffer.size();
   }
 
   @NotNull
   public Iterator<M> iterator() {
-    final ExpiringIterator<M> iterator = new ExpiringIterator<M>(buffer);
-    iterators.put(iterator, null);
-    return iterator;
+    return new ExpiringIterator<M>(buffer.iterator());
   }
 
   private void pruneExpired() {
@@ -76,9 +80,6 @@ public class ExpiringAfter<M> implements Buffer<M> {
       if (binary.first() <= now) {
         // expired
         buffer.remove(i);
-        for (final ExpiringIterator<M> iterator : iterators.keySet()) {
-          iterator.advanceHead(i);
-        }
         --i;
       }
     }
@@ -86,29 +87,22 @@ public class ExpiringAfter<M> implements Buffer<M> {
 
   private static class ExpiringIterator<M> implements Iterator<M> {
 
-    private final Buffer<Binary<Long, M>> buffer;
-    private int index = 0;
+    private final Iterator<Binary<Long, M>> iterator;
 
-    private ExpiringIterator(@NotNull Buffer<Binary<Long, M>> buffer) {
-      this.buffer = buffer;
+    private ExpiringIterator(@NotNull Iterator<Binary<Long, M>> iterator) {
+      this.iterator = iterator;
     }
 
     public boolean hasNext() {
-      return buffer.size() > index;
+      return iterator.hasNext();
     }
 
     public M next() {
-      return buffer.get(index++).second();
+      return iterator.next().second();
     }
 
     public void remove() {
-      throw new UnsupportedOperationException("remove");
-    }
-
-    private void advanceHead(int offset) {
-      if (offset <= index) {
-        index = Math.max(0, index - 1);
-      }
+      iterator.remove();
     }
   }
 }

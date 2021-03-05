@@ -24,6 +24,14 @@ public class FirstOf<M> implements Buffer<M> {
   private final Buffer<M> buffer;
   private final int maxMessages;
 
+  public FirstOf(int maxMessages) {
+    this(maxMessages, new Buffered<M>());
+  }
+
+  public FirstOf(int maxMessages, int initialCapacity) {
+    this(maxMessages, new Buffered<M>(initialCapacity));
+  }
+
   public FirstOf(int maxMessages, @NotNull Buffer<M> buffer) {
     new IfNull(buffer, "buffer").throwException();
     this.maxMessages = maxMessages;

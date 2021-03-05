@@ -50,4 +50,39 @@ public class Quinary<T1, T2, T3, T4, T5> {
   public T5 fifth() {
     return fifth;
   }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+
+    Quinary<?, ?, ?, ?, ?> quinary = (Quinary<?, ?, ?, ?, ?>) o;
+    if (first != null ? !first.equals(quinary.first) : quinary.first != null) {
+      return false;
+    }
+    if (second != null ? !second.equals(quinary.second) : quinary.second != null) {
+      return false;
+    }
+    if (third != null ? !third.equals(quinary.third) : quinary.third != null) {
+      return false;
+    }
+    if (fourth != null ? !fourth.equals(quinary.fourth) : quinary.fourth != null) {
+      return false;
+    }
+    return fifth != null ? fifth.equals(quinary.fifth) : quinary.fifth == null;
+  }
+
+  @Override
+  public int hashCode() {
+    int result = first != null ? first.hashCode() : 0;
+    result = 31 * result + (second != null ? second.hashCode() : 0);
+    result = 31 * result + (third != null ? third.hashCode() : 0);
+    result = 31 * result + (fourth != null ? fourth.hashCode() : 0);
+    result = 31 * result + (fifth != null ? fifth.hashCode() : 0);
+    return result;
+  }
 }
