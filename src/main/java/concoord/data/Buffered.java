@@ -37,22 +37,22 @@ public class Buffered<M> implements Buffer<M> {
   }
 
   public Buffered(@NotNull Collection<M> data) {
-    new IfNull(data, "data").throwException();
+    new IfNull("data", data).throwException();
     this.buffer = new BufferedCollection<M>(data);
   }
 
   public Buffered(@NotNull List<M> data) {
-    new IfNull(data, "data").throwException();
+    new IfNull("data", data).throwException();
     this.buffer = new BufferedList<M>(data);
   }
 
   public Buffered(@NotNull Queue<M> data) {
-    new IfNull(data, "data").throwException();
+    new IfNull("data", data).throwException();
     this.buffer = new BufferedQueue<M>(data);
   }
 
   public Buffered(@NotNull CircularQueue<M> data) {
-    new IfNull(data, "data").throwException();
+    new IfNull("data", data).throwException();
     this.buffer = new BufferedCircularQueue<M>(data);
   }
 

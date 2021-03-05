@@ -34,7 +34,7 @@ public class Iter<T> implements Task<T> {
   }
 
   public Iter(@NotNull final Iterable<? extends T> messages) {
-    new IfNull(messages, "messages").throwException();
+    new IfNull("messages", messages).throwException();
     this.task = new Task<T>() {
       @NotNull
       public Awaitable<T> on(@NotNull Scheduler scheduler) {
@@ -44,7 +44,7 @@ public class Iter<T> implements Task<T> {
   }
 
   public Iter(@NotNull final Iterator<? extends T> messages) {
-    new IfNull(messages, "messages").throwException();
+    new IfNull("messages", messages).throwException();
     this.task = new Task<T>() {
       @NotNull
       public Awaitable<T> on(@NotNull Scheduler scheduler) {
@@ -55,7 +55,7 @@ public class Iter<T> implements Task<T> {
 
   @NotNull
   public Awaitable<T> on(@NotNull Scheduler scheduler) {
-    new IfNull(scheduler, "scheduler").throwException();
+    new IfNull("scheduler", scheduler).throwException();
     return task.on(scheduler);
   }
 
@@ -65,7 +65,7 @@ public class Iter<T> implements Task<T> {
 
     private IterAwaitable(@NotNull Scheduler scheduler, @NotNull Iterator<? extends T> iterator) {
       super(scheduler);
-      new IfNull(iterator, "iterator").throwException();
+      new IfNull("iterator", iterator).throwException();
       this.iterator = iterator;
     }
 

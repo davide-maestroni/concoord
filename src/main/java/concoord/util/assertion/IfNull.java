@@ -24,10 +24,10 @@ public class IfNull extends AbstractPrecondition {
   private final String name;
 
   public IfNull(Object object) {
-    this(object, "object");
+    this("object", object);
   }
 
-  public IfNull(Object object, String name) {
+  public IfNull(String name, Object object) {
     this.object = object;
     this.name = name;
   }

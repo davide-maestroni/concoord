@@ -15,7 +15,6 @@
  */
 package concoord.util.collection;
 
-import concoord.util.assertion.IfLessThan;
 import java.lang.reflect.Array;
 import java.util.AbstractCollection;
 import java.util.ConcurrentModificationException;
@@ -50,7 +49,9 @@ public class CircularQueue<E> extends AbstractCollection<E> implements Queue<E> 
    * @throws IllegalArgumentException if the specified capacity is less than 1.
    */
   public CircularQueue(int minCapacity) {
-    new IfLessThan(minCapacity, "minCapacity", 1).throwException();
+    if (minCapacity < 1) {
+      throw new IllegalArgumentException(Integer.toString(minCapacity));
+    }
     final int msb = Integer.highestOneBit(minCapacity);
     final int initialCapacity = (minCapacity == msb) ? msb : msb << 1;
     data = new Object[initialCapacity];
@@ -229,8 +230,8 @@ public class CircularQueue<E> extends AbstractCollection<E> implements Queue<E> 
   }
 
   /**
-   * Removes the element at the specified position in this queue. Shifts any subsequent elements to
-   * the left (subtracts one from their indices).
+   * Removes the element at the specified position in this queue. Shifts any subsequent elements to the left (subtracts
+   * one from their indices).
    *
    * @param index the index of the element to be removed.
    * @return the element that was removed from the queue.

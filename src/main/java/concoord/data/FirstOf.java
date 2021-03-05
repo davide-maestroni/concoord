@@ -33,7 +33,7 @@ public class FirstOf<M> implements Buffer<M> {
   }
 
   public FirstOf(int maxMessages, @NotNull Buffer<M> buffer) {
-    new IfNull(buffer, "buffer").throwException();
+    new IfNull("buffer", buffer).throwException();
     this.maxMessages = maxMessages;
     this.buffer = buffer;
   }

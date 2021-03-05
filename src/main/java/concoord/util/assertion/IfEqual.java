@@ -25,10 +25,10 @@ public class IfEqual<T> extends AbstractPrecondition {
   private final T value;
 
   public IfEqual(T object, T value) {
-    this(object, "object", value);
+    this("object", object, value);
   }
 
-  public IfEqual(T object, String name, T value) {
+  public IfEqual(String name, T object, T value) {
     this.object = object;
     this.name = name;
     this.value = value;

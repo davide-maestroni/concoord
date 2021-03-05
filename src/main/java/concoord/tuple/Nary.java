@@ -25,7 +25,7 @@ public class Nary<T> {
   private final List<T> elements;
 
   public Nary(@NotNull List<T> elements) {
-    new IfNull(elements, "elements").throwException();
+    new IfNull("elements", elements).throwException();
     this.elements = elements;
   }
 

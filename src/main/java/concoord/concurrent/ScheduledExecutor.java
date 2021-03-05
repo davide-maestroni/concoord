@@ -45,8 +45,8 @@ public class ScheduledExecutor implements Scheduler {
 
   public ScheduledExecutor(@NotNull Executor executor, final int throughput) {
     new IfSomeOf(
-        new IfNull(executor, "executor"),
-        new IfEqual<Integer>(throughput, "throughput", 0)
+        new IfNull("executor", executor),
+        new IfEqual<Integer>("throughput", throughput, 0)
     ).throwException();
     this.executor = executor;
     if (throughput < 0) {

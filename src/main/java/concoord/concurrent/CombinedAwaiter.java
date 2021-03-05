@@ -13,9 +13,9 @@ public class CombinedAwaiter<T> implements Awaiter<T> {
   public CombinedAwaiter(@NotNull UnaryAwaiter<? super T> messageAwaiter,
       @NotNull UnaryAwaiter<? super Throwable> errorAwaiter, @NotNull NullaryAwaiter endAwaiter) {
     new IfSomeOf(
-        new IfNull(messageAwaiter, "messageAwaiter"),
-        new IfNull(errorAwaiter, "errorAwaiter"),
-        new IfNull(endAwaiter, "endAwaiter")
+        new IfNull("messageAwaiter", messageAwaiter),
+        new IfNull("errorAwaiter", errorAwaiter),
+        new IfNull("endAwaiter", endAwaiter)
     ).throwException();
     this.messageAwaiter = messageAwaiter;
     this.errorAwaiter = errorAwaiter;

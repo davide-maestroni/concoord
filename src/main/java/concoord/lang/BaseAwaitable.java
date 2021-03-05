@@ -64,7 +64,7 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
 
   @NotNull
   public Cancelable await(int maxEvents, @NotNull Awaiter<? super T> awaiter) {
-    new IfNull(awaiter, "awaiter").throwException();
+    new IfNull("awaiter", awaiter).throwException();
     InternalFlowControl flowControl = new InternalFlowControl(maxEvents, awaiter);
     scheduler.scheduleLow(flowControl);
     return new BaseCancelable(flowControl);

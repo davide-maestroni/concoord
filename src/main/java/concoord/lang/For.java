@@ -41,8 +41,8 @@ public class For<T, M> implements Task<T> {
   public For(int maxEvents, @NotNull Awaitable<M> awaitable,
       @NotNull Block<T, ? super M> block) {
     new IfSomeOf(
-        new IfNull(awaitable, "awaitable"),
-        new IfNull(block, "block")
+        new IfNull("awaitable", awaitable),
+        new IfNull("block", block)
     ).throwException();
     this.maxEvents = maxEvents;
     this.awaitable = awaitable;
@@ -51,7 +51,7 @@ public class For<T, M> implements Task<T> {
 
   @NotNull
   public Awaitable<T> on(@NotNull Scheduler scheduler) {
-    new IfNull(scheduler, "scheduler").throwException();
+    new IfNull("scheduler", scheduler).throwException();
     return new ForAwaitable<T, M>(scheduler, maxEvents, awaitable, block);
   }
 
@@ -153,9 +153,6 @@ public class For<T, M> implements Task<T> {
       public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
         final Object message = inputs.poll();
         if (message != null) {
-          flowControl.logger().log(
-              new DbgMessage("[executing] block: %s", new PrintIdentity(block))
-          );
           if (maxEvents >= 0) {
             --events;
           }
@@ -178,6 +175,9 @@ public class For<T, M> implements Task<T> {
 
       @SuppressWarnings("unchecked")
       void execute(@NotNull AwaitableFlowControl<T> flowControl, Object message) throws Exception {
+        flowControl.logger().log(
+            new DbgMessage("[executing] block: %s", new PrintIdentity(block))
+        );
         block.execute(message != NULL ? (M) message : null).apply(flowControl);
       }
     }

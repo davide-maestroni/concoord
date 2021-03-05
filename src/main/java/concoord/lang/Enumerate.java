@@ -36,15 +36,15 @@ public class Enumerate<T, M> implements Task<T> {
   public Enumerate(int maxEvents, @NotNull final Awaitable<M> awaitable,
       @NotNull Block<T, ? super IndexedMessage<? super M>> block) {
     new IfSomeOf(
-        new IfNull(awaitable, "awaitable"),
-        new IfNull(block, "block")
+        new IfNull("awaitable", awaitable),
+        new IfNull("block", block)
     ).throwException();
     this.task = new For<T, M>(maxEvents, awaitable, new EnumerateBlock<T, M>(block));
   }
 
   @NotNull
   public Awaitable<T> on(@NotNull Scheduler scheduler) {
-    new IfNull(scheduler, "scheduler").throwException();
+    new IfNull("scheduler", scheduler).throwException();
     return task.on(scheduler);
   }
 

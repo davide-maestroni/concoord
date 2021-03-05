@@ -32,7 +32,7 @@ public class And<T> implements Task<T> {
   }
 
   public And(@NotNull final Iterable<? extends Awaitable<? extends T>> awaitables) {
-    new IfNull(awaitables, "awaitables").throwException();
+    new IfNull("awaitables", awaitables).throwException();
     this.task = new Task<T>() {
       @NotNull
       public Awaitable<T> on(@NotNull Scheduler scheduler) {
@@ -42,7 +42,7 @@ public class And<T> implements Task<T> {
   }
 
   public And(@NotNull final Iterator<? extends Awaitable<? extends T>> awaitables) {
-    new IfNull(awaitables, "awaitables").throwException();
+    new IfNull("awaitables", awaitables).throwException();
     this.task = new Task<T>() {
       @NotNull
       public Awaitable<T> on(@NotNull Scheduler scheduler) {
@@ -53,7 +53,7 @@ public class And<T> implements Task<T> {
 
   @NotNull
   public Awaitable<T> on(@NotNull Scheduler scheduler) {
-    new IfNull(scheduler, "scheduler").throwException();
+    new IfNull("scheduler", scheduler).throwException();
     return task.on(scheduler);
   }
 
@@ -64,7 +64,7 @@ public class And<T> implements Task<T> {
     public AndAwaitable(@NotNull Scheduler scheduler,
         @NotNull Iterator<? extends Awaitable<? extends T>> iterator) {
       super(scheduler);
-      new IfNull(iterator, "iterator").throwException();
+      new IfNull("iterator", iterator).throwException();
       this.iterator = iterator;
     }
 

@@ -39,8 +39,8 @@ public class ExpiringAfter<M> implements Buffer<M> {
   public ExpiringAfter(long timeout, @NotNull TimeUnit timeUnit,
       @NotNull Buffer<Binary<Long, M>> buffer) {
     new IfSomeOf(
-        new IfNull(buffer, "buffer"),
-        new IfNull(timeUnit, "timeUnit")
+        new IfNull("buffer", buffer),
+        new IfNull("timeUnit", timeUnit)
     ).throwException();
     this.timeout = timeout;
     this.timeUnit = timeUnit;

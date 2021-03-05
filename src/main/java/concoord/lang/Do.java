@@ -29,13 +29,13 @@ public class Do<T> implements Task<T> {
   private final Block<T> block;
 
   public Do(@NotNull Block<T> block) {
-    new IfNull(block, "block").throwException();
+    new IfNull("block", block).throwException();
     this.block = block;
   }
 
   @NotNull
   public Awaitable<T> on(@NotNull Scheduler scheduler) {
-    new IfNull(scheduler, "scheduler").throwException();
+    new IfNull("scheduler", scheduler).throwException();
     return new DoAwaitable<T>(scheduler, block);
   }
 

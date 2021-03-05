@@ -68,8 +68,8 @@ public class Join<T> implements Iterable<T> {
   @NotNull
   private Precondition buildPrecondition(Awaitable<T> awaitable, TimeUnit timeUnit) {
     return new IfSomeOf(
-        new IfNull(awaitable, "awaitable"),
-        new IfNull(timeUnit, "timeUnit")
+        new IfNull("awaitable", awaitable),
+        new IfNull("timeUnit", timeUnit)
     );
   }
 
