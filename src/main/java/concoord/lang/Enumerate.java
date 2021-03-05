@@ -20,7 +20,6 @@ import concoord.concurrent.Scheduler;
 import concoord.concurrent.Task;
 import concoord.flow.Result;
 import concoord.lang.For.Block;
-import concoord.tuple.Binary;
 import concoord.util.assertion.IfNull;
 import concoord.util.assertion.IfSomeOf;
 import org.jetbrains.annotations.NotNull;
@@ -30,12 +29,12 @@ public class Enumerate<T, M> implements Task<T> {
   private final For<T, M> task;
 
   public Enumerate(@NotNull final Awaitable<M> awaitable,
-      @NotNull Block<T, ? super Binary<? super Integer, ? super M>> block) {
+      @NotNull Block<T, ? super IndexedMessage<? super M>> block) {
     this(1, awaitable, block);
   }
 
   public Enumerate(int maxEvents, @NotNull final Awaitable<M> awaitable,
-      @NotNull Block<T, ? super Binary<? super Integer, ? super M>> block) {
+      @NotNull Block<T, ? super IndexedMessage<? super M>> block) {
     new IfSomeOf(
         new IfNull(awaitable, "awaitable"),
         new IfNull(block, "block")
@@ -49,18 +48,37 @@ public class Enumerate<T, M> implements Task<T> {
     return task.on(scheduler);
   }
 
+  public static class IndexedMessage<M> {
+
+    private final int index;
+    private final M message;
+
+    private IndexedMessage(int index, M message) {
+      this.index = index;
+      this.message = message;
+    }
+
+    public int getIndex() {
+      return index;
+    }
+
+    public M getMessage() {
+      return message;
+    }
+  }
+
   private static class EnumerateBlock<T, M> implements Block<T, M> {
 
-    private final Block<T, ? super Binary<? super Integer, ? super M>> block;
+    private final Block<T, ? super IndexedMessage<? super M>> block;
     private int index;
 
-    private EnumerateBlock(@NotNull Block<T, ? super Binary<? super Integer, ? super M>> block) {
+    private EnumerateBlock(@NotNull Block<T, ? super IndexedMessage<? super M>> block) {
       this.block = block;
     }
 
     @NotNull
     public Result<T> execute(M message) throws Exception {
-      return block.execute(new Binary<Integer, M>(index++, message));
+      return block.execute(new IndexedMessage<M>(index++, message));
     }
   }
 }

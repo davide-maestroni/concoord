@@ -64,6 +64,7 @@ public class For<T, M> implements Task<T> {
   private static class ForAwaitable<T, M> extends BaseAwaitable<T> implements Awaiter<M> {
 
     private static final Object NULL = new Object();
+    private static final Object STOP = new Object();
 
     private final ConcurrentLinkedQueue<Object> inputs = new ConcurrentLinkedQueue<Object>();
     private final InputState input = new InputState();
@@ -103,6 +104,7 @@ public class For<T, M> implements Task<T> {
     public void error(@NotNull final Throwable error) {
       scheduler.scheduleLow(new Runnable() {
         public void run() {
+          inputs.offer(STOP);
           state = new ErrorState(error);
           scheduleFlow();
         }
@@ -112,6 +114,7 @@ public class For<T, M> implements Task<T> {
     public void end() {
       scheduler.scheduleLow(new Runnable() {
         public void run() {
+          inputs.offer(STOP);
           state = new EndState();
           scheduleFlow();
         }
@@ -147,7 +150,6 @@ public class For<T, M> implements Task<T> {
 
     private class MessageState implements State<T> {
 
-      @SuppressWarnings("unchecked")
       public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
         final Object message = inputs.poll();
         if (message != null) {
@@ -157,7 +159,7 @@ public class For<T, M> implements Task<T> {
           if (maxEvents >= 0) {
             --events;
           }
-          block.execute(message != NULL ? (M) message : null).apply(flowControl);
+          execute(flowControl, message);
           return true;
         }
         if (events < 1) {
@@ -173,6 +175,11 @@ public class For<T, M> implements Task<T> {
           cancelable.cancel();
         }
       }
+
+      @SuppressWarnings("unchecked")
+      void execute(@NotNull AwaitableFlowControl<T> flowControl, Object message) throws Exception {
+        block.execute(message != NULL ? (M) message : null).apply(flowControl);
+      }
     }
 
     private class ErrorState extends MessageState {
@@ -184,12 +191,12 @@ public class For<T, M> implements Task<T> {
       }
 
       @Override
-      public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
-        if (!super.executeBlock(flowControl)) {
+      void execute(@NotNull AwaitableFlowControl<T> flowControl, Object message) throws Exception {
+        if (message == STOP) {
           flowControl.abort(error);
-          return false;
+        } else {
+          super.execute(flowControl, message);
         }
-        return true;
       }
 
       @Override
@@ -200,11 +207,12 @@ public class For<T, M> implements Task<T> {
     private class EndState extends MessageState {
 
       @Override
-      public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
-        if (!super.executeBlock(flowControl)) {
+      void execute(@NotNull AwaitableFlowControl<T> flowControl, Object message) throws Exception {
+        if (message == STOP) {
           flowControl.stop();
+        } else {
+          super.execute(flowControl, message);
         }
-        return true;
       }
 
       @Override

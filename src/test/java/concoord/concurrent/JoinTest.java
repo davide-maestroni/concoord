@@ -105,9 +105,7 @@ public class JoinTest {
     Thread.sleep(500);
     thread.interrupt();
     Thread.sleep(500);
-    assertThat(throwable.get())
-        .isInstanceOf(JoinException.class)
-        .hasCauseInstanceOf(InterruptedException.class);
+    assertThat(throwable.get()).isInstanceOf(UncheckedInterruptedException.class);
   }
 
   @Test
@@ -125,9 +123,7 @@ public class JoinTest {
     Thread.sleep(500);
     thread.interrupt();
     Thread.sleep(500);
-    assertThat(throwable.get())
-        .isInstanceOf(JoinException.class)
-        .hasCauseInstanceOf(InterruptedException.class);
+    assertThat(throwable.get()).isInstanceOf(UncheckedInterruptedException.class);
   }
 
   private static class DummyAwaitable<T> implements Awaitable<T> {

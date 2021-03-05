@@ -137,7 +137,9 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
 
     int inputEvents();
 
-    boolean outputEvents();
+    int outputEvents();
+
+    boolean hasOutputs();
 
     @NotNull
     Logger logger();
@@ -290,7 +292,11 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
       return inputEvents;
     }
 
-    public boolean outputEvents() {
+    public int outputEvents() {
+      return events;
+    }
+
+    public boolean hasOutputs() {
       return hasOutputs;
     }
 
@@ -410,7 +416,7 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
 
       public void run() {
         final InternalFlowControl flowControl = InternalFlowControl.this;
-        Awaitable<? extends T> awaitable = BaseAwaitable.this.awaitable;
+        final Awaitable<? extends T> awaitable = BaseAwaitable.this.awaitable;
         if (awaitable != null) {
           state = write;
           flowLogger.log(new DbgMessage("[writing]"));

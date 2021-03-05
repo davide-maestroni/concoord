@@ -69,7 +69,7 @@ public class Or<T> implements Task<T> {
     }
 
     protected boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) {
-      if (!flowControl.outputEvents() && iterator.hasNext()) {
+      if (!flowControl.hasOutputs() && iterator.hasNext()) {
         flowControl.postOutput(iterator.next());
       } else {
         flowControl.stop();
