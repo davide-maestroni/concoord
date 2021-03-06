@@ -26,7 +26,7 @@ public class Return<T> implements Result<T> {
     this.result = new ResultMessage<T>(output);
   }
 
-  public Return(@NotNull Awaitable<T> awaitable) {
+  public Return(@NotNull Awaitable<? extends T> awaitable) {
     this.result = new ResultAwaitable<T>(awaitable);
   }
 

@@ -32,11 +32,11 @@ public class Yield<T> implements Result<T> {
     this.result = new ResultMessage<T>(output);
   }
 
-  public Yield(@NotNull Awaitable<T> awaitable) {
+  public Yield(@NotNull Awaitable<? extends T> awaitable) {
     this(awaitable, 1);
   }
 
-  public Yield(@NotNull Awaitable<T> awaitable, int maxEvents) {
+  public Yield(@NotNull Awaitable<? extends T> awaitable, int maxEvents) {
     this.maxEvents = maxEvents;
     this.result = new ResultAwaitable<T>(awaitable);
   }

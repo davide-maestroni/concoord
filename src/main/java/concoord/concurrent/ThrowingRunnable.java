@@ -13,20 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package concoord.flow;
+package concoord.concurrent;
 
-import concoord.concurrent.Awaitable;
-import org.jetbrains.annotations.NotNull;
+public interface ThrowingRunnable {
 
-class ResultAwaitable<T> implements Result<T> {
-
-  private final Awaitable<? extends T> awaitable;
-
-  ResultAwaitable(@NotNull Awaitable<? extends T> awaitable) {
-    this.awaitable = awaitable;
-  }
-
-  public void apply(@NotNull FlowControl<? super T> flowControl) {
-    flowControl.postOutput(awaitable);
-  }
+  void run() throws Exception;
 }
