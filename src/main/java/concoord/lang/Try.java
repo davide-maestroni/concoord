@@ -20,13 +20,14 @@ import concoord.concurrent.Awaiter;
 import concoord.concurrent.Cancelable;
 import concoord.concurrent.Scheduler;
 import concoord.concurrent.Task;
-import concoord.concurrent.ThrowingRunnable;
 import concoord.flow.Break;
 import concoord.flow.Continue;
 import concoord.flow.FlowControl;
 import concoord.flow.Result;
 import concoord.flow.Yield;
 import concoord.logging.DbgMessage;
+import concoord.logging.LogMessage;
+import concoord.logging.Logger;
 import concoord.logging.PrintIdentity;
 import concoord.logging.WrnMessage;
 import concoord.util.assertion.IfAnyOf;
@@ -162,17 +163,48 @@ public class Try<T> implements Task<T> {
 
   public static class Finally<T> implements Block<T, Throwable> {
 
-    private final ThrowingRunnable block;
+    private final Block<? extends T, Throwable> block;
 
-    public Finally(@NotNull ThrowingRunnable block) {
+    public Finally(@NotNull final VoidBlock block) {
+      new IfNull("block", block).throwException();
+      this.block = new Block<T, Throwable>() {
+        @NotNull
+        public Result<? extends T> execute(@NotNull Throwable error) throws Exception {
+          block.execute();
+          return new Continue<T>();
+        }
+      };
+    }
+
+    public Finally(@NotNull final ResultBlock<T> block) {
+      new IfNull("block", block).throwException();
+      this.block = new Block<T, Throwable>() {
+        @NotNull
+        public Result<? extends T> execute(@NotNull Throwable error) throws Exception {
+          return block.execute();
+        }
+      };
+    }
+
+    public Finally(@NotNull final Block<? extends T, Throwable> block) {
       new IfNull("block", block).throwException();
       this.block = block;
     }
 
     @NotNull
     public Result<? extends T> execute(@NotNull Throwable error) throws Exception {
-      block.run();
-      return new Continue<T>();
+      return block.execute(error);
+    }
+
+    public interface VoidBlock {
+
+      void execute() throws Exception;
+    }
+
+    public interface ResultBlock<T> {
+
+      @NotNull
+      Result<? extends T> execute() throws Exception;
     }
   }
 
@@ -242,16 +274,29 @@ public class Try<T> implements Task<T> {
       void cancelExecution();
     }
 
-    private static class TryFlowControl<T> implements FlowControl<T>, Result<T> {
+    private static class ErrorFlowControl<T> implements FlowControl<T> {
 
-      private Result<T> result = new Continue<T>();
+      private final Logger logger;
+      private Result<T> result;
       private boolean stopped;
 
+      public ErrorFlowControl(@NotNull Logger logger) {
+        this.logger = logger;
+      }
+
       public void postOutput(T message) {
+        if (result != null) {
+          logger.log(new WrnMessage("original output overwritten by: %s", message));
+        }
         result = new Yield<T>(message);
       }
 
       public void postOutput(Awaitable<? extends T> awaitable) {
+        if (result != null) {
+          logger.log(
+              new WrnMessage("original output overwritten by: %s", new PrintIdentity(awaitable))
+          );
+        }
         result = new Yield<T>(awaitable);
       }
 
@@ -260,7 +305,9 @@ public class Try<T> implements Task<T> {
       }
 
       public void stop() {
-        result = new Break<T>();
+        if (result == null) {
+          result = new Break<T>();
+        }
         stopped = true;
       }
 
@@ -268,8 +315,62 @@ public class Try<T> implements Task<T> {
         return stopped;
       }
 
-      public void apply(@NotNull FlowControl<? super T> flowControl) {
-        result.apply(flowControl);
+      private void applyResult(@NotNull AwaitableFlowControl<? super T> flowControl,
+          @NotNull Throwable error) {
+        if (result != null) {
+          result.apply(flowControl);
+          flowControl.stop();
+        } else {
+          flowControl.abort(error);
+        }
+      }
+    }
+
+    private static class EndFlowControl<T> implements FlowControl<T> {
+
+      private final Logger logger;
+      private Result<T> result;
+      private boolean stopped;
+
+      public EndFlowControl(@NotNull Logger logger) {
+        this.logger = logger;
+      }
+
+      public void postOutput(T message) {
+        logger.log(new WrnMessage("original output overwritten by: %s", message));
+        result = new Yield<T>(message);
+      }
+
+      public void postOutput(Awaitable<? extends T> awaitable) {
+        logger.log(
+            new WrnMessage("original output overwritten by: %s", new PrintIdentity(awaitable))
+        );
+        result = new Yield<T>(awaitable);
+      }
+
+      public void nextInputs(int maxEvents) {
+        // ignore
+      }
+
+      public void stop() {
+        if (result == null) {
+          result = new Break<T>();
+        }
+        stopped = true;
+      }
+
+      private boolean isStopped() {
+        return stopped;
+      }
+
+      private void applyResult(@NotNull AwaitableFlowControl<? super T> flowControl,
+          @NotNull Throwable error) {
+        if (result != null) {
+          result.apply(flowControl);
+          flowControl.stop();
+        } else {
+          flowControl.abort(error);
+        }
       }
     }
 
@@ -335,20 +436,27 @@ public class Try<T> implements Task<T> {
       @Override
       void execute(@NotNull AwaitableFlowControl<T> flowControl, Object message) throws Exception {
         if (message == STOP) {
-          // TODO: 06/03/21 execute all blocks
-          final TryFlowControl<T> tryFlowControl = new TryFlowControl<T>();
-          Throwable error = this.error;
-          for (Block<? extends T, ? super Throwable> block : blocks) {
-            flowControl.logger().log(
-                new DbgMessage("[executing] block: %s", new PrintIdentity(block))
-            );
-            try {
-              block.execute(error).apply(tryFlowControl);
-            } catch (final Exception e) {
-              new IfInterrupt(e).throwException();
-              flowControl.logger().log(new WrnMessage("original error overwritten by", e));
-              error = e;
+          if (blocks.isEmpty()) {
+            flowControl.abort(error);
+          } else {
+            final Logger logger = flowControl.logger();
+            final ErrorFlowControl<T> errorFlowControl = new ErrorFlowControl<T>(logger);
+            boolean thrown = false;
+            Throwable error = this.error;
+            for (Block<? extends T, ? super Throwable> block : blocks) {
+              logger.log(new DbgMessage("[executing] block: %s", new PrintIdentity(block)));
+              try {
+                if ((!errorFlowControl.isStopped() && !thrown) || (block instanceof Finally)) {
+                  block.execute(error).apply(errorFlowControl);
+                }
+              } catch (final Exception e) {
+                new IfInterrupt(e).throwException();
+                logger.log(new WrnMessage(new LogMessage("original error overwritten by:"), e));
+                thrown = true;
+                error = e;
+              }
             }
+            errorFlowControl.applyResult(flowControl, error);
           }
         } else {
           super.execute(flowControl, message);
@@ -365,7 +473,26 @@ public class Try<T> implements Task<T> {
       @Override
       void execute(@NotNull AwaitableFlowControl<T> flowControl, Object message) throws Exception {
         if (message == STOP) {
-          // TODO: 06/03/21 execute finally blocks
+          if (blocks.isEmpty()) {
+            flowControl.stop();
+          } else {
+            final Logger logger = flowControl.logger();
+            final EndFlowControl<T> errorFlowControl = new EndFlowControl<T>(logger);
+            Throwable error = new TryThrowable();
+            for (Block<? extends T, ? super Throwable> block : blocks) {
+              logger.log(new DbgMessage("[executing] block: %s", new PrintIdentity(block)));
+              try {
+                if (block instanceof Finally) {
+                  block.execute(error).apply(errorFlowControl);
+                }
+              } catch (final Exception e) {
+                new IfInterrupt(e).throwException();
+                logger.log(new WrnMessage(new LogMessage("original output overwritten by:"), e));
+                error = e;
+              }
+            }
+            errorFlowControl.applyResult(flowControl, error);
+          }
         } else {
           super.execute(flowControl, message);
         }
@@ -374,6 +501,14 @@ public class Try<T> implements Task<T> {
       @Override
       public void cancelExecution() {
       }
+    }
+  }
+
+  private static class TryThrowable extends Throwable {
+
+    @Override
+    public Throwable fillInStackTrace() {
+      return this;
     }
   }
 }
