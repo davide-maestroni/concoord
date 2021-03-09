@@ -1,6 +1,6 @@
 package concoord.concurrent;
 
-public interface NullaryAwaiter {
+public interface EndAwaiter {
 
   void event() throws Exception;
 }

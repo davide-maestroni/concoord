@@ -36,7 +36,7 @@ public class IfSomeOf extends AbstractPrecondition {
 
   @Nullable
   public RuntimeException getException() {
-    List<RuntimeException> exceptions = getExceptions();
+    final List<RuntimeException> exceptions = getExceptions();
     if (!exceptions.isEmpty()) {
       return buildException(exceptions);
     }
@@ -47,7 +47,7 @@ public class IfSomeOf extends AbstractPrecondition {
   private List<RuntimeException> getExceptions() {
     final ArrayList<RuntimeException> exceptions = new ArrayList<RuntimeException>();
     for (Precondition precondition : preconditions) {
-      RuntimeException exception = precondition.getException();
+      final RuntimeException exception = precondition.getException();
       if (exception != null) {
         exceptions.add(exception);
       }

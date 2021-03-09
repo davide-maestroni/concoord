@@ -43,7 +43,7 @@ public class ScheduledExecutor implements Scheduler {
     this(executor, -1);
   }
 
-  public ScheduledExecutor(@NotNull Executor executor, final int throughput) {
+  public ScheduledExecutor(@NotNull Executor executor, int throughput) {
     new IfSomeOf(
         new IfNull("executor", executor),
         new IfEqual<Integer>("throughput", throughput, 0)
@@ -51,124 +51,9 @@ public class ScheduledExecutor implements Scheduler {
     this.executor = executor;
     if (throughput < 0) {
       // infinite throughput
-      this.runner = new Runnable() {
-        public void run() {
-          while (true) {
-            status.set(READING);
-            Runnable command = highQueue.poll();
-            if (command == null) {
-              command = lowQueue.poll();
-              if (command == null) {
-                // move to IDLE
-                if (status.compareAndSet(READING, IDLE)) {
-                  return;
-                } else {
-                  continue;
-                }
-              }
-            }
-
-            status.set(RUNNING);
-            try {
-              command.run();
-            } catch (final Throwable t) {
-              logger.log(new ErrMessage(new LogMessage("uncaught exception"), t));
-              if (t instanceof RuntimeException) {
-                throw (RuntimeException) t;
-              } else {
-                throw new RuntimeException(t);
-              }
-            }
-          }
-        }
-      };
-
-    } else if (throughput == 1) {
-      this.runner = new Runnable() {
-        public void run() {
-          status.set(READING);
-          Runnable command = highQueue.peek();
-          if (command == null) {
-            command = lowQueue.peek();
-            if (command == null) {
-              // move to IDLE
-              if (!status.compareAndSet(READING, IDLE)) {
-                ScheduledExecutor.this.executor.execute(this);
-              }
-              return;
-            } else {
-              lowQueue.remove();
-            }
-          } else {
-            highQueue.remove();
-          }
-
-          status.set(RUNNING);
-          try {
-            command.run();
-          } catch (final Throwable t) {
-            logger.log(new ErrMessage(new LogMessage("uncaught exception"), t));
-            if (t instanceof RuntimeException) {
-              throw (RuntimeException) t;
-            } else {
-              throw new RuntimeException(t);
-            }
-          }
-          ScheduledExecutor.this.executor.execute(this);
-        }
-      };
-
+      this.runner = new InfiniteRunner();
     } else {
-      this.runner = new Runnable() {
-        public void run() {
-          for (int i = 0; i < throughput; ++i) {
-            status.set(READING);
-            Runnable command = highQueue.peek();
-            if (command == null) {
-              command = lowQueue.peek();
-              if (command == null) {
-                // move to IDLE
-                if (status.compareAndSet(READING, IDLE)) {
-                  return;
-                } else {
-                  --i;
-                  continue;
-                }
-              } else {
-                lowQueue.remove();
-              }
-            } else {
-              highQueue.remove();
-            }
-
-            status.set(RUNNING);
-            try {
-              command.run();
-            } catch (final Throwable t) {
-              logger.log(new ErrMessage(new LogMessage("uncaught exception"), t));
-              if (t instanceof RuntimeException) {
-                throw (RuntimeException) t;
-              } else {
-                throw new RuntimeException(t);
-              }
-            }
-          }
-          Runnable command = highQueue.peek();
-          if (command == null) {
-            command = lowQueue.peek();
-            if (command == null) {
-              // move to IDLE
-              if (!status.compareAndSet(READING, IDLE)) {
-                ScheduledExecutor.this.executor.execute(this);
-              }
-            } else {
-              ScheduledExecutor.this.executor.execute(this);
-            }
-          } else {
-            ScheduledExecutor.this.executor.execute(this);
-          }
-        }
-      };
+      this.runner = new LimitedRunner(throughput);
     }
   }
 
@@ -188,5 +73,96 @@ public class ScheduledExecutor implements Scheduler {
 
   public int pendingCommands() {
     return highQueue.size() + lowQueue.size();
+  }
+
+  private class InfiniteRunner implements Runnable {
+
+    public void run() {
+      while (true) {
+        status.set(READING);
+        Runnable command = highQueue.poll();
+        if (command == null) {
+          command = lowQueue.poll();
+          if (command == null) {
+            // move to IDLE
+            if (status.compareAndSet(READING, IDLE)) {
+              return;
+            } else {
+              continue;
+            }
+          }
+        }
+
+        status.set(RUNNING);
+        try {
+          command.run();
+        } catch (final Throwable t) {
+          logger.log(new ErrMessage(new LogMessage("uncaught exception"), t));
+          if (t instanceof RuntimeException) {
+            throw (RuntimeException) t;
+          } else {
+            throw new RuntimeException(t);
+          }
+        }
+      }
+    }
+  }
+
+  private class LimitedRunner implements Runnable {
+
+    private final int throughput;
+
+    private LimitedRunner(int throughput) {
+      this.throughput = throughput;
+    }
+
+    public void run() {
+      for (int i = 0; i < throughput; ++i) {
+        status.set(READING);
+        Runnable command = highQueue.peek();
+        if (command == null) {
+          command = lowQueue.peek();
+          if (command == null) {
+            // move to IDLE
+            if (status.compareAndSet(READING, IDLE)) {
+              return;
+            } else {
+              --i;
+              continue;
+            }
+          } else {
+            lowQueue.remove();
+          }
+        } else {
+          highQueue.remove();
+        }
+
+        status.set(RUNNING);
+        try {
+          command.run();
+        } catch (final Throwable t) {
+          logger.log(new ErrMessage(new LogMessage("uncaught exception"), t));
+          if (t instanceof RuntimeException) {
+            throw (RuntimeException) t;
+          } else {
+            throw new RuntimeException(t);
+          }
+        }
+      }
+      Runnable command = highQueue.peek();
+      if (command == null) {
+        command = lowQueue.peek();
+        if (command == null) {
+          // move to IDLE
+          if (!status.compareAndSet(READING, IDLE)) {
+            executor.execute(this);
+          }
+        } else {
+          executor.execute(this);
+        }
+      } else {
+        executor.execute(this);
+      }
+    }
   }
 }

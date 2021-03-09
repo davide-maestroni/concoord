@@ -34,8 +34,8 @@ public class IfAnyOf extends AbstractPrecondition {
 
   @Nullable
   public RuntimeException getException() {
-    for (Precondition precondition : preconditions) {
-      RuntimeException exception = precondition.getException();
+    for (final Precondition precondition : preconditions) {
+      final RuntimeException exception = precondition.getException();
       if (exception != null) {
         return exception;
       }

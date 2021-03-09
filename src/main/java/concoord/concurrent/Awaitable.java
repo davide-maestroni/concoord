@@ -26,8 +26,8 @@ public interface Awaitable<T> {
   Cancelable await(int maxEvents, @NotNull Awaiter<? super T> awaiter);
 
   @NotNull
-  Cancelable await(int maxEvents, @NotNull UnaryAwaiter<? super T> messageAwaiter,
-      @NotNull UnaryAwaiter<? super Throwable> errorAwaiter, @NotNull NullaryAwaiter endAwaiter);
+  Cancelable await(int maxEvents, @NotNull EventAwaiter<? super T> messageAwaiter,
+      @NotNull EventAwaiter<? super Throwable> errorAwaiter, @NotNull EndAwaiter endAwaiter);
 
   void abort();
 

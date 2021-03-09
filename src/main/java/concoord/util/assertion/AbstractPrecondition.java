@@ -18,7 +18,7 @@ package concoord.util.assertion;
 public abstract class AbstractPrecondition implements Precondition {
 
   public void throwException() {
-    RuntimeException exception = getException();
+    final RuntimeException exception = getException();
     if (exception != null) {
       throw exception;
     }

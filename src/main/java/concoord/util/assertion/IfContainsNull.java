@@ -25,7 +25,7 @@ public class IfContainsNull extends AbstractPrecondition {
       @Nullable
       public RuntimeException getException() {
         if (objects != null) {
-          for (Object object : objects) {
+          for (final Object object : objects) {
             if (object == null) {
               return buildException(name);
             }
@@ -55,7 +55,7 @@ public class IfContainsNull extends AbstractPrecondition {
       @Nullable
       public RuntimeException getException() {
         if (objects != null) {
-          for (Object object : objects) {
+          for (final Object object : objects) {
             if (object == null) {
               return buildException(name);
             }

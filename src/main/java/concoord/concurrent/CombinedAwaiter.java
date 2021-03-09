@@ -6,12 +6,12 @@ import org.jetbrains.annotations.NotNull;
 
 public class CombinedAwaiter<T> implements Awaiter<T> {
 
-  private final UnaryAwaiter<? super T> messageAwaiter;
-  private final UnaryAwaiter<? super Throwable> errorAwaiter;
-  private final NullaryAwaiter endAwaiter;
+  private final EventAwaiter<? super T> messageAwaiter;
+  private final EventAwaiter<? super Throwable> errorAwaiter;
+  private final EndAwaiter endAwaiter;
 
-  public CombinedAwaiter(@NotNull UnaryAwaiter<? super T> messageAwaiter,
-      @NotNull UnaryAwaiter<? super Throwable> errorAwaiter, @NotNull NullaryAwaiter endAwaiter) {
+  public CombinedAwaiter(@NotNull EventAwaiter<? super T> messageAwaiter,
+      @NotNull EventAwaiter<? super Throwable> errorAwaiter, @NotNull EndAwaiter endAwaiter) {
     new IfSomeOf(
         new IfNull("messageAwaiter", messageAwaiter),
         new IfNull("errorAwaiter", errorAwaiter),

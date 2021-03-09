@@ -142,8 +142,8 @@ public class JoinTest {
 
     @NotNull
     @Override
-    public Cancelable await(int maxEvents, @NotNull UnaryAwaiter<? super T> messageAwaiter,
-        @NotNull UnaryAwaiter<? super Throwable> errorAwaiter, @NotNull NullaryAwaiter endAwaiter) {
+    public Cancelable await(int maxEvents, @NotNull EventAwaiter<? super T> messageAwaiter,
+        @NotNull EventAwaiter<? super Throwable> errorAwaiter, @NotNull EndAwaiter endAwaiter) {
       return new DummyCancelable();
     }
 

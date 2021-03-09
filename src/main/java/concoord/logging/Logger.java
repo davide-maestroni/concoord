@@ -58,7 +58,7 @@ public class Logger {
     // copy on write
     final String name = this.name;
     synchronized (printersMutex) {
-      HashMap<String, HashSet<LogPrinter>> newPrinters =
+      final HashMap<String, HashSet<LogPrinter>> newPrinters =
           new HashMap<String, HashSet<LogPrinter>>(printers);
       HashSet<LogPrinter> logPrinters = newPrinters.get(name);
       if (logPrinters == null) {
@@ -74,7 +74,7 @@ public class Logger {
     // copy on write
     final String name = this.name;
     synchronized (printersMutex) {
-      HashMap<String, HashSet<LogPrinter>> newPrinters =
+      final HashMap<String, HashSet<LogPrinter>> newPrinters =
           new HashMap<String, HashSet<LogPrinter>>(printers);
       HashSet<LogPrinter> logPrinters = newPrinters.get(name);
       if (logPrinters != null) {
@@ -90,7 +90,7 @@ public class Logger {
   public void clearPrinters() {
     // copy on write
     synchronized (printersMutex) {
-      HashMap<String, HashSet<LogPrinter>> newPrinters =
+      final HashMap<String, HashSet<LogPrinter>> newPrinters =
           new HashMap<String, HashSet<LogPrinter>>(printers);
       if (newPrinters.remove(name) != null) {
         printers = newPrinters;
@@ -103,7 +103,7 @@ public class Logger {
     final String name = this.name;
     final HashMap<String, HashSet<LogPrinter>> printers = Logger.printers;
     for (String path : getNames()) {
-      HashSet<LogPrinter> logPrinters = printers.get(path);
+      final HashSet<LogPrinter> logPrinters = printers.get(path);
       if (logPrinters != null) {
         for (LogPrinter logPrinter : logPrinters) {
           if (logPrinter.canPrintDbg(name)) {
@@ -122,7 +122,7 @@ public class Logger {
     final String name = this.name;
     final HashMap<String, HashSet<LogPrinter>> printers = Logger.printers;
     for (String path : getNames()) {
-      HashSet<LogPrinter> logPrinters = printers.get(path);
+      final HashSet<LogPrinter> logPrinters = printers.get(path);
       if (logPrinters != null) {
         for (LogPrinter logPrinter : logPrinters) {
           if (logPrinter.canPrintInf(name)) {
@@ -141,7 +141,7 @@ public class Logger {
     final String name = this.name;
     final HashMap<String, HashSet<LogPrinter>> printers = Logger.printers;
     for (String path : getNames()) {
-      HashSet<LogPrinter> logPrinters = printers.get(path);
+      final HashSet<LogPrinter> logPrinters = printers.get(path);
       if (logPrinters != null) {
         for (LogPrinter logPrinter : logPrinters) {
           if (logPrinter.canPrintWrn(name)) {
@@ -160,7 +160,7 @@ public class Logger {
     final String name = this.name;
     final HashMap<String, HashSet<LogPrinter>> printers = Logger.printers;
     for (String path : getNames()) {
-      HashSet<LogPrinter> logPrinters = printers.get(path);
+      final HashSet<LogPrinter> logPrinters = printers.get(path);
       if (logPrinters != null) {
         for (LogPrinter logPrinter : logPrinters) {
           if (logPrinter.canPrintErr(name)) {
