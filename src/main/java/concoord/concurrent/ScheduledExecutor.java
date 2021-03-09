@@ -52,8 +52,10 @@ public class ScheduledExecutor implements Scheduler {
     if (throughput < 0) {
       // infinite throughput
       this.runner = new InfiniteRunner();
+    } else if (throughput == 1) {
+      this.runner = new SingleRunner();
     } else {
-      this.runner = new LimitedRunner(throughput);
+      this.runner = new ThroughputRunner(throughput);
     }
   }
 
@@ -108,11 +110,46 @@ public class ScheduledExecutor implements Scheduler {
     }
   }
 
-  private class LimitedRunner implements Runnable {
+  private class SingleRunner implements Runnable {
+
+    public void run() {
+      status.set(READING);
+      Runnable command = highQueue.peek();
+      if (command == null) {
+        command = lowQueue.peek();
+        if (command == null) {
+          // move to IDLE
+          if (!status.compareAndSet(READING, IDLE)) {
+            executor.execute(this);
+          }
+          return;
+        } else {
+          lowQueue.remove();
+        }
+      } else {
+        highQueue.remove();
+      }
+
+      status.set(RUNNING);
+      try {
+        command.run();
+      } catch (final Throwable t) {
+        logger.log(new ErrMessage(new LogMessage("uncaught exception"), t));
+        if (t instanceof RuntimeException) {
+          throw (RuntimeException) t;
+        } else {
+          throw new RuntimeException(t);
+        }
+      }
+      executor.execute(this);
+    }
+  }
+
+  private class ThroughputRunner implements Runnable {
 
     private final int throughput;
 
-    private LimitedRunner(int throughput) {
+    private ThroughputRunner(int throughput) {
       this.throughput = throughput;
     }
 
