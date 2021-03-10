@@ -80,6 +80,7 @@ public abstract class BaseAwaitable<T> implements Awaitable<T> {
     scheduler.scheduleHigh(new AbortCommand());
   }
 
+  // TODO: 10/03/21 composition instead of inheritance
   protected abstract boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl)
       throws Exception;
 

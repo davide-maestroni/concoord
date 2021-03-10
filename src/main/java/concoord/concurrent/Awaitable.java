@@ -30,6 +30,4 @@ public interface Awaitable<T> {
       @NotNull EventAwaiter<? super Throwable> errorAwaiter, @NotNull EndAwaiter endAwaiter);
 
   void abort();
-
-  // TODO: 01/03/21 abort created awaitables?
 }
