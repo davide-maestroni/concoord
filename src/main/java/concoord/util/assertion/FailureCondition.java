@@ -13,11 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package concoord.concurrent;
+package concoord.util.assertion;
 
-public class JoinTimeoutException extends RuntimeException {
+import org.jetbrains.annotations.Nullable;
 
-  public JoinTimeoutException(String message) {
-    super(message);
-  }
+public interface FailureCondition {
+
+  @Nullable
+  RuntimeException getException();
+
+  void throwException();
 }

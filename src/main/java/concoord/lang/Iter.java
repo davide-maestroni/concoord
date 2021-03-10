@@ -27,7 +27,7 @@ import org.jetbrains.annotations.NotNull;
 
 public class Iter<T> implements Task<T> {
 
-  private final Task<T> task;
+  private final Iterable<? extends T> messages;
 
   public Iter(@NotNull T... messages) {
     this(Arrays.asList(messages));
@@ -35,33 +35,19 @@ public class Iter<T> implements Task<T> {
 
   public Iter(@NotNull final Iterable<? extends T> messages) {
     new IfNull("messages", messages).throwException();
-    this.task = new Task<T>() {
-      @NotNull
-      public Awaitable<T> on(@NotNull Scheduler scheduler) {
-        return new IterAwaitable<T>(scheduler, messages.iterator());
-      }
-    };
-  }
-
-  public Iter(@NotNull final Iterator<? extends T> messages) {
-    new IfNull("messages", messages).throwException();
-    this.task = new Task<T>() {
-      @NotNull
-      public Awaitable<T> on(@NotNull Scheduler scheduler) {
-        return new IterAwaitable<T>(scheduler, messages);
-      }
-    };
+    this.messages = messages;
   }
 
   @NotNull
   public Awaitable<T> on(@NotNull Scheduler scheduler) {
     new IfNull("scheduler", scheduler).throwException();
-    return task.on(scheduler);
+    return new IterAwaitable<T>(scheduler, messages.iterator());
   }
 
   private static class IterAwaitable<T> extends BaseAwaitable<T> {
 
     private final Iterator<? extends T> iterator;
+    private boolean aborted;
 
     private IterAwaitable(@NotNull Scheduler scheduler, @NotNull Iterator<? extends T> iterator) {
       super(scheduler);
@@ -69,11 +55,12 @@ public class Iter<T> implements Task<T> {
       this.iterator = iterator;
     }
 
+    @Override
     protected boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) {
       flowControl.logger().log(
           new DbgMessage("[executing] next iteration: %s", new PrintIdentity(iterator))
       );
-      if (iterator.hasNext()) {
+      if (iterator.hasNext() && !aborted) {
         flowControl.postOutput(iterator.next());
       } else {
         flowControl.stop();
@@ -81,7 +68,15 @@ public class Iter<T> implements Task<T> {
       return true;
     }
 
-    protected void cancelExecution() {
+    @Override
+    protected void cancelExecution(@NotNull AwaitableFlowControl<T> flowControl) {
+      flowControl.stop();
+      scheduleFlow();
+    }
+
+    @Override
+    protected void abortExecution() {
+      aborted = true;
     }
   }
 }

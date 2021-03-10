@@ -13,11 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package concoord.concurrent;
+package concoord.lang;
 
+import concoord.concurrent.Awaitable;
+import concoord.concurrent.Awaiter;
+import concoord.concurrent.UncheckedInterruptedException;
+import concoord.util.assertion.FailureCondition;
 import concoord.util.assertion.IfNull;
 import concoord.util.assertion.IfSomeOf;
-import concoord.util.assertion.Precondition;
 import concoord.util.collection.CircularQueue;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -31,7 +34,7 @@ public class Join<T> implements Iterable<T> {
 
   public Join(@NotNull final Awaitable<T> awaitable, final int maxEvents, final long nextTimeout,
       @NotNull final TimeUnit timeUnit) {
-    buildPrecondition(awaitable, timeUnit).throwException();
+    buildFailureCondition(awaitable, timeUnit).throwException();
     this.iterable = new Iterable<T>() {
       @NotNull
       public Iterator<T> iterator() {
@@ -42,7 +45,7 @@ public class Join<T> implements Iterable<T> {
 
   public Join(@NotNull final Awaitable<T> awaitable, final int maxEvents, final long nextTimeout,
       final long totalTimeout, @NotNull final TimeUnit timeUnit) {
-    buildPrecondition(awaitable, timeUnit).throwException();
+    buildFailureCondition(awaitable, timeUnit).throwException();
     this.iterable = new Iterable<T>() {
       @NotNull
       public Iterator<T> iterator() {
@@ -66,7 +69,7 @@ public class Join<T> implements Iterable<T> {
   }
 
   @NotNull
-  private Precondition buildPrecondition(Awaitable<T> awaitable, TimeUnit timeUnit) {
+  private FailureCondition buildFailureCondition(Awaitable<T> awaitable, TimeUnit timeUnit) {
     return new IfSomeOf(
         new IfNull("awaitable", awaitable),
         new IfNull("timeUnit", timeUnit)
@@ -104,7 +107,7 @@ public class Join<T> implements Iterable<T> {
       final TimeoutProvider timeoutProvider = this.timeoutProvider;
       synchronized (mutex) {
         while (true) {
-          long timeoutMs = timeoutProvider.getNextTimeout(startTimeMs);
+          final long timeoutMs = timeoutProvider.getNextTimeout(startTimeMs);
           if (timeoutMs >= 0) {
             // await events
             awaitable.await(maxEvents, awaiter);

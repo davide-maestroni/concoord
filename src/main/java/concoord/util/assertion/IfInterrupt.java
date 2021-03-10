@@ -16,9 +16,10 @@
 package concoord.util.assertion;
 
 import concoord.concurrent.UncheckedInterruptedException;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-public class IfInterrupt extends AbstractPrecondition {
+public class IfInterrupt extends AbstractFailureCondition {
 
   private final Throwable throwable;
 
@@ -26,10 +27,15 @@ public class IfInterrupt extends AbstractPrecondition {
     this.throwable = throwable;
   }
 
+  @NotNull
+  private static UncheckedInterruptedException buildException(@NotNull InterruptedException e) {
+    return new UncheckedInterruptedException(e);
+  }
+
   @Nullable
   public RuntimeException getException() {
     if (throwable instanceof InterruptedException) {
-      return new UncheckedInterruptedException((InterruptedException) throwable);
+      return buildException((InterruptedException) throwable);
     }
     return null;
   }

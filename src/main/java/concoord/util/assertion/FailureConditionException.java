@@ -21,15 +21,15 @@ import java.util.ArrayList;
 import java.util.List;
 import org.jetbrains.annotations.NotNull;
 
-public class PreconditionFailedException extends RuntimeException {
+public class FailureConditionException extends RuntimeException {
 
   private final ArrayList<RuntimeException> exceptions;
 
-  public PreconditionFailedException(@NotNull List<RuntimeException> exceptions) {
+  public FailureConditionException(@NotNull List<RuntimeException> exceptions) {
     this.exceptions = new ArrayList<RuntimeException>(exceptions);
   }
 
-  public PreconditionFailedException(String message, @NotNull List<RuntimeException> exceptions) {
+  public FailureConditionException(String message, @NotNull List<RuntimeException> exceptions) {
     super(message);
     this.exceptions = new ArrayList<RuntimeException>(exceptions);
   }

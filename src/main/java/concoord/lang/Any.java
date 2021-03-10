@@ -90,8 +90,15 @@ public class Any<T> implements Task<T> {
     }
 
     @Override
-    protected void cancelExecution() {
+    protected void cancelExecution(@NotNull AwaitableFlowControl<T> flowControl) {
       state.cancelExecution();
+    }
+
+    @Override
+    protected void abortExecution() {
+      for (final Awaitable<?> awaitable : awaitables) {
+        awaitable.abort();
+      }
     }
 
     private interface State<T> {
@@ -108,26 +115,38 @@ public class Any<T> implements Task<T> {
         scheduleFlow();
       }
 
-      public void error(@NotNull final Throwable error) {
-        scheduler.scheduleLow(new Runnable() {
-          public void run() {
-            inputs.offer(STOP);
-            state = new ErrorState(error);
-            scheduleFlow();
-          }
-        });
+      public void error(@NotNull Throwable error) {
+        scheduler.scheduleLow(new ErrorCommand(error));
       }
 
       public void end() {
-        scheduler.scheduleLow(new Runnable() {
-          public void run() {
-            if (++stopped == awaitables.size()) {
-              inputs.offer(STOP);
-              state = new EndState();
-              scheduleFlow();
-            }
+        scheduler.scheduleLow(new EndCommand());
+      }
+
+      private class ErrorCommand implements Runnable {
+
+        private final Throwable error;
+
+        private ErrorCommand(@NotNull Throwable error) {
+          this.error = error;
+        }
+
+        public void run() {
+          inputs.offer(STOP);
+          state = new ErrorState(error);
+          scheduleFlow();
+        }
+      }
+
+      private class EndCommand implements Runnable {
+
+        public void run() {
+          if (++stopped == awaitables.size()) {
+            inputs.offer(STOP);
+            state = new EndState();
+            scheduleFlow();
           }
-        });
+        }
       }
     }
 
@@ -147,7 +166,7 @@ public class Any<T> implements Task<T> {
       }
 
       public void cancelExecution() {
-        for (Cancelable cancelable : cancelables) {
+        for (final Cancelable cancelable : cancelables) {
           cancelable.cancel();
         }
       }
@@ -177,7 +196,7 @@ public class Any<T> implements Task<T> {
       }
 
       public void cancelExecution() {
-        for (Cancelable cancelable : cancelables) {
+        for (final Cancelable cancelable : cancelables) {
           cancelable.cancel();
         }
       }
@@ -207,7 +226,7 @@ public class Any<T> implements Task<T> {
 
       @Override
       public void cancelExecution() {
-        for (Cancelable cancelable : cancelables) {
+        for (final Cancelable cancelable : cancelables) {
           cancelable.cancel();
         }
       }
@@ -226,7 +245,7 @@ public class Any<T> implements Task<T> {
 
       @Override
       public void cancelExecution() {
-        for (Cancelable cancelable : cancelables) {
+        for (final Cancelable cancelable : cancelables) {
           cancelable.cancel();
         }
       }

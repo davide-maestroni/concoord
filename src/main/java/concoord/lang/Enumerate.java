@@ -28,12 +28,12 @@ public class Enumerate<T, M> implements Task<T> {
 
   private final For<T, M> task;
 
-  public Enumerate(@NotNull final Awaitable<M> awaitable,
+  public Enumerate(@NotNull Awaitable<M> awaitable,
       @NotNull Block<T, ? super IndexedMessage<? super M>> block) {
     this(1, awaitable, block);
   }
 
-  public Enumerate(int maxEvents, @NotNull final Awaitable<M> awaitable,
+  public Enumerate(int maxEvents, @NotNull Awaitable<M> awaitable,
       @NotNull Block<T, ? super IndexedMessage<? super M>> block) {
     new IfSomeOf(
         new IfNull("awaitable", awaitable),

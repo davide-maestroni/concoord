@@ -18,7 +18,7 @@ package concoord.util.assertion;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-public class IfEqual<T> extends AbstractPrecondition {
+public class IfEqual<T> extends AbstractFailureCondition {
 
   private final T object;
   private final String name;

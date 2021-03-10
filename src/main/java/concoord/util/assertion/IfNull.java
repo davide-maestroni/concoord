@@ -18,7 +18,7 @@ package concoord.util.assertion;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-public class IfNull extends AbstractPrecondition {
+public class IfNull extends AbstractFailureCondition {
 
   private final Object object;
   private final String name;

@@ -54,13 +54,19 @@ public class Do<T> implements Task<T> {
       this.block = block;
     }
 
+    @Override
     protected boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
       flowControl.logger().log(new DbgMessage("[executing] block: %s", new PrintIdentity(block)));
       block.execute().apply(flowControl);
       return true;
     }
 
-    protected void cancelExecution() {
+    @Override
+    protected void cancelExecution(@NotNull AwaitableFlowControl<T> flowControl) {
+    }
+
+    @Override
+    protected void abortExecution() {
     }
   }
 }

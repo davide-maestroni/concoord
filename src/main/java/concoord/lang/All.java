@@ -224,8 +224,16 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
     }
 
     @Override
-    protected void cancelExecution() {
+    protected void cancelExecution(
+        @NotNull AwaitableFlowControl<Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>> flowControl) {
       state.cancelExecution();
+    }
+
+    @Override
+    protected void abortExecution() {
+      for (final Awaitable<?> awaitable : awaitables) {
+        awaitable.abort();
+      }
     }
 
     private interface State<T> {
@@ -248,24 +256,36 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
         scheduleFlow();
       }
 
-      public void error(@NotNull final Throwable error) {
-        scheduler.scheduleLow(new Runnable() {
-          public void run() {
-            queue.offer(STOP);
-            state = new ErrorState(error);
-            scheduleFlow();
-          }
-        });
+      public void error(@NotNull Throwable error) {
+        scheduler.scheduleLow(new ErrorCommand(error));
       }
 
       public void end() {
-        scheduler.scheduleLow(new Runnable() {
-          public void run() {
-            queue.offer(STOP);
-            state = new EndState();
-            scheduleFlow();
-          }
-        });
+        scheduler.scheduleLow(new EndCommand());
+      }
+
+      private class ErrorCommand implements Runnable {
+
+        private final Throwable error;
+
+        private ErrorCommand(@NotNull Throwable error) {
+          this.error = error;
+        }
+
+        public void run() {
+          queue.offer(STOP);
+          state = new ErrorState(error);
+          scheduleFlow();
+        }
+      }
+
+      private class EndCommand implements Runnable {
+
+        public void run() {
+          queue.offer(STOP);
+          state = new EndState();
+          scheduleFlow();
+        }
       }
     }
 
@@ -286,7 +306,7 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
       }
 
       public void cancelExecution() {
-        for (Cancelable cancelable : cancelables) {
+        for (final Cancelable cancelable : cancelables) {
           cancelable.cancel();
         }
       }
@@ -327,14 +347,14 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
       }
 
       public void cancelExecution() {
-        for (Cancelable cancelable : cancelables) {
+        for (final Cancelable cancelable : cancelables) {
           cancelable.cancel();
         }
       }
 
       void postMessages(
           @NotNull AwaitableFlowControl<Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>> flowControl,
-          @NotNull final ArrayList<Object> messages) {
+          @NotNull ArrayList<Object> messages) {
         flowControl.logger().log(new DbgMessage("[executing] message zipping"));
         flowControl.postOutput(new Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>(messages));
       }
@@ -354,6 +374,7 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
           @NotNull ArrayList<Object> messages) {
         if (messages.contains(STOP)) {
           flowControl.abort(error);
+          cancelExecution();
         } else {
           super.postMessages(flowControl, messages);
         }
@@ -368,6 +389,7 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
           @NotNull ArrayList<Object> messages) {
         if (messages.contains(STOP)) {
           flowControl.stop();
+          cancelExecution();
         } else {
           super.postMessages(flowControl, messages);
         }

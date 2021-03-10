@@ -38,8 +38,7 @@ public class For<T, M> implements Task<T> {
     this(1, awaitable, block);
   }
 
-  public For(int maxEvents, @NotNull Awaitable<M> awaitable,
-      @NotNull Block<T, ? super M> block) {
+  public For(int maxEvents, @NotNull Awaitable<M> awaitable, @NotNull Block<T, ? super M> block) {
     new IfSomeOf(
         new IfNull("awaitable", awaitable),
         new IfNull("block", block)
@@ -92,8 +91,13 @@ public class For<T, M> implements Task<T> {
     }
 
     @Override
-    protected void cancelExecution() {
+    protected void cancelExecution(@NotNull AwaitableFlowControl<T> flowControl) {
       state.cancelExecution();
+    }
+
+    @Override
+    protected void abortExecution() {
+      awaitable.abort();
     }
 
     public void message(M message) {
@@ -101,24 +105,12 @@ public class For<T, M> implements Task<T> {
       scheduleFlow();
     }
 
-    public void error(@NotNull final Throwable error) {
-      scheduler.scheduleLow(new Runnable() {
-        public void run() {
-          inputs.offer(STOP);
-          state = new ErrorState(error);
-          scheduleFlow();
-        }
-      });
+    public void error(@NotNull Throwable error) {
+      scheduler.scheduleLow(new ErrorCommand(error));
     }
 
     public void end() {
-      scheduler.scheduleLow(new Runnable() {
-        public void run() {
-          inputs.offer(STOP);
-          state = new EndState();
-          scheduleFlow();
-        }
-      });
+      scheduler.scheduleLow(new EndCommand());
     }
 
     private interface State<T> {
@@ -126,6 +118,30 @@ public class For<T, M> implements Task<T> {
       boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception;
 
       void cancelExecution();
+    }
+
+    private class ErrorCommand implements Runnable {
+
+      private final Throwable error;
+
+      private ErrorCommand(@NotNull Throwable error) {
+        this.error = error;
+      }
+
+      public void run() {
+        inputs.offer(STOP);
+        state = new ErrorState(error);
+        scheduleFlow();
+      }
+    }
+
+    private class EndCommand implements Runnable {
+
+      public void run() {
+        inputs.offer(STOP);
+        state = new EndState();
+        scheduleFlow();
+      }
     }
 
     private class InputState implements State<T> {

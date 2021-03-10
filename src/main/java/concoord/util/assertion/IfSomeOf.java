@@ -22,16 +22,16 @@ import java.util.List;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-public class IfSomeOf extends AbstractPrecondition {
+public class IfSomeOf extends AbstractFailureCondition {
 
-  private final Collection<? extends Precondition> preconditions;
+  private final Collection<? extends FailureCondition> conditions;
 
-  public IfSomeOf(@NotNull Precondition... preconditions) {
-    this(Arrays.asList(preconditions));
+  public IfSomeOf(@NotNull FailureCondition... conditions) {
+    this(Arrays.asList(conditions));
   }
 
-  public IfSomeOf(@NotNull Collection<? extends Precondition> preconditions) {
-    this.preconditions = preconditions;
+  public IfSomeOf(@NotNull Collection<? extends FailureCondition> conditions) {
+    this.conditions = conditions;
   }
 
   @Nullable
@@ -46,8 +46,8 @@ public class IfSomeOf extends AbstractPrecondition {
   @NotNull
   private List<RuntimeException> getExceptions() {
     final ArrayList<RuntimeException> exceptions = new ArrayList<RuntimeException>();
-    for (Precondition precondition : preconditions) {
-      final RuntimeException exception = precondition.getException();
+    for (final FailureCondition condition : conditions) {
+      final RuntimeException exception = condition.getException();
       if (exception != null) {
         exceptions.add(exception);
       }
@@ -56,7 +56,7 @@ public class IfSomeOf extends AbstractPrecondition {
   }
 
   @NotNull
-  private PreconditionFailedException buildException(@NotNull List<RuntimeException> exceptions) {
-    return new PreconditionFailedException("preconditions failed", exceptions);
+  private FailureConditionException buildException(@NotNull List<RuntimeException> exceptions) {
+    return new FailureConditionException("some conditions failed", exceptions);
   }
 }

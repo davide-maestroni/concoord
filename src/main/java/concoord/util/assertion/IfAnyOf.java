@@ -20,22 +20,22 @@ import java.util.Collection;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-public class IfAnyOf extends AbstractPrecondition {
+public class IfAnyOf extends AbstractFailureCondition {
 
-  private final Collection<? extends Precondition> preconditions;
+  private final Collection<? extends FailureCondition> conditions;
 
-  public IfAnyOf(@NotNull Precondition... preconditions) {
-    this(Arrays.asList(preconditions));
+  public IfAnyOf(@NotNull FailureCondition... conditions) {
+    this(Arrays.asList(conditions));
   }
 
-  public IfAnyOf(@NotNull Collection<? extends Precondition> preconditions) {
-    this.preconditions = preconditions;
+  public IfAnyOf(@NotNull Collection<? extends FailureCondition> conditions) {
+    this.conditions = conditions;
   }
 
   @Nullable
   public RuntimeException getException() {
-    for (final Precondition precondition : preconditions) {
-      final RuntimeException exception = precondition.getException();
+    for (final FailureCondition failureCondition : conditions) {
+      final RuntimeException exception = failureCondition.getException();
       if (exception != null) {
         return exception;
       }

@@ -152,7 +152,7 @@ public class Try<T> implements Task<T> {
     @NotNull
     @SuppressWarnings("unchecked")
     public final Result<? extends T> execute(@NotNull Throwable error) throws Exception {
-      for (Class<? extends E> type : types) {
+      for (final Class<? extends E> type : types) {
         if (type.isInstance(error)) {
           return block.execute((E) error);
         }
@@ -238,8 +238,13 @@ public class Try<T> implements Task<T> {
     }
 
     @Override
-    protected void cancelExecution() {
+    protected void cancelExecution(@NotNull AwaitableFlowControl<T> flowControl) {
       state.cancelExecution();
+    }
+
+    @Override
+    protected void abortExecution() {
+      awaitable.abort();
     }
 
     public void message(T message) {
@@ -443,7 +448,7 @@ public class Try<T> implements Task<T> {
             final ErrorFlowControl<T> errorFlowControl = new ErrorFlowControl<T>(logger);
             boolean thrown = false;
             Throwable error = this.error;
-            for (Block<? extends T, ? super Throwable> block : blocks) {
+            for (final Block<? extends T, ? super Throwable> block : blocks) {
               logger.log(new DbgMessage("[executing] block: %s", new PrintIdentity(block)));
               try {
                 if ((!errorFlowControl.isStopped() && !thrown) || (block instanceof Finally)) {
@@ -479,7 +484,7 @@ public class Try<T> implements Task<T> {
             final Logger logger = flowControl.logger();
             final EndFlowControl<T> errorFlowControl = new EndFlowControl<T>(logger);
             Throwable error = new TryThrowable();
-            for (Block<? extends T, ? super Throwable> block : blocks) {
+            for (final Block<? extends T, ? super Throwable> block : blocks) {
               logger.log(new DbgMessage("[executing] block: %s", new PrintIdentity(block)));
               try {
                 if (block instanceof Finally) {

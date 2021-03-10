@@ -13,14 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package concoord.util.assertion;
+package concoord.lang;
 
-public abstract class AbstractPrecondition implements Precondition {
+public class JoinTimeoutException extends RuntimeException {
 
-  public void throwException() {
-    final RuntimeException exception = getException();
-    if (exception != null) {
-      throw exception;
-    }
+  public JoinTimeoutException(String message) {
+    super(message);
   }
 }

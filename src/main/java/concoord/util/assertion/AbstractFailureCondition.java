@@ -15,12 +15,12 @@
  */
 package concoord.util.assertion;
 
-import org.jetbrains.annotations.Nullable;
+public abstract class AbstractFailureCondition implements FailureCondition {
 
-public interface Precondition {
-
-  @Nullable
-  RuntimeException getException();
-
-  void throwException();
+  public void throwException() {
+    final RuntimeException exception = getException();
+    if (exception != null) {
+      throw exception;
+    }
+  }
 }

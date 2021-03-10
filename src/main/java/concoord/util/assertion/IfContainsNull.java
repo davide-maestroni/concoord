@@ -4,9 +4,9 @@ import java.util.Collection;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-public class IfContainsNull extends AbstractPrecondition {
+public class IfContainsNull extends AbstractFailureCondition {
 
-  private final AbstractPrecondition precondition;
+  private final AbstractFailureCondition condition;
 
   public IfContainsNull(Object... objects) {
     this("objects", objects);
@@ -21,7 +21,7 @@ public class IfContainsNull extends AbstractPrecondition {
   }
 
   public IfContainsNull(final String name, final Object... objects) {
-    this.precondition = new AbstractPrecondition() {
+    this.condition = new AbstractFailureCondition() {
       @Nullable
       public RuntimeException getException() {
         if (objects != null) {
@@ -37,7 +37,7 @@ public class IfContainsNull extends AbstractPrecondition {
   }
 
   public IfContainsNull(final String name, final Collection<Object> objects) {
-    this.precondition = new AbstractPrecondition() {
+    this.condition = new AbstractFailureCondition() {
       @Nullable
       public RuntimeException getException() {
         if (objects != null) {
@@ -51,7 +51,7 @@ public class IfContainsNull extends AbstractPrecondition {
   }
 
   public IfContainsNull(final String name, final Iterable<Object> objects) {
-    this.precondition = new AbstractPrecondition() {
+    this.condition = new AbstractFailureCondition() {
       @Nullable
       public RuntimeException getException() {
         if (objects != null) {
@@ -73,6 +73,6 @@ public class IfContainsNull extends AbstractPrecondition {
 
   @Nullable
   public RuntimeException getException() {
-    return precondition.getException();
+    return condition.getException();
   }
 }

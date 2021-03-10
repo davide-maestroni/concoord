@@ -18,6 +18,8 @@ package concoord.lang;
 import concoord.concurrent.Awaitable;
 import concoord.concurrent.Scheduler;
 import concoord.concurrent.Task;
+import concoord.util.assertion.IfAnyOf;
+import concoord.util.assertion.IfContainsNull;
 import concoord.util.assertion.IfNull;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -25,36 +27,24 @@ import org.jetbrains.annotations.NotNull;
 
 public class Or<T> implements Task<T> {
 
-  private final Task<T> task;
+  private final Iterable<? extends Awaitable<? extends T>> awaitables;
 
   public Or(@NotNull Awaitable<? extends T>... awaitables) {
     this(Arrays.asList(awaitables));
   }
 
-  public Or(@NotNull final Iterable<? extends Awaitable<? extends T>> awaitables) {
-    new IfNull("awaitables", awaitables).throwException();
-    this.task = new Task<T>() {
-      @NotNull
-      public Awaitable<T> on(@NotNull Scheduler scheduler) {
-        return new OrAwaitable<T>(scheduler, awaitables.iterator());
-      }
-    };
-  }
-
-  public Or(@NotNull final Iterator<? extends Awaitable<? extends T>> awaitables) {
-    new IfNull("awaitables", awaitables).throwException();
-    this.task = new Task<T>() {
-      @NotNull
-      public Awaitable<T> on(@NotNull Scheduler scheduler) {
-        return new OrAwaitable<T>(scheduler, awaitables);
-      }
-    };
+  public Or(@NotNull Iterable<? extends Awaitable<? extends T>> awaitables) {
+    new IfAnyOf(
+        new IfNull("awaitables", awaitables),
+        new IfContainsNull("awaitables", awaitables)
+    ).throwException();
+    this.awaitables = awaitables;
   }
 
   @NotNull
   public Awaitable<T> on(@NotNull Scheduler scheduler) {
     new IfNull("scheduler", scheduler).throwException();
-    return task.on(scheduler);
+    return new OrAwaitable<T>(scheduler, awaitables.iterator());
   }
 
   private static class OrAwaitable<T> extends BaseAwaitable<T> {
@@ -68,6 +58,7 @@ public class Or<T> implements Task<T> {
       this.iterator = iterator;
     }
 
+    @Override
     protected boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) {
       if (!flowControl.hasOutputs() && iterator.hasNext()) {
         flowControl.postOutput(iterator.next());
@@ -77,7 +68,12 @@ public class Or<T> implements Task<T> {
       return true;
     }
 
-    protected void cancelExecution() {
+    @Override
+    protected void cancelExecution(@NotNull AwaitableFlowControl<T> flowControl) {
+    }
+
+    @Override
+    protected void abortExecution() {
     }
   }
 }

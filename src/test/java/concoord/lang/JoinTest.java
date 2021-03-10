@@ -13,13 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package concoord.concurrent;
+package concoord.lang;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import concoord.lang.Do;
-import concoord.lang.Iter;
+import concoord.concurrent.Awaitable;
+import concoord.concurrent.Awaiter;
+import concoord.concurrent.Cancelable;
+import concoord.concurrent.EndAwaiter;
+import concoord.concurrent.EventAwaiter;
+import concoord.concurrent.Trampoline;
+import concoord.concurrent.UncheckedInterruptedException;
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
