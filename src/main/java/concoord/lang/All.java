@@ -20,6 +20,8 @@ import concoord.concurrent.Awaiter;
 import concoord.concurrent.Cancelable;
 import concoord.concurrent.Scheduler;
 import concoord.concurrent.Task;
+import concoord.lang.BaseAwaitable.AwaitableFlowControl;
+import concoord.lang.BaseAwaitable.ExecutionControl;
 import concoord.logging.DbgMessage;
 import concoord.util.assertion.IfAnyOf;
 import concoord.util.assertion.IfContainsNull;
@@ -181,12 +183,12 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
   @NotNull
   public Awaitable<Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>> on(
       @NotNull Scheduler scheduler) {
-    new IfNull("scheduler", scheduler).throwException();
-    return new AllAwaitable<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>(scheduler, awaitables);
+    return new BaseAwaitable<Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>>(scheduler,
+        new AllControl<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>(scheduler, awaitables));
   }
 
-  private static class AllAwaitable<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
-      extends BaseAwaitable<Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>> {
+  private static class AllControl<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
+      implements ExecutionControl<Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>> {
 
     private static final Object NULL = new Object();
     private static final Object STOP = new Object();
@@ -197,40 +199,32 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
     private final Scheduler scheduler;
     private final List<Awaitable<?>> awaitables;
     private final ArrayList<Cancelable> cancelables;
-    private final ArrayList<AllAwaiter> awaiters;
     private State<Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>> state = input;
     private int maxEvents;
     private int events;
 
-    private AllAwaitable(@NotNull Scheduler scheduler, @NotNull List<Awaitable<?>> awaitables) {
-      super(scheduler);
+    private AllControl(@NotNull Scheduler scheduler, @NotNull List<Awaitable<?>> awaitables) {
       this.scheduler = scheduler;
       this.awaitables = awaitables;
       this.cancelables = new ArrayList<Cancelable>(awaitables.size());
       this.inputs = new ArrayList<ConcurrentLinkedQueue<Object>>(awaitables.size());
-      this.awaiters = new ArrayList<AllAwaiter>(awaitables.size());
       for (final Awaitable<?> ignored : awaitables) {
         final ConcurrentLinkedQueue<Object> queue = new ConcurrentLinkedQueue<Object>();
         inputs.add(queue);
-        awaiters.add(new AllAwaiter(queue));
       }
     }
 
-    @Override
-    protected boolean executeBlock(
+    public boolean executeBlock(
         @NotNull AwaitableFlowControl<Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>> flowControl)
         throws Exception {
       return state.executeBlock(flowControl);
     }
 
-    @Override
-    protected void cancelExecution(
-        @NotNull AwaitableFlowControl<Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>> flowControl) {
+    public void cancelExecution() {
       state.cancelExecution();
     }
 
-    @Override
-    protected void abortExecution() {
+    public void abortExecution() {
       for (final Awaitable<?> awaitable : awaitables) {
         awaitable.abort();
       }
@@ -245,15 +239,18 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
 
     private class AllAwaiter implements Awaiter<Object> {
 
+      private final AwaitableFlowControl<?> flowControl;
       private final ConcurrentLinkedQueue<Object> queue;
 
-      private AllAwaiter(@NotNull ConcurrentLinkedQueue<Object> queue) {
+      private AllAwaiter(@NotNull AwaitableFlowControl<?> flowControl,
+          @NotNull ConcurrentLinkedQueue<Object> queue) {
+        this.flowControl = flowControl;
         this.queue = queue;
       }
 
       public void message(Object message) {
         queue.offer(message != null ? message : NULL);
-        scheduleFlow();
+        flowControl.schedule();
       }
 
       public void error(@NotNull Throwable error) {
@@ -275,7 +272,7 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
         public void run() {
           queue.offer(STOP);
           state = new ErrorState(error);
-          scheduleFlow();
+          flowControl.schedule();
         }
       }
 
@@ -284,7 +281,7 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
         public void run() {
           queue.offer(STOP);
           state = new EndState();
-          scheduleFlow();
+          flowControl.schedule();
         }
       }
     }
@@ -295,9 +292,9 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
           @NotNull AwaitableFlowControl<Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>> flowControl) {
         state = message;
         events = maxEvents = flowControl.outputEvents();
-        final List<Awaitable<?>> awaitables = AllAwaitable.this.awaitables;
+        final List<Awaitable<?>> awaitables = AllControl.this.awaitables;
         for (int i = 0; i < awaitables.size(); ++i) {
-          cancelables.add(awaitables.get(i).await(events, awaiters.get(i)));
+          cancelables.add(awaitables.get(i).await(events, new AllAwaiter(flowControl, inputs.get(i))));
         }
         if (maxEvents < 0) {
           events = 1;
@@ -336,11 +333,11 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
         }
         if (events < 1) {
           events = flowControl.inputEvents();
-          final List<Awaitable<?>> awaitables = AllAwaitable.this.awaitables;
-          final ArrayList<Cancelable> cancelables = AllAwaitable.this.cancelables;
+          final List<Awaitable<?>> awaitables = AllControl.this.awaitables;
+          final ArrayList<Cancelable> cancelables = AllControl.this.cancelables;
           cancelables.clear();
           for (int i = 0; i < awaitables.size(); ++i) {
-            cancelables.add(awaitables.get(0).await(events, awaiters.get(i)));
+            cancelables.add(awaitables.get(0).await(events, new AllAwaiter(flowControl, inputs.get(i))));
           }
         }
         return false;

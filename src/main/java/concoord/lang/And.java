@@ -18,6 +18,8 @@ package concoord.lang;
 import concoord.concurrent.Awaitable;
 import concoord.concurrent.Scheduler;
 import concoord.concurrent.Task;
+import concoord.lang.BaseAwaitable.AwaitableFlowControl;
+import concoord.lang.BaseAwaitable.ExecutionControl;
 import concoord.util.assertion.IfAnyOf;
 import concoord.util.assertion.IfContainsNull;
 import concoord.util.assertion.IfNull;
@@ -43,23 +45,19 @@ public class And<T> implements Task<T> {
 
   @NotNull
   public Awaitable<T> on(@NotNull Scheduler scheduler) {
-    new IfNull("scheduler", scheduler).throwException();
-    return new AndAwaitable<T>(scheduler, awaitables.iterator());
+    return new BaseAwaitable<T>(scheduler, new AndControl<T>(awaitables.iterator()));
   }
 
-  private static class AndAwaitable<T> extends BaseAwaitable<T> {
+  private static class AndControl<T> implements ExecutionControl<T> {
 
     private final Iterator<? extends Awaitable<? extends T>> iterator;
 
-    public AndAwaitable(@NotNull Scheduler scheduler,
-        @NotNull Iterator<? extends Awaitable<? extends T>> iterator) {
-      super(scheduler);
+    public AndControl(@NotNull Iterator<? extends Awaitable<? extends T>> iterator) {
       new IfNull("iterator", iterator).throwException();
       this.iterator = iterator;
     }
 
-    @Override
-    protected boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) {
+    public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) {
       if (iterator.hasNext()) {
         flowControl.postOutput(iterator.next());
       } else {
@@ -68,12 +66,10 @@ public class And<T> implements Task<T> {
       return true;
     }
 
-    @Override
-    protected void cancelExecution(@NotNull AwaitableFlowControl<T> flowControl) {
+    public void cancelExecution() {
     }
 
-    @Override
-    protected void abortExecution() {
+    public void abortExecution() {
     }
   }
 }

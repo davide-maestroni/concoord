@@ -18,6 +18,8 @@ package concoord.lang;
 import concoord.concurrent.Awaitable;
 import concoord.concurrent.Scheduler;
 import concoord.concurrent.Task;
+import concoord.lang.BaseAwaitable.AwaitableFlowControl;
+import concoord.lang.BaseAwaitable.ExecutionControl;
 import concoord.logging.DbgMessage;
 import concoord.logging.PrintIdentity;
 import concoord.util.assertion.IfNull;
@@ -40,23 +42,20 @@ public class Iter<T> implements Task<T> {
 
   @NotNull
   public Awaitable<T> on(@NotNull Scheduler scheduler) {
-    new IfNull("scheduler", scheduler).throwException();
-    return new IterAwaitable<T>(scheduler, messages.iterator());
+    return new BaseAwaitable<T>(scheduler, new IterControl<T>(messages.iterator()));
   }
 
-  private static class IterAwaitable<T> extends BaseAwaitable<T> {
+  private static class IterControl<T> implements ExecutionControl<T> {
 
     private final Iterator<? extends T> iterator;
     private boolean aborted;
 
-    private IterAwaitable(@NotNull Scheduler scheduler, @NotNull Iterator<? extends T> iterator) {
-      super(scheduler);
+    private IterControl(@NotNull Iterator<? extends T> iterator) {
       new IfNull("iterator", iterator).throwException();
       this.iterator = iterator;
     }
 
-    @Override
-    protected boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) {
+    public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) {
       flowControl.logger().log(
           new DbgMessage("[executing] next iteration: %s", new PrintIdentity(iterator))
       );
@@ -68,14 +67,10 @@ public class Iter<T> implements Task<T> {
       return true;
     }
 
-    @Override
-    protected void cancelExecution(@NotNull AwaitableFlowControl<T> flowControl) {
-      flowControl.stop();
-      scheduleFlow();
+    public void cancelExecution() {
     }
 
-    @Override
-    protected void abortExecution() {
+    public void abortExecution() {
       aborted = true;
     }
   }

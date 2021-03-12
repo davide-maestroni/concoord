@@ -19,6 +19,8 @@ import concoord.concurrent.Awaitable;
 import concoord.concurrent.Scheduler;
 import concoord.concurrent.Task;
 import concoord.flow.Result;
+import concoord.lang.BaseAwaitable.AwaitableFlowControl;
+import concoord.lang.BaseAwaitable.ExecutionControl;
 import concoord.logging.DbgMessage;
 import concoord.logging.PrintIdentity;
 import concoord.util.assertion.IfNull;
@@ -35,8 +37,7 @@ public class Do<T> implements Task<T> {
 
   @NotNull
   public Awaitable<T> on(@NotNull Scheduler scheduler) {
-    new IfNull("scheduler", scheduler).throwException();
-    return new DoAwaitable<T>(scheduler, block);
+    return new BaseAwaitable<T>(scheduler, new DoControl<T>(block));
   }
 
   public interface Block<T> {
@@ -45,28 +46,24 @@ public class Do<T> implements Task<T> {
     Result<T> execute() throws Exception;
   }
 
-  private static class DoAwaitable<T> extends BaseAwaitable<T> {
+  private static class DoControl<T> implements ExecutionControl<T> {
 
     private final Block<T> block;
 
-    private DoAwaitable(@NotNull Scheduler scheduler, @NotNull Block<T> block) {
-      super(scheduler);
+    private DoControl(@NotNull Block<T> block) {
       this.block = block;
     }
 
-    @Override
-    protected boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
+    public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
       flowControl.logger().log(new DbgMessage("[executing] block: %s", new PrintIdentity(block)));
       block.execute().apply(flowControl);
       return true;
     }
 
-    @Override
-    protected void cancelExecution(@NotNull AwaitableFlowControl<T> flowControl) {
+    public void cancelExecution() {
     }
 
-    @Override
-    protected void abortExecution() {
+    public void abortExecution() {
     }
   }
 }

@@ -20,6 +20,8 @@ import concoord.concurrent.Awaiter;
 import concoord.concurrent.Cancelable;
 import concoord.concurrent.Scheduler;
 import concoord.concurrent.Task;
+import concoord.lang.BaseAwaitable.AwaitableFlowControl;
+import concoord.lang.BaseAwaitable.ExecutionControl;
 import concoord.util.assertion.IfAnyOf;
 import concoord.util.assertion.IfContainsNull;
 import concoord.util.assertion.IfNull;
@@ -51,11 +53,10 @@ public class Any<T> implements Task<T> {
 
   @NotNull
   public Awaitable<T> on(@NotNull Scheduler scheduler) {
-    new IfNull("scheduler", scheduler).throwException();
-    return new AnyAwaitable<T>(scheduler, awaitables);
+    return new BaseAwaitable<T>(scheduler, new AnyControl<T>(scheduler, awaitables));
   }
 
-  private static class AnyAwaitable<T> extends BaseAwaitable<T> {
+  private static class AnyControl<T> implements ExecutionControl<T> {
 
     private static final Object NULL = new Object();
     private static final Object STOP = new Object();
@@ -66,36 +67,27 @@ public class Any<T> implements Task<T> {
     private final Scheduler scheduler;
     private final List<Awaitable<? extends T>> awaitables;
     private final ArrayList<Cancelable> cancelables;
-    private final ArrayList<AnyAwaiter> awaiters;
     private State<T> state = input;
     private int maxEvents;
     private int events;
     private int stopped;
 
-    private AnyAwaitable(@NotNull Scheduler scheduler,
+    private AnyControl(@NotNull Scheduler scheduler,
         @NotNull List<Awaitable<? extends T>> awaitables) {
-      super(scheduler);
       this.scheduler = scheduler;
       this.awaitables = awaitables;
       this.cancelables = new ArrayList<Cancelable>(awaitables.size());
-      this.awaiters = new ArrayList<AnyAwaiter>(awaitables.size());
-      for (final Awaitable<?> ignored : awaitables) {
-        awaiters.add(new AnyAwaiter());
-      }
     }
 
-    @Override
-    protected boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
+    public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
       return state.executeBlock(flowControl);
     }
 
-    @Override
-    protected void cancelExecution(@NotNull AwaitableFlowControl<T> flowControl) {
+    public void cancelExecution() {
       state.cancelExecution();
     }
 
-    @Override
-    protected void abortExecution() {
+    public void abortExecution() {
       for (final Awaitable<?> awaitable : awaitables) {
         awaitable.abort();
       }
@@ -110,9 +102,15 @@ public class Any<T> implements Task<T> {
 
     private class AnyAwaiter implements Awaiter<Object> {
 
+      private final AwaitableFlowControl<T> flowControl;
+
+      private AnyAwaiter(@NotNull AwaitableFlowControl<T> flowControl) {
+        this.flowControl = flowControl;
+      }
+
       public void message(Object message) {
         inputs.offer(message != null ? message : NULL);
-        scheduleFlow();
+        flowControl.schedule();
       }
 
       public void error(@NotNull Throwable error) {
@@ -134,7 +132,7 @@ public class Any<T> implements Task<T> {
         public void run() {
           inputs.offer(STOP);
           state = new ErrorState(error);
-          scheduleFlow();
+          flowControl.schedule();
         }
       }
 
@@ -144,7 +142,7 @@ public class Any<T> implements Task<T> {
           if (++stopped == awaitables.size()) {
             inputs.offer(STOP);
             state = new EndState();
-            scheduleFlow();
+            flowControl.schedule();
           }
         }
       }
@@ -155,9 +153,9 @@ public class Any<T> implements Task<T> {
       public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) {
         state = message;
         events = maxEvents = flowControl.outputEvents();
-        final List<Awaitable<? extends T>> awaitables = AnyAwaitable.this.awaitables;
-        for (int i = 0; i < awaitables.size(); ++i) {
-          cancelables.add(awaitables.get(i).await(events, awaiters.get(i)));
+        final ArrayList<Cancelable> cancelables = AnyControl.this.cancelables;
+        for (final Awaitable<? extends T> awaitable : awaitables) {
+          cancelables.add(awaitable.await(events, new AnyAwaiter(flowControl)));
         }
         if (maxEvents < 0) {
           events = 1;
@@ -185,20 +183,22 @@ public class Any<T> implements Task<T> {
         }
         if (events < 1) {
           events = flowControl.inputEvents();
-          final List<Awaitable<? extends T>> awaitables = AnyAwaitable.this.awaitables;
-          final ArrayList<Cancelable> cancelables = AnyAwaitable.this.cancelables;
+          final ArrayList<Cancelable> cancelables = AnyControl.this.cancelables;
           cancelables.clear();
-          for (int i = 0; i < awaitables.size(); ++i) {
-            cancelables.add(awaitables.get(0).await(events, awaiters.get(i)));
+          stopped = 0;
+          for (final Awaitable<? extends T> awaitable : awaitables) {
+            cancelables.add(awaitable.await(events, new AnyAwaiter(flowControl)));
           }
         }
         return false;
       }
 
       public void cancelExecution() {
+        final ArrayList<Cancelable> cancelables = AnyControl.this.cancelables;
         for (final Cancelable cancelable : cancelables) {
           cancelable.cancel();
         }
+        cancelables.clear();
       }
 
       @SuppressWarnings("unchecked")
@@ -223,13 +223,6 @@ public class Any<T> implements Task<T> {
           super.postMessage(flowControl, message);
         }
       }
-
-      @Override
-      public void cancelExecution() {
-        for (final Cancelable cancelable : cancelables) {
-          cancelable.cancel();
-        }
-      }
     }
 
     private class EndState extends MessageState {
@@ -240,13 +233,6 @@ public class Any<T> implements Task<T> {
           flowControl.stop();
         } else {
           super.postMessage(flowControl, message);
-        }
-      }
-
-      @Override
-      public void cancelExecution() {
-        for (final Cancelable cancelable : cancelables) {
-          cancelable.cancel();
         }
       }
     }

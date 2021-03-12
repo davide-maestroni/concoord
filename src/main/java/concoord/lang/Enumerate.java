@@ -44,7 +44,6 @@ public class Enumerate<T, M> implements Task<T> {
 
   @NotNull
   public Awaitable<T> on(@NotNull Scheduler scheduler) {
-    new IfNull("scheduler", scheduler).throwException();
     return task.on(scheduler);
   }
 
