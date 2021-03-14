@@ -55,7 +55,8 @@ public class BaseAwaitable<T> implements Awaitable<T> {
   private boolean hasOutputs;
   private boolean stopped;
 
-  public BaseAwaitable(@NotNull Scheduler scheduler, @NotNull ExecutionControl<T> executionControl) {
+  public BaseAwaitable(@NotNull Scheduler scheduler,
+      @NotNull ExecutionControl<T> executionControl) {
     new IfSomeOf(
         new IfNull("scheduler", scheduler),
         new IfNull("executionControl", executionControl)

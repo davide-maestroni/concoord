@@ -52,7 +52,10 @@ public class For<T, M> implements Task<T> {
 
   @NotNull
   public Awaitable<T> on(@NotNull Scheduler scheduler) {
-    return new BaseAwaitable<T>(scheduler, new ForControl<T, M>(scheduler, maxEvents, awaitable, block));
+    return new BaseAwaitable<T>(
+        scheduler,
+        new ForControl<T, M>(scheduler, maxEvents, awaitable, block)
+    );
   }
 
   public interface Block<T, M> {

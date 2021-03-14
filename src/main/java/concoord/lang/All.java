@@ -294,7 +294,9 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
         events = maxEvents = flowControl.outputEvents();
         final List<Awaitable<?>> awaitables = AllControl.this.awaitables;
         for (int i = 0; i < awaitables.size(); ++i) {
-          cancelables.add(awaitables.get(i).await(events, new AllAwaiter(flowControl, inputs.get(i))));
+          cancelables.add(
+              awaitables.get(i).await(events, new AllAwaiter(flowControl, inputs.get(i)))
+          );
         }
         if (maxEvents < 0) {
           events = 1;
@@ -337,7 +339,8 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
           final ArrayList<Cancelable> cancelables = AllControl.this.cancelables;
           cancelables.clear();
           for (int i = 0; i < awaitables.size(); ++i) {
-            cancelables.add(awaitables.get(0).await(events, new AllAwaiter(flowControl, inputs.get(i))));
+            cancelables
+                .add(awaitables.get(0).await(events, new AllAwaiter(flowControl, inputs.get(i))));
           }
         }
         return false;
