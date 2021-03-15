@@ -171,12 +171,12 @@ public class DoTest {
     AtomicBoolean testEnd = new AtomicBoolean();
     Cancelable cancelable =
         awaitable.await(-1, messages::add, testError::set, () -> testEnd.set(true));
-    lazyExecutor.advance(3);
+    lazyExecutor.advance(4);
     cancelable.cancel();
     lazyExecutor.advance(Integer.MAX_VALUE);
     assertThat(messages).containsExactly("1");
     assertThat(testError.get()).isNull();
-    assertThat(testEnd.get()).isTrue();
+    assertThat(testEnd.get()).isFalse();
   }
 
   @Test
@@ -191,12 +191,12 @@ public class DoTest {
     AtomicBoolean testEnd = new AtomicBoolean();
     Cancelable cancelable =
         awaitable.await(-1, messages::add, testError::set, () -> testEnd.set(true));
-    lazyExecutor.advance(4);
+    lazyExecutor.advance(5);
     cancelable.cancel();
     lazyExecutor.advance(Integer.MAX_VALUE);
     assertThat(messages).containsExactly("1");
     assertThat(testError.get()).isNull();
-    assertThat(testEnd.get()).isTrue();
+    assertThat(testEnd.get()).isFalse();
   }
 
   @Test
