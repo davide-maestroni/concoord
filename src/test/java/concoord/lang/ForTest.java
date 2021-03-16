@@ -3,11 +3,13 @@ package concoord.lang;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import concoord.concurrent.Awaitable;
+import concoord.concurrent.Awaiter;
 import concoord.concurrent.LazyExecutor;
 import concoord.concurrent.ScheduledExecutor;
 import concoord.flow.Yield;
 import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
@@ -23,12 +25,12 @@ public class ForTest {
     ).on(scheduler);
     ArrayList<String> testMessages = new ArrayList<>();
     AtomicReference<Throwable> testError = new AtomicReference<>();
-    AtomicBoolean testEnd = new AtomicBoolean();
-    awaitable.await(Integer.MAX_VALUE, testMessages::add, testError::set, () -> testEnd.set(true));
+    AtomicInteger testEnd = new AtomicInteger(-1);
+    awaitable.await(Integer.MAX_VALUE, testMessages::add, testError::set, testEnd::set);
     lazyExecutor.advance(Integer.MAX_VALUE);
     assertThat(testMessages).containsExactly("N1", "N2", "N3");
-    assertThat(testError.get()).isNull();
-    assertThat(testEnd.get()).isTrue();
+    assertThat(testError).hasValue(null);
+    assertThat(testEnd).hasValue(Awaiter.DONE);
   }
 
   @Test
@@ -41,12 +43,12 @@ public class ForTest {
     ).on(scheduler);
     ArrayList<String> testMessages = new ArrayList<>();
     AtomicReference<Throwable> testError = new AtomicReference<>();
-    AtomicBoolean testEnd = new AtomicBoolean();
-    awaitable.await(Integer.MAX_VALUE, testMessages::add, testError::set, () -> testEnd.set(true));
+    AtomicInteger testEnd = new AtomicInteger(-1);
+    awaitable.await(Integer.MAX_VALUE, testMessages::add, testError::set, testEnd::set);
     awaitable.abort();
     lazyExecutor.advance(Integer.MAX_VALUE);
     assertThat(testMessages).isEmpty();
-    assertThat(testError.get()).isNull();
-    assertThat(testEnd.get()).isTrue();
+    assertThat(testError).hasValue(null);
+    assertThat(testEnd).hasValue(Awaiter.ABORTED);
   }
 }

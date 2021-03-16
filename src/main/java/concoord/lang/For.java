@@ -124,7 +124,7 @@ public class For<T, M> implements Task<T> {
         scheduler.scheduleLow(new ErrorCommand(error));
       }
 
-      public void end() {
+      public void end(int reason) {
         scheduler.scheduleLow(new EndCommand());
       }
 

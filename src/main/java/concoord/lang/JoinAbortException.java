@@ -13,19 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package concoord.concurrent;
+package concoord.lang;
 
-import org.jetbrains.annotations.NotNull;
+public class JoinAbortException extends RuntimeException {
 
-public interface Awaiter<T> {
-
-  int DONE = 0;
-  int CANCELED = 1;
-  int ABORTED = 2;
-
-  void message(T message) throws Exception;
-
-  void error(@NotNull Throwable error) throws Exception;
-
-  void end(int reason) throws Exception;
 }

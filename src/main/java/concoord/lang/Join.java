@@ -17,6 +17,7 @@ package concoord.lang;
 
 import concoord.concurrent.Awaitable;
 import concoord.concurrent.Awaiter;
+import concoord.concurrent.Cancelable;
 import concoord.concurrent.UncheckedInterruptedException;
 import concoord.util.assertion.FailureCondition;
 import concoord.util.assertion.IfNull;
@@ -86,6 +87,7 @@ public class Join<T> implements Iterable<T> {
     private final TimeoutProvider timeoutProvider;
     private Throwable throwable;
     private boolean isDone;
+    private boolean isAborted;
 
     private JoinIterator(@NotNull Awaitable<T> awaitable, int maxEvents, long nextTimeout,
         @NotNull TimeUnit timeUnit) {
@@ -110,12 +112,15 @@ public class Join<T> implements Iterable<T> {
           final long timeoutMs = timeoutProvider.getNextTimeout(startTimeMs);
           if (timeoutMs >= 0) {
             // await events
-            awaitable.await(maxEvents, awaiter);
+            final Cancelable cancelable = awaitable.await(maxEvents, awaiter);
             if (!queue.isEmpty()) {
               return true;
             }
             if (isDone) {
               return false;
+            }
+            if (isAborted) {
+              throw new JoinAbortException();
             }
             if (throwable != null) {
               throw new JoinException(throwable);
@@ -127,6 +132,8 @@ public class Join<T> implements Iterable<T> {
               mutex.wait(timeoutMs);
             } catch (final InterruptedException e) {
               throw new UncheckedInterruptedException(e);
+            } finally {
+              cancelable.cancel();
             }
           } else {
             break;
@@ -198,9 +205,13 @@ public class Join<T> implements Iterable<T> {
         }
       }
 
-      public void end() {
+      public void end(int reason) {
         synchronized (mutex) {
-          isDone = true;
+          if (reason == Awaiter.DONE) {
+            isDone = true;
+          } else if (reason == Awaiter.ABORTED) {
+            isAborted = true;
+          }
           mutex.notifyAll();
         }
       }

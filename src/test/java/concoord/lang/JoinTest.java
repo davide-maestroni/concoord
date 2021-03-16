@@ -21,7 +21,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import concoord.concurrent.Awaitable;
 import concoord.concurrent.Awaiter;
 import concoord.concurrent.Cancelable;
-import concoord.concurrent.EndAwaiter;
 import concoord.concurrent.EventAwaiter;
 import concoord.concurrent.Trampoline;
 import concoord.concurrent.UncheckedInterruptedException;
@@ -148,7 +147,8 @@ public class JoinTest {
     @NotNull
     @Override
     public Cancelable await(int maxEvents, @NotNull EventAwaiter<? super T> messageAwaiter,
-        @NotNull EventAwaiter<? super Throwable> errorAwaiter, @NotNull EndAwaiter endAwaiter) {
+        @NotNull EventAwaiter<? super Throwable> errorAwaiter,
+        @NotNull EventAwaiter<? super Integer> endAwaiter) {
       return new DummyCancelable();
     }
 

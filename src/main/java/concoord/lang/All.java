@@ -257,7 +257,7 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
         scheduler.scheduleLow(new ErrorCommand(error));
       }
 
-      public void end() {
+      public void end(int reason) {
         scheduler.scheduleLow(new EndCommand());
       }
 

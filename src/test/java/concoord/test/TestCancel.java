@@ -18,6 +18,7 @@ package concoord.test;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import concoord.concurrent.Awaitable;
+import concoord.concurrent.Awaiter;
 import concoord.concurrent.Cancelable;
 import concoord.concurrent.LazyExecutor;
 import concoord.concurrent.ScheduledExecutor;
@@ -25,6 +26,7 @@ import concoord.concurrent.Scheduler;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -47,28 +49,28 @@ public class TestCancel<T> implements Runnable {
     ScheduledExecutor scheduler = new ScheduledExecutor(lazyExecutor, 1);
     ArrayList<T> messages = new ArrayList<>();
     AtomicReference<Throwable> testError = new AtomicReference<>();
-    AtomicBoolean testEnd = new AtomicBoolean();
+    AtomicInteger testEnd = new AtomicInteger(-1);
     int i = 0;
     int count;
     boolean done;
     do {
       messages.clear();
       testError.set(null);
-      testEnd.set(false);
+      testEnd.set(-1);
       Awaitable<T> awaitable = factory.apply(scheduler);
       Cancelable cancelable =
-          awaitable.await(-1, messages::add, testError::set, () -> testEnd.set(true));
+          awaitable.await(-1, messages::add, testError::set, testEnd::set);
       count = lazyExecutor.advance(i++);
       cancelable.cancel();
       lazyExecutor.advance(Integer.MAX_VALUE);
       done = cancelable.isDone();
       assertThat(testError).hasValue(null);
-      assertThat(testEnd.get()).isEqualTo(done);
-      awaitable.await(-1, messages::add, testError::set, () -> testEnd.set(true));
+      assertThat(testEnd).hasValue(done ? Awaiter.DONE : -1);
+      awaitable.await(-1, messages::add, testError::set, testEnd::set);
       lazyExecutor.advance(Integer.MAX_VALUE);
       assertion.accept(messages);
       assertThat(testError).hasValue(null);
-      assertThat(testEnd).isTrue();
+      assertThat(testEnd).hasValue(-1);
     } while (count == (i - 1));
   }
 }
