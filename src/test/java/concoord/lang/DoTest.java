@@ -10,7 +10,6 @@ import concoord.concurrent.ScheduledExecutor;
 import concoord.flow.Return;
 import concoord.flow.Yield;
 import java.util.ArrayList;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.jetbrains.annotations.NotNull;

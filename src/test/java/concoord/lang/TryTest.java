@@ -26,7 +26,6 @@ import concoord.flow.Yield;
 import concoord.lang.Try.Catch;
 import concoord.lang.Try.Finally;
 import java.util.ArrayList;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;

@@ -22,7 +22,6 @@ import concoord.concurrent.LazyExecutor;
 import concoord.concurrent.ScheduledExecutor;
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;

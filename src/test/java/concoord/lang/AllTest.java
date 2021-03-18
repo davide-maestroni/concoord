@@ -24,7 +24,6 @@ import concoord.concurrent.ScheduledExecutor;
 import concoord.test.TestCancel;
 import concoord.util.collection.Tuple;
 import java.util.ArrayList;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
