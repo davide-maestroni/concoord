@@ -66,9 +66,6 @@ public class And<T> implements Task<T> {
       return true;
     }
 
-    public void cancelExecution() {
-    }
-
     public void abortExecution() {
     }
   }

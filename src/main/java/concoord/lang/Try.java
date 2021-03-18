@@ -17,7 +17,6 @@ package concoord.lang;
 
 import concoord.concurrent.Awaitable;
 import concoord.concurrent.Awaiter;
-import concoord.concurrent.Cancelable;
 import concoord.concurrent.Scheduler;
 import concoord.concurrent.Task;
 import concoord.flow.Break;
@@ -220,7 +219,6 @@ public class Try<T> implements Task<T> {
     private final Scheduler scheduler;
     private final Awaitable<T> awaitable;
     private final List<Block<? extends T, ? super Throwable>> blocks;
-    private Cancelable cancelable;
     private State<T> state = input;
     private int maxEvents;
     private int events;
@@ -236,10 +234,6 @@ public class Try<T> implements Task<T> {
       return state.executeBlock(flowControl);
     }
 
-    public void cancelExecution() {
-      state.cancelExecution();
-    }
-
     public void abortExecution() {
       awaitable.abort();
     }
@@ -247,8 +241,6 @@ public class Try<T> implements Task<T> {
     private interface State<T> {
 
       boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception;
-
-      void cancelExecution();
     }
 
     private static class ErrorFlowControl<T> implements FlowControl<T> {
@@ -298,7 +290,7 @@ public class Try<T> implements Task<T> {
           result.apply(flowControl);
           flowControl.stop();
         } else {
-          flowControl.abort(error);
+          flowControl.error(error);
         }
       }
     }
@@ -307,7 +299,6 @@ public class Try<T> implements Task<T> {
 
       private final Logger logger;
       private Result<T> result;
-      private boolean stopped;
 
       public EndFlowControl(@NotNull Logger logger) {
         this.logger = logger;
@@ -333,11 +324,6 @@ public class Try<T> implements Task<T> {
         if (result == null) {
           result = new Break<T>();
         }
-        stopped = true;
-      }
-
-      private boolean isStopped() {
-        return stopped;
       }
 
       private void applyResult(@NotNull AwaitableFlowControl<? super T> flowControl,
@@ -346,7 +332,7 @@ public class Try<T> implements Task<T> {
           result.apply(flowControl);
           flowControl.stop();
         } else {
-          flowControl.abort(error);
+          flowControl.error(error);
         }
       }
     }
@@ -369,7 +355,13 @@ public class Try<T> implements Task<T> {
       }
 
       public void end(int reason) {
-        scheduler.scheduleLow(new EndCommand());
+        final Runnable command;
+        if (reason == Awaiter.DONE) {
+          command = new EndCommand();
+        } else {
+          command = new AbortCommand();
+        }
+        scheduler.scheduleLow(command);
       }
 
       private class ErrorCommand implements Runnable {
@@ -395,6 +387,15 @@ public class Try<T> implements Task<T> {
           flowControl.schedule();
         }
       }
+
+      private class AbortCommand implements Runnable {
+
+        public void run() {
+          inputs.offer(STOP);
+          state = new AbortState();
+          flowControl.schedule();
+        }
+      }
     }
 
     private class InputState implements State<T> {
@@ -402,18 +403,11 @@ public class Try<T> implements Task<T> {
       public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) {
         state = message;
         events = maxEvents = flowControl.outputEvents();
-        cancelable = awaitable.await(events, new TryAwaiter(flowControl));
+        awaitable.await(events, new TryAwaiter(flowControl));
         if (maxEvents < 0) {
           events = 1;
         }
         return false;
-      }
-
-      public void cancelExecution() {
-        final Cancelable cancelable = TryControl.this.cancelable;
-        if (cancelable != null) {
-          cancelable.cancel();
-        }
       }
     }
 
@@ -430,16 +424,9 @@ public class Try<T> implements Task<T> {
         }
         if (events < 1) {
           events = flowControl.inputEvents();
-          cancelable = awaitable.await(events, new TryAwaiter(flowControl));
+          awaitable.await(events, new TryAwaiter(flowControl));
         }
         return false;
-      }
-
-      public void cancelExecution() {
-        final Cancelable cancelable = TryControl.this.cancelable;
-        if (cancelable != null) {
-          cancelable.cancel();
-        }
       }
 
       @SuppressWarnings("unchecked")
@@ -460,7 +447,7 @@ public class Try<T> implements Task<T> {
       void execute(@NotNull AwaitableFlowControl<T> flowControl, Object message) throws Exception {
         if (message == STOP) {
           if (blocks.isEmpty()) {
-            flowControl.abort(error);
+            flowControl.error(error);
           } else {
             final Logger logger = flowControl.logger();
             final ErrorFlowControl<T> errorFlowControl = new ErrorFlowControl<T>(logger);
@@ -484,10 +471,6 @@ public class Try<T> implements Task<T> {
         } else {
           super.execute(flowControl, message);
         }
-      }
-
-      @Override
-      public void cancelExecution() {
       }
     }
 
@@ -520,9 +503,36 @@ public class Try<T> implements Task<T> {
           super.execute(flowControl, message);
         }
       }
+    }
+
+    private class AbortState extends MessageState {
 
       @Override
-      public void cancelExecution() {
+      void execute(@NotNull AwaitableFlowControl<T> flowControl, Object message) throws Exception {
+        if (message == STOP) {
+          if (blocks.isEmpty()) {
+            flowControl.abort();
+          } else {
+            final Logger logger = flowControl.logger();
+            final EndFlowControl<T> errorFlowControl = new EndFlowControl<T>(logger);
+            Throwable error = new TryThrowable();
+            for (final Block<? extends T, ? super Throwable> block : blocks) {
+              logger.log(new DbgMessage("[executing] block: %s", new PrintIdentity(block)));
+              try {
+                if (block instanceof Finally) {
+                  block.execute(error).apply(errorFlowControl);
+                }
+              } catch (final Exception e) {
+                new IfInterrupt(e).throwException();
+                logger.log(new WrnMessage(new LogMessage("original output overwritten by:"), e));
+                error = e;
+              }
+            }
+            errorFlowControl.applyResult(flowControl, error);
+          }
+        } else {
+          super.execute(flowControl, message);
+        }
       }
     }
   }

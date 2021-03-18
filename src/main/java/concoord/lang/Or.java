@@ -66,9 +66,6 @@ public class Or<T> implements Task<T> {
       return true;
     }
 
-    public void cancelExecution() {
-    }
-
     public void abortExecution() {
     }
   }

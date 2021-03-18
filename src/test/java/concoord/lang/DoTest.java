@@ -177,7 +177,7 @@ public class DoTest {
     lazyExecutor.advance(Integer.MAX_VALUE);
     assertThat(messages).containsExactly("1");
     assertThat(testError).hasValue(null);
-    assertThat(testEnd).hasValue(-1);
+    assertThat(testEnd).hasValue(Awaiter.CANCELED);
   }
 
   @Test
@@ -197,7 +197,7 @@ public class DoTest {
     lazyExecutor.advance(Integer.MAX_VALUE);
     assertThat(messages).containsExactly("1");
     assertThat(testError).hasValue(null);
-    assertThat(testEnd).hasValue(-1);
+    assertThat(testEnd).hasValue(Awaiter.CANCELED);
   }
 
   @Test

@@ -83,21 +83,21 @@ public class Any<T> implements Task<T> {
       return state.executeBlock(flowControl);
     }
 
-    public void cancelExecution() {
-      state.cancelExecution();
-    }
-
     public void abortExecution() {
       for (final Awaitable<?> awaitable : awaitables) {
         awaitable.abort();
       }
     }
 
+    private void cancelExecution() {
+      for (Cancelable cancelable : cancelables) {
+        cancelable.cancel();
+      }
+    }
+
     private interface State<T> {
 
       boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception;
-
-      void cancelExecution();
     }
 
     private class AnyAwaiter implements Awaiter<Object> {
@@ -118,7 +118,13 @@ public class Any<T> implements Task<T> {
       }
 
       public void end(int reason) {
-        scheduler.scheduleLow(new EndCommand());
+        final Runnable command;
+        if (reason == Awaiter.DONE) {
+          command = new EndCommand();
+        } else {
+          command = new AbortCommand();
+        }
+        scheduler.scheduleLow(command);
       }
 
       private class ErrorCommand implements Runnable {
@@ -146,6 +152,15 @@ public class Any<T> implements Task<T> {
           }
         }
       }
+
+      private class AbortCommand implements Runnable {
+
+        public void run() {
+          inputs.offer(STOP);
+          state = new AbortState();
+          flowControl.schedule();
+        }
+      }
     }
 
     private class InputState implements State<T> {
@@ -161,12 +176,6 @@ public class Any<T> implements Task<T> {
           events = 1;
         }
         return false;
-      }
-
-      public void cancelExecution() {
-        for (final Cancelable cancelable : cancelables) {
-          cancelable.cancel();
-        }
       }
     }
 
@@ -193,14 +202,6 @@ public class Any<T> implements Task<T> {
         return false;
       }
 
-      public void cancelExecution() {
-        final ArrayList<Cancelable> cancelables = AnyControl.this.cancelables;
-        for (final Cancelable cancelable : cancelables) {
-          cancelable.cancel();
-        }
-        cancelables.clear();
-      }
-
       @SuppressWarnings("unchecked")
       void postMessage(@NotNull AwaitableFlowControl<T> flowControl, Object message) {
         flowControl.postOutput(message != NULL ? (T) message : null);
@@ -218,7 +219,8 @@ public class Any<T> implements Task<T> {
       @Override
       void postMessage(@NotNull AwaitableFlowControl<T> flowControl, Object message) {
         if (message == STOP) {
-          flowControl.abort(error);
+          flowControl.error(error);
+          cancelExecution(); // TODO: 18/03/21 ???
         } else {
           super.postMessage(flowControl, message);
         }
@@ -231,6 +233,18 @@ public class Any<T> implements Task<T> {
       void postMessage(@NotNull AwaitableFlowControl<T> flowControl, Object message) {
         if (message == STOP) {
           flowControl.stop();
+        } else {
+          super.postMessage(flowControl, message);
+        }
+      }
+    }
+
+    private class AbortState extends MessageState {
+
+      @Override
+      void postMessage(@NotNull AwaitableFlowControl<T> flowControl, Object message) {
+        if (message == STOP) {
+          flowControl.abort();
         } else {
           super.postMessage(flowControl, message);
         }

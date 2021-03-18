@@ -48,7 +48,6 @@ public class Iter<T> implements Task<T> {
   private static class IterControl<T> implements ExecutionControl<T> {
 
     private final Iterator<? extends T> iterator;
-    private boolean aborted;
 
     private IterControl(@NotNull Iterator<? extends T> iterator) {
       new IfNull("iterator", iterator).throwException();
@@ -59,7 +58,7 @@ public class Iter<T> implements Task<T> {
       flowControl.logger().log(
           new DbgMessage("[executing] next iteration: %s", new PrintIdentity(iterator))
       );
-      if (iterator.hasNext() && !aborted) {
+      if (iterator.hasNext()) {
         flowControl.postOutput(iterator.next());
       } else {
         flowControl.stop();
@@ -67,11 +66,7 @@ public class Iter<T> implements Task<T> {
       return true;
     }
 
-    public void cancelExecution() {
-    }
-
     public void abortExecution() {
-      aborted = true;
     }
   }
 }

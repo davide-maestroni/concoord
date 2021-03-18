@@ -33,7 +33,6 @@ import concoord.util.assertion.IfInterrupt;
 import concoord.util.assertion.IfNull;
 import concoord.util.assertion.IfSomeOf;
 import concoord.util.collection.CircularQueue;
-import java.util.Iterator;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.jetbrains.annotations.NotNull;
@@ -45,7 +44,7 @@ public class BaseAwaitable<T> implements Awaitable<T> {
   private final Logger awaitableLogger = new Logger(Awaitable.class, this);
   private final CircularQueue<InternalFlowControl> flowControls = new CircularQueue<InternalFlowControl>();
   private final ConcurrentLinkedQueue<Object> messages = new ConcurrentLinkedQueue<Object>();
-  private final ScheduleCommand schedule = new ScheduleCommand();
+  private final StateCommand state = new StateCommand();
   private final EndCommand end = new EndCommand();
   private final ReadState read = new ReadState();
   private final WriteState write = new WriteState();
@@ -53,9 +52,8 @@ public class BaseAwaitable<T> implements Awaitable<T> {
   private final Scheduler scheduler;
   private final ExecutionControl<T> executionControl;
   private InternalFlowControl currentFlowControl;
-  private Runnable state = read;
-  private Awaitable<? extends T> awaitable;
-  private Cancelable cancelable;
+  private Awaitable<? extends T> currentAwaitable;
+  private Runnable currentState = read;
   private boolean hasOutputs;
   private boolean stopped;
 
@@ -103,26 +101,11 @@ public class BaseAwaitable<T> implements Awaitable<T> {
     }
   }
 
-  private void cancelAwaitable() throws Exception {
-    if (cancelable != null) {
-      cancelable.cancel();
-      cancelable = null;
-    }
-    executionControl.cancelExecution();
-  }
-
-  private void abortAwaitable() throws Exception {
-    if (awaitable != null) {
-      awaitable.abort();
-      awaitable = null;
-      cancelable = null;
-    }
-    executionControl.abortExecution();
-  }
-
   public interface AwaitableFlowControl<T> extends FlowControl<T> {
 
-    void abort(Throwable error);
+    void abort();
+
+    void error(Throwable error);
 
     void schedule();
 
@@ -139,8 +122,6 @@ public class BaseAwaitable<T> implements Awaitable<T> {
   public interface ExecutionControl<T> {
 
     boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception;
-
-    void cancelExecution() throws Exception;
 
     void abortExecution() throws Exception;
   }
@@ -185,16 +166,16 @@ public class BaseAwaitable<T> implements Awaitable<T> {
       if (flowControl == null) {
         return;
       }
-      final Awaitable<? extends T> awaitable = BaseAwaitable.this.awaitable;
-      if (awaitable != null) {
-        state = write;
-        awaitableLogger.log(new DbgMessage("[writing]"));
-        cancelable = awaitable.await(flowControl.outputEvents(), awaiter);
-      } else if (stopped) {
-        flowControl.sendEnd(Awaiter.DONE);
-        nextFlowControl();
-      } else {
-        try {
+      try {
+        final Awaitable<? extends T> awaitable = currentAwaitable;
+        if (awaitable != null) {
+          currentState = write;
+          awaitableLogger.log(new DbgMessage("[writing]"));
+          awaitable.await(flowControl.outputEvents(), awaiter);
+        } else if (stopped) {
+          flowControl.sendEnd(Awaiter.DONE);
+          nextFlowControl();
+        } else {
           flowControl.resetPosts();
           if (!executionControl.executeBlock(flowControl)) {
             return;
@@ -203,16 +184,15 @@ public class BaseAwaitable<T> implements Awaitable<T> {
             nextFlowControl();
             return;
           }
-        } catch (final Exception e) {
-          awaitableLogger.log(
-              new WrnMessage(new LogMessage("invocation failed with an exception"), e)
-          );
-          new IfInterrupt(e).throwException();
-          flowControl.sendError(e);
-          nextFlowControl();
-          return;
+          flowControl.schedule();
         }
-        flowControl.schedule();
+      } catch (final Exception e) {
+        awaitableLogger.log(
+            new WrnMessage(new LogMessage("invocation failed with an exception"), e)
+        );
+        new IfInterrupt(e).throwException();
+        flowControl.sendError(e);
+        nextFlowControl();
       }
     }
   }
@@ -225,13 +205,22 @@ public class BaseAwaitable<T> implements Awaitable<T> {
       if (flowControl == null) {
         return;
       }
-      final Object message = messages.poll();
-      if (message != null) {
-        flowControl.resetPosts();
-        flowControl.postOutput(message != NULL ? (T) message : null);
-        if (flowControl.outputEvents() == 0) {
-          nextFlowControl();
+      try {
+        final Object message = messages.poll();
+        if (message != null) {
+          flowControl.resetPosts();
+          flowControl.postOutput(message != NULL ? (T) message : null);
+          if (flowControl.outputEvents() == 0) {
+            nextFlowControl();
+          }
         }
+      } catch (final Exception e) {
+        awaitableLogger.log(
+            new ErrMessage(new LogMessage("posting failed with an exception"), e)
+        );
+        new IfInterrupt(e).throwException();
+        flowControl.sendError(e);
+        nextFlowControl();
       }
     }
   }
@@ -243,14 +232,32 @@ public class BaseAwaitable<T> implements Awaitable<T> {
       if (flowControl == null) {
         return;
       }
-      flowControl.sendEnd(Awaiter.DONE);
+      if (flowControl.outputEvents() != 0) {
+        flowControl.sendEnd(Awaiter.DONE);
+      }
+      nextFlowControl();
     }
   }
 
-  private class ScheduleCommand implements Runnable {
+  private class AbortedState implements Runnable {
 
     public void run() {
-      state.run();
+      final InternalFlowControl flowControl = currentFlowControl;
+      if (flowControl == null) {
+        return;
+      }
+      if (flowControl.outputEvents() != 0) {
+        currentState = new StoppedState();
+        flowControl.sendEnd(Awaiter.ABORTED);
+      }
+      nextFlowControl();
+    }
+  }
+
+  private class StateCommand implements Runnable {
+
+    public void run() {
+      currentState.run();
     }
   }
 
@@ -264,42 +271,48 @@ public class BaseAwaitable<T> implements Awaitable<T> {
 
     public void run() {
       final InternalFlowControl flowControl = currentFlowControl;
-      if (flowControl != null) {
-        flowControl.abort(error);
+      if (flowControl == null) {
+        return;
       }
+      flowControl.error(error);
     }
   }
 
   private class EndCommand implements Runnable {
 
     public void run() {
-      awaitable = null;
-      state = read;
-      final InternalFlowControl flowControl = currentFlowControl;
-      if (flowControl != null) {
+      currentAwaitable = null;
+      if (stopped) {
+        currentState = new StoppedState();
+      } else {
+        currentState = read;
+        final InternalFlowControl flowControl = currentFlowControl;
+        if (flowControl == null) {
+          return;
+        }
         awaitableLogger.log(new DbgMessage("[reading]"));
-        state.run();
       }
+      currentState.run();
     }
   }
 
   private class AbortCommand implements Runnable {
 
     public void run() {
-      state = new StoppedState();
+      stopped = true;
+      currentState = new AbortedState();
       awaitableLogger.log(new InfMessage("[aborted]"));
-      final InternalFlowControl flowControl = currentFlowControl;
       try {
-        if (awaitable != null) {
-          awaitable.abort();
+        if (currentAwaitable != null) {
+          currentAwaitable.abort();
+          currentAwaitable = null;
         }
         executionControl.abortExecution();
-        if ((flowControl != null) && (flowControl.outputEvents() != 0)) {
-          flowControl.sendEnd(Awaiter.ABORTED);
-        }
+        currentState.run();
       } catch (final Exception e) {
         awaitableLogger.log(new ErrMessage(new LogMessage("failed to cancel execution"), e));
         new IfInterrupt(e).throwException();
+        final InternalFlowControl flowControl = currentFlowControl;
         if ((flowControl != null) && (flowControl.outputEvents() != 0)) {
           flowControl.sendError(e);
         }
@@ -312,7 +325,7 @@ public class BaseAwaitable<T> implements Awaitable<T> {
 
     public void message(T message) {
       messages.offer(message != null ? message : NULL);
-      scheduler.scheduleLow(schedule);
+      scheduler.scheduleLow(state);
     }
 
     public void error(@NotNull Throwable error) {
@@ -376,7 +389,7 @@ public class BaseAwaitable<T> implements Awaitable<T> {
         flowLogger.log(
             new DbgMessage("[posting] new awaitable: %s", new PrintIdentity(awaitable))
         );
-        BaseAwaitable.this.awaitable = awaitable;
+        currentAwaitable = awaitable;
       } else {
         flowLogger.log(new WrnMessage("[posting] awaitable ignored: null"));
       }
@@ -393,13 +406,19 @@ public class BaseAwaitable<T> implements Awaitable<T> {
       awaitableLogger.log(new InfMessage("[complete]"));
     }
 
-    public void abort(Throwable error) {
-      sendError(error);
+    public void abort() {
+      scheduler.scheduleLow(new AbortCommand());
+    }
+
+    public void error(Throwable error) {
+      if (outputEvents != 0) {
+        sendError(error);
+      }
       nextFlowControl();
     }
 
     public void schedule() {
-      scheduler.scheduleLow(schedule);
+      scheduler.scheduleLow(state);
     }
 
     public int inputEvents() {
@@ -443,15 +462,8 @@ public class BaseAwaitable<T> implements Awaitable<T> {
         flowControls.offer(thisFlowControl);
         return;
       }
-      if (stopped) {
-        if (outputEvents != 0) {
-          sendEnd(Awaiter.DONE);
-        }
-        nextFlowControl();
-      } else {
-        awaitableLogger.log(new DbgMessage("[reading]"));
-        state.run();
-      }
+      awaitableLogger.log(new DbgMessage("[reading]"));
+      currentState.run();
     }
 
     private void resetPosts() {
@@ -460,7 +472,7 @@ public class BaseAwaitable<T> implements Awaitable<T> {
 
     private void sendError(@NotNull Throwable error) {
       stopped = true;
-      state = new StoppedState();
+      currentState = new StoppedState();
       awaitableLogger.log(new InfMessage(new LogMessage("[failed] with error:"), error));
       try {
         executionControl.abortExecution();
@@ -509,25 +521,14 @@ public class BaseAwaitable<T> implements Awaitable<T> {
     private class CancelCommand implements Runnable {
 
       public void run() {
-        final Iterator<InternalFlowControl> iterator = flowControls.iterator();
-        while (iterator.hasNext()) {
-          final InternalFlowControl flowControl = iterator.next();
-          if (flowControl.flowAwaiter.equals(flowAwaiter)) {
-            iterator.remove();
-          }
-        }
         final InternalFlowControl flowControl = currentFlowControl;
         if (flowControl == InternalFlowControl.this) {
-          try {
-            cancelAwaitable();
-          } catch (final Exception e) {
-            awaitableLogger.log(new ErrMessage(new LogMessage("failed to cancel execution"), e));
-            new IfInterrupt(e).throwException();
-            if (outputEvents != 0) {
-              sendError(e);
-            }
+          if (outputEvents != 0) {
+            sendEnd(Awaiter.CANCELED);
           }
           nextFlowControl();
+        } else {
+          flowControls.remove(InternalFlowControl.this);
         }
       }
     }

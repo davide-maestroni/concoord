@@ -17,7 +17,6 @@ package concoord.lang;
 
 import concoord.concurrent.Awaitable;
 import concoord.concurrent.Awaiter;
-import concoord.concurrent.Cancelable;
 import concoord.concurrent.Scheduler;
 import concoord.concurrent.Task;
 import concoord.flow.Result;
@@ -76,7 +75,6 @@ public class For<T, M> implements Task<T> {
     private final int maxEvents;
     private final Awaitable<M> awaitable;
     private final Block<T, ? super M> block;
-    private Cancelable cancelable;
     private State<T> state = input;
     private int events;
 
@@ -92,10 +90,6 @@ public class For<T, M> implements Task<T> {
       return state.executeBlock(flowControl);
     }
 
-    public void cancelExecution() {
-      state.cancelExecution();
-    }
-
     public void abortExecution() {
       awaitable.abort();
     }
@@ -103,8 +97,6 @@ public class For<T, M> implements Task<T> {
     private interface State<T> {
 
       boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception;
-
-      void cancelExecution();
     }
 
     private class ForAwaiter implements Awaiter<M> {
@@ -125,7 +117,13 @@ public class For<T, M> implements Task<T> {
       }
 
       public void end(int reason) {
-        scheduler.scheduleLow(new EndCommand());
+        final Runnable command;
+        if (reason == Awaiter.DONE) {
+          command = new EndCommand();
+        } else {
+          command = new AbortCommand();
+        }
+        scheduler.scheduleLow(command);
       }
 
       private class ErrorCommand implements Runnable {
@@ -151,6 +149,15 @@ public class For<T, M> implements Task<T> {
           flowControl.schedule();
         }
       }
+
+      private class AbortCommand implements Runnable {
+
+        public void run() {
+          inputs.offer(STOP);
+          state = new AbortState();
+          flowControl.schedule();
+        }
+      }
     }
 
     private class InputState implements State<T> {
@@ -158,18 +165,11 @@ public class For<T, M> implements Task<T> {
       public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) {
         state = message;
         events = maxEvents;
-        cancelable = awaitable.await(events, new ForAwaiter(flowControl));
+        awaitable.await(events, new ForAwaiter(flowControl));
         if (maxEvents < 0) {
           events = 1;
         }
         return false;
-      }
-
-      public void cancelExecution() {
-        final Cancelable cancelable = ForControl.this.cancelable;
-        if (cancelable != null) {
-          cancelable.cancel();
-        }
       }
     }
 
@@ -186,16 +186,9 @@ public class For<T, M> implements Task<T> {
         }
         if (events < 1) {
           events = flowControl.inputEvents();
-          cancelable = awaitable.await(events, new ForAwaiter(flowControl));
+          awaitable.await(events, new ForAwaiter(flowControl));
         }
         return false;
-      }
-
-      public void cancelExecution() {
-        final Cancelable cancelable = ForControl.this.cancelable;
-        if (cancelable != null) {
-          cancelable.cancel();
-        }
       }
 
       @SuppressWarnings("unchecked")
@@ -218,14 +211,10 @@ public class For<T, M> implements Task<T> {
       @Override
       void execute(@NotNull AwaitableFlowControl<T> flowControl, Object message) throws Exception {
         if (message == STOP) {
-          flowControl.abort(error);
+          flowControl.error(error);
         } else {
           super.execute(flowControl, message);
         }
-      }
-
-      @Override
-      public void cancelExecution() {
       }
     }
 
@@ -239,9 +228,17 @@ public class For<T, M> implements Task<T> {
           super.execute(flowControl, message);
         }
       }
+    }
+
+    private class AbortState extends MessageState {
 
       @Override
-      public void cancelExecution() {
+      void execute(@NotNull AwaitableFlowControl<T> flowControl, Object message) throws Exception {
+        if (message == STOP) {
+          flowControl.abort();
+        } else {
+          super.execute(flowControl, message);
+        }
       }
     }
   }

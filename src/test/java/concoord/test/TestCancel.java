@@ -25,7 +25,6 @@ import concoord.concurrent.ScheduledExecutor;
 import concoord.concurrent.Scheduler;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -61,16 +60,16 @@ public class TestCancel<T> implements Runnable {
       Cancelable cancelable =
           awaitable.await(-1, messages::add, testError::set, testEnd::set);
       count = lazyExecutor.advance(i++);
+      done = cancelable.isDone();
       cancelable.cancel();
       lazyExecutor.advance(Integer.MAX_VALUE);
-      done = cancelable.isDone();
       assertThat(testError).hasValue(null);
-      assertThat(testEnd).hasValue(done ? Awaiter.DONE : -1);
+      assertThat(testEnd).hasValue(done ? Awaiter.DONE : Awaiter.CANCELED);
       awaitable.await(-1, messages::add, testError::set, testEnd::set);
       lazyExecutor.advance(Integer.MAX_VALUE);
       assertion.accept(messages);
       assertThat(testError).hasValue(null);
-      assertThat(testEnd).hasValue(-1);
+      assertThat(testEnd).hasValue(Awaiter.DONE);
     } while (count == (i - 1));
   }
 }
