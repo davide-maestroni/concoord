@@ -48,6 +48,7 @@ public class BaseAwaitable<T> implements Awaitable<T> {
   private final EndCommand end = new EndCommand();
   private final ReadState read = new ReadState();
   private final WriteState write = new WriteState();
+  private final FlushState flush = new FlushState();
   private final InternalAwaiter awaiter = new InternalAwaiter();
   private final Scheduler scheduler;
   private final ExecutionControl<T> executionControl;
@@ -225,6 +226,40 @@ public class BaseAwaitable<T> implements Awaitable<T> {
     }
   }
 
+  private class FlushState implements Runnable {
+
+    @SuppressWarnings("unchecked")
+    public void run() {
+      final InternalFlowControl flowControl = currentFlowControl;
+      if (flowControl == null) {
+        return;
+      }
+      try {
+        final Object message = messages.poll();
+        if (message != null) {
+          flowControl.resetPosts();
+          flowControl.postOutput(message != NULL ? (T) message : null);
+          if (flowControl.outputEvents() == 0) {
+            nextFlowControl();
+          } else {
+            scheduler.scheduleLow(state);
+          }
+        } else {
+          currentState = read;
+          awaitableLogger.log(new DbgMessage("[reading]"));
+          currentState.run();
+        }
+      } catch (final Exception e) {
+        awaitableLogger.log(
+            new ErrMessage(new LogMessage("posting failed with an exception"), e)
+        );
+        new IfInterrupt(e).throwException();
+        flowControl.sendError(e);
+        nextFlowControl();
+      }
+    }
+  }
+
   private class StoppedState implements Runnable {
 
     public void run() {
@@ -285,12 +320,11 @@ public class BaseAwaitable<T> implements Awaitable<T> {
       if (stopped) {
         currentState = new StoppedState();
       } else {
-        currentState = read;
+        currentState = flush;
         final InternalFlowControl flowControl = currentFlowControl;
         if (flowControl == null) {
           return;
         }
-        awaitableLogger.log(new DbgMessage("[reading]"));
       }
       currentState.run();
     }
@@ -524,7 +558,7 @@ public class BaseAwaitable<T> implements Awaitable<T> {
         final InternalFlowControl flowControl = currentFlowControl;
         if (flowControl == InternalFlowControl.this) {
           if (outputEvents != 0) {
-            sendEnd(Awaiter.CANCELED);
+            sendEnd(Awaiter.CANCELED); // TODO: 19/03/21 remove?
           }
           nextFlowControl();
         } else {

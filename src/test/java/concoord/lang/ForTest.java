@@ -7,6 +7,7 @@ import concoord.concurrent.Awaiter;
 import concoord.concurrent.LazyExecutor;
 import concoord.concurrent.ScheduledExecutor;
 import concoord.flow.Yield;
+import concoord.test.TestCancel;
 import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -49,5 +50,16 @@ public class ForTest {
     assertThat(testMessages).isEmpty();
     assertThat(testError).hasValue(null);
     assertThat(testEnd).hasValue(Awaiter.ABORTED);
+  }
+
+  @Test
+  public void cancel() {
+    new TestCancel<>(
+        (scheduler) -> new For<>(
+            new Iter<>("1", "2", "3").on(scheduler),
+            s -> new Yield<>(new Iter<>("n" + s).on(scheduler))
+        ).on(scheduler),
+        (messages) -> assertThat(messages).containsExactly("n1", "n2", "n3")
+    ).run();
   }
 }
