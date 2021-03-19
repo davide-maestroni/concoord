@@ -163,7 +163,7 @@ public class Try<T> implements Task<T> {
 
   public static class Finally<T> implements Block<T, Throwable> {
 
-    private final Block<? extends T, Throwable> block;
+    private final Block<? extends T, ? super Throwable> block;
 
     public Finally(@NotNull final VoidBlock block) {
       new IfNull("block", block).throwException();
@@ -186,7 +186,7 @@ public class Try<T> implements Task<T> {
       };
     }
 
-    public Finally(@NotNull final Block<? extends T, Throwable> block) {
+    public Finally(@NotNull final Block<? extends T, ? super Throwable> block) {
       new IfNull("block", block).throwException();
       this.block = block;
     }
@@ -483,13 +483,13 @@ public class Try<T> implements Task<T> {
             flowControl.stop();
           } else {
             final Logger logger = flowControl.logger();
-            final EndFlowControl<T> errorFlowControl = new EndFlowControl<T>(logger);
+            final EndFlowControl<T> endFlowControl = new EndFlowControl<T>(logger);
             Throwable error = new TryThrowable();
             for (final Block<? extends T, ? super Throwable> block : blocks) {
               logger.log(new DbgMessage("[executing] block: %s", new PrintIdentity(block)));
               try {
                 if (block instanceof Finally) {
-                  block.execute(error).apply(errorFlowControl);
+                  block.execute(error).apply(endFlowControl);
                 }
               } catch (final Exception e) {
                 new IfInterrupt(e).throwException();
@@ -497,7 +497,7 @@ public class Try<T> implements Task<T> {
                 error = e;
               }
             }
-            errorFlowControl.applyResult(flowControl, error);
+            endFlowControl.applyResult(flowControl, error);
           }
         } else {
           super.execute(flowControl, message);
@@ -514,13 +514,13 @@ public class Try<T> implements Task<T> {
             flowControl.abort();
           } else {
             final Logger logger = flowControl.logger();
-            final EndFlowControl<T> errorFlowControl = new EndFlowControl<T>(logger);
+            final EndFlowControl<T> endFlowControl = new EndFlowControl<T>(logger);
             Throwable error = new TryThrowable();
             for (final Block<? extends T, ? super Throwable> block : blocks) {
               logger.log(new DbgMessage("[executing] block: %s", new PrintIdentity(block)));
               try {
                 if (block instanceof Finally) {
-                  block.execute(error).apply(errorFlowControl);
+                  block.execute(error).apply(endFlowControl);
                 }
               } catch (final Exception e) {
                 new IfInterrupt(e).throwException();
@@ -528,7 +528,7 @@ public class Try<T> implements Task<T> {
                 error = e;
               }
             }
-            errorFlowControl.applyResult(flowControl, error);
+            endFlowControl.applyResult(flowControl, error);
           }
         } else {
           super.execute(flowControl, message);
