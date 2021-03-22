@@ -239,6 +239,7 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
 
     private class AllAwaiter implements Awaiter<Object> {
 
+      private final FlowCommand flow = new FlowCommand();
       private final AwaitableFlowControl<?> flowControl;
       private final ConcurrentLinkedQueue<Object> queue;
 
@@ -250,7 +251,7 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
 
       public void message(Object message) {
         queue.offer(message != null ? message : NULL);
-        flowControl.schedule();
+        scheduler.scheduleLow(flow);
       }
 
       public void error(@NotNull Throwable error) {
@@ -259,6 +260,13 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
 
       public void end() {
         scheduler.scheduleLow(new EndCommand());
+      }
+
+      private class FlowCommand implements Runnable {
+
+        public void run() {
+          flowControl.execute();
+        }
       }
 
       private class ErrorCommand implements Runnable {
@@ -272,7 +280,7 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
         public void run() {
           queue.offer(STOP);
           state = new ErrorState(error);
-          flowControl.schedule();
+          flowControl.execute();
         }
       }
 
@@ -281,7 +289,7 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
         public void run() {
           queue.offer(STOP);
           state = new EndState();
-          flowControl.schedule();
+          flowControl.execute();
         }
       }
     }

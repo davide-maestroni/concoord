@@ -101,6 +101,7 @@ public class For<T, M> implements Task<T> {
 
     private class ForAwaiter implements Awaiter<M> {
 
+      private final FlowCommand flow = new FlowCommand();
       private final AwaitableFlowControl<T> flowControl;
 
       private ForAwaiter(@NotNull AwaitableFlowControl<T> flowControl) {
@@ -109,7 +110,7 @@ public class For<T, M> implements Task<T> {
 
       public void message(M message) {
         inputs.offer(message != null ? message : NULL);
-        flowControl.schedule();
+        scheduler.scheduleLow(flow);
       }
 
       public void error(@NotNull Throwable error) {
@@ -118,6 +119,13 @@ public class For<T, M> implements Task<T> {
 
       public void end() {
         scheduler.scheduleLow(new EndCommand());
+      }
+
+      private class FlowCommand implements Runnable {
+
+        public void run() {
+          flowControl.execute();
+        }
       }
 
       private class ErrorCommand implements Runnable {
@@ -131,7 +139,7 @@ public class For<T, M> implements Task<T> {
         public void run() {
           inputs.offer(STOP);
           state = new ErrorState(error);
-          flowControl.schedule();
+          flowControl.execute();
         }
       }
 
@@ -140,7 +148,7 @@ public class For<T, M> implements Task<T> {
         public void run() {
           inputs.offer(STOP);
           state = new EndState();
-          flowControl.schedule();
+          flowControl.execute();
         }
       }
     }

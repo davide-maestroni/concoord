@@ -102,6 +102,7 @@ public class Any<T> implements Task<T> {
 
     private class AnyAwaiter implements Awaiter<Object> {
 
+      private final FlowCommand flow = new FlowCommand();
       private final AwaitableFlowControl<T> flowControl;
 
       private AnyAwaiter(@NotNull AwaitableFlowControl<T> flowControl) {
@@ -110,7 +111,7 @@ public class Any<T> implements Task<T> {
 
       public void message(Object message) {
         inputs.offer(message != null ? message : NULL);
-        flowControl.schedule();
+        scheduler.scheduleLow(flow);
       }
 
       public void error(@NotNull Throwable error) {
@@ -119,6 +120,13 @@ public class Any<T> implements Task<T> {
 
       public void end() {
         scheduler.scheduleLow(new EndCommand());
+      }
+
+      private class FlowCommand implements Runnable {
+
+        public void run() {
+          flowControl.execute();
+        }
       }
 
       private class ErrorCommand implements Runnable {
@@ -132,7 +140,7 @@ public class Any<T> implements Task<T> {
         public void run() {
           inputs.offer(STOP);
           state = new ErrorState(error);
-          flowControl.schedule();
+          flowControl.execute();
         }
       }
 
@@ -142,7 +150,7 @@ public class Any<T> implements Task<T> {
           if (++stopped == awaitables.size()) {
             inputs.offer(STOP);
             state = new EndState();
-            flowControl.schedule();
+            flowControl.execute();
           }
         }
       }

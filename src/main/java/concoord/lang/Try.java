@@ -349,6 +349,7 @@ public class Try<T> implements Task<T> {
 
     private class TryAwaiter implements Awaiter<T> {
 
+      private final FlowCommand flow = new FlowCommand();
       private final AwaitableFlowControl<T> flowControl;
 
       private TryAwaiter(@NotNull AwaitableFlowControl<T> flowControl) {
@@ -357,7 +358,7 @@ public class Try<T> implements Task<T> {
 
       public void message(T message) {
         inputs.offer(message != null ? message : NULL);
-        flowControl.schedule();
+        scheduler.scheduleLow(flow);
       }
 
       public void error(@NotNull Throwable error) {
@@ -366,6 +367,13 @@ public class Try<T> implements Task<T> {
 
       public void end() {
         scheduler.scheduleLow(new EndCommand());
+      }
+
+      private class FlowCommand implements Runnable {
+
+        public void run() {
+          flowControl.execute();
+        }
       }
 
       private class ErrorCommand implements Runnable {
@@ -379,7 +387,7 @@ public class Try<T> implements Task<T> {
         public void run() {
           inputs.offer(STOP);
           state = new ErrorState(error);
-          flowControl.schedule();
+          flowControl.execute();
         }
       }
 
@@ -388,7 +396,7 @@ public class Try<T> implements Task<T> {
         public void run() {
           inputs.offer(STOP);
           state = new EndState();
-          flowControl.schedule();
+          flowControl.execute();
         }
       }
     }
