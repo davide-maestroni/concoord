@@ -18,14 +18,14 @@ package concoord.test;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import concoord.concurrent.Awaitable;
-import concoord.concurrent.Awaiter;
+import concoord.concurrent.CancelException;
 import concoord.concurrent.Cancelable;
 import concoord.concurrent.LazyExecutor;
 import concoord.concurrent.ScheduledExecutor;
 import concoord.concurrent.Scheduler;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -48,28 +48,34 @@ public class TestCancel<T> implements Runnable {
     ScheduledExecutor scheduler = new ScheduledExecutor(lazyExecutor, 1);
     ArrayList<T> messages = new ArrayList<>();
     AtomicReference<Throwable> testError = new AtomicReference<>();
-    AtomicInteger testEnd = new AtomicInteger(-1);
+    AtomicBoolean testEnd = new AtomicBoolean();
     int i = 0;
     int count;
     boolean done;
     do {
       messages.clear();
       testError.set(null);
-      testEnd.set(-1);
+      testEnd.set(false);
       Awaitable<T> awaitable = factory.apply(scheduler);
       Cancelable cancelable =
-          awaitable.await(-1, messages::add, testError::set, testEnd::set);
+          awaitable.await(-1, messages::add, testError::set, () -> testEnd.set(true));
       count = lazyExecutor.advance(i++);
       done = cancelable.isDone();
       cancelable.cancel();
       lazyExecutor.advance(Integer.MAX_VALUE);
-      assertThat(testError).hasValue(null);
-      assertThat(testEnd).hasValue(done ? Awaiter.DONE : Awaiter.CANCELED);
-      awaitable.await(-1, messages::add, testError::set, testEnd::set);
+      if (done) {
+        assertThat(testError).hasValue(null);
+      } else {
+        assertThat(testError.get()).isExactlyInstanceOf(CancelException.class);
+      }
+      assertThat(testEnd.get()).isEqualTo(done);
+      testError.set(null);
+      testEnd.set(false);
+      awaitable.await(-1, messages::add, testError::set, () -> testEnd.set(true));
       lazyExecutor.advance(Integer.MAX_VALUE);
       assertion.accept(messages);
       assertThat(testError).hasValue(null);
-      assertThat(testEnd).hasValue(Awaiter.DONE);
+      assertThat(testEnd).isTrue();
     } while (count == (i - 1));
   }
 }

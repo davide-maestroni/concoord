@@ -8,11 +8,11 @@ public class CombinedAwaiter<T> implements Awaiter<T> {
 
   private final EventAwaiter<? super T> messageAwaiter;
   private final EventAwaiter<? super Throwable> errorAwaiter;
-  private final EventAwaiter<? super Integer> endAwaiter;
+  private final EndAwaiter endAwaiter;
 
   public CombinedAwaiter(@NotNull EventAwaiter<? super T> messageAwaiter,
       @NotNull EventAwaiter<? super Throwable> errorAwaiter,
-      @NotNull EventAwaiter<? super Integer> endAwaiter) {
+      @NotNull EndAwaiter endAwaiter) {
     new IfSomeOf(
         new IfNull("messageAwaiter", messageAwaiter),
         new IfNull("errorAwaiter", errorAwaiter),
@@ -31,7 +31,7 @@ public class CombinedAwaiter<T> implements Awaiter<T> {
     errorAwaiter.event(error);
   }
 
-  public void end(int reason) throws Exception {
-    endAwaiter.event(reason);
+  public void end() throws Exception {
+    endAwaiter.event();
   }
 }

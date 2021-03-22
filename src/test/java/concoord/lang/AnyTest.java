@@ -22,7 +22,7 @@ import concoord.concurrent.LazyExecutor;
 import concoord.concurrent.ScheduledExecutor;
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
@@ -39,9 +39,11 @@ public class AnyTest {
     ).on(scheduler);
     ArrayList<Serializable> messages = new ArrayList<>();
     AtomicReference<Throwable> testError = new AtomicReference<>();
-    AtomicInteger testEnd = new AtomicInteger(-1);
-    awaitable.await(-1, messages::add, testError::set, testEnd::set);
+    AtomicBoolean testEnd = new AtomicBoolean();
+    awaitable.await(-1, messages::add, testError::set, () -> testEnd.set(true));
     lazyExecutor.advance(Integer.MAX_VALUE);
     assertThat(messages).containsExactly("1", 1, "2", 2, "3", 3);
+    assertThat(testError).hasValue(null);
+    assertThat(testEnd).isTrue();
   }
 }

@@ -15,6 +15,7 @@
  */
 package concoord.lang;
 
+import concoord.concurrent.AbortException;
 import concoord.concurrent.Awaitable;
 import concoord.concurrent.Awaiter;
 import concoord.concurrent.Cancelable;
@@ -87,7 +88,6 @@ public class Join<T> implements Iterable<T> {
     private final TimeoutProvider timeoutProvider;
     private Throwable throwable;
     private boolean isDone;
-    private boolean isAborted;
 
     private JoinIterator(@NotNull Awaitable<T> awaitable, int maxEvents, long nextTimeout,
         @NotNull TimeUnit timeUnit) {
@@ -119,10 +119,10 @@ public class Join<T> implements Iterable<T> {
             if (isDone) {
               return false;
             }
-            if (isAborted) {
-              throw new JoinAbortException();
-            }
             if (throwable != null) {
+              if (throwable instanceof AbortException) {
+                throw new JoinAbortException(throwable);
+              }
               throw new JoinException(throwable);
             }
             if (timeoutMs == 0) {
@@ -205,13 +205,9 @@ public class Join<T> implements Iterable<T> {
         }
       }
 
-      public void end(int reason) {
+      public void end() {
         synchronized (mutex) {
-          if (reason == Awaiter.DONE) {
-            isDone = true;
-          } else if (reason == Awaiter.ABORTED) {
-            isAborted = true;
-          }
+          isDone = true;
           mutex.notifyAll();
         }
       }

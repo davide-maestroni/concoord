@@ -17,4 +17,7 @@ package concoord.lang;
 
 public class JoinAbortException extends RuntimeException {
 
+  public JoinAbortException(Throwable cause) {
+    super(cause);
+  }
 }

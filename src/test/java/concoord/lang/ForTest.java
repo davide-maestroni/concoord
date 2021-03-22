@@ -2,14 +2,14 @@ package concoord.lang;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import concoord.concurrent.AbortException;
 import concoord.concurrent.Awaitable;
-import concoord.concurrent.Awaiter;
 import concoord.concurrent.LazyExecutor;
 import concoord.concurrent.ScheduledExecutor;
 import concoord.flow.Yield;
 import concoord.test.TestCancel;
 import java.util.ArrayList;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
@@ -25,12 +25,12 @@ public class ForTest {
     ).on(scheduler);
     ArrayList<String> testMessages = new ArrayList<>();
     AtomicReference<Throwable> testError = new AtomicReference<>();
-    AtomicInteger testEnd = new AtomicInteger(-1);
-    awaitable.await(Integer.MAX_VALUE, testMessages::add, testError::set, testEnd::set);
+    AtomicBoolean testEnd = new AtomicBoolean();
+    awaitable.await(Integer.MAX_VALUE, testMessages::add, testError::set, () -> testEnd.set(true));
     lazyExecutor.advance(Integer.MAX_VALUE);
     assertThat(testMessages).containsExactly("N1", "N2", "N3");
     assertThat(testError).hasValue(null);
-    assertThat(testEnd).hasValue(Awaiter.DONE);
+    assertThat(testEnd).isTrue();
   }
 
   @Test
@@ -43,13 +43,13 @@ public class ForTest {
     ).on(scheduler);
     ArrayList<String> testMessages = new ArrayList<>();
     AtomicReference<Throwable> testError = new AtomicReference<>();
-    AtomicInteger testEnd = new AtomicInteger(-1);
-    awaitable.await(Integer.MAX_VALUE, testMessages::add, testError::set, testEnd::set);
+    AtomicBoolean testEnd = new AtomicBoolean();
+    awaitable.await(Integer.MAX_VALUE, testMessages::add, testError::set, () -> testEnd.set(true));
     awaitable.abort();
     lazyExecutor.advance(Integer.MAX_VALUE);
     assertThat(testMessages).isEmpty();
-    assertThat(testError).hasValue(null);
-    assertThat(testEnd).hasValue(Awaiter.ABORTED);
+    assertThat(testError.get()).isExactlyInstanceOf(AbortException.class);
+    assertThat(testEnd).isFalse();
   }
 
   @Test

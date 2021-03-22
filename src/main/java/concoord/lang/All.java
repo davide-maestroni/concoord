@@ -257,14 +257,8 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
         scheduler.scheduleLow(new ErrorCommand(error));
       }
 
-      public void end(int reason) {
-        final Runnable command;
-        if (reason == Awaiter.DONE) {
-          command = new EndCommand();
-        } else {
-          command = new AbortCommand();
-        }
-        scheduler.scheduleLow(command);
+      public void end() {
+        scheduler.scheduleLow(new EndCommand());
       }
 
       private class ErrorCommand implements Runnable {
@@ -287,15 +281,6 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
         public void run() {
           queue.offer(STOP);
           state = new EndState();
-          flowControl.schedule();
-        }
-      }
-
-      private class AbortCommand implements Runnable {
-
-        public void run() {
-          queue.offer(STOP);
-          state = new AbortState();
           flowControl.schedule();
         }
       }
@@ -336,7 +321,8 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
           for (final ConcurrentLinkedQueue<Object> queue : inputs) {
             queue.poll();
           }
-          postMessages(flowControl, messages);
+          flowControl.logger().log(new DbgMessage("[executing] message zipping"));
+          flowControl.postOutput(new Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>(messages));
           if (maxEvents >= 0) {
             --events;
           }
@@ -354,13 +340,6 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
         }
         return false;
       }
-
-      void postMessages(
-          @NotNull AwaitableFlowControl<Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>> flowControl,
-          @NotNull ArrayList<Object> messages) {
-        flowControl.logger().log(new DbgMessage("[executing] message zipping"));
-        flowControl.postOutput(new Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>(messages));
-      }
     }
 
     private class ErrorState extends MessageState {
@@ -372,44 +351,34 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
       }
 
       @Override
-      void postMessages(
-          @NotNull AwaitableFlowControl<Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>> flowControl,
-          @NotNull ArrayList<Object> messages) {
-        if (messages.contains(STOP)) {
-          flowControl.error(error);
-          cancelExecution(); // TODO: 18/03/21 ???
-        } else {
-          super.postMessages(flowControl, messages);
+      public boolean executeBlock(
+          @NotNull AwaitableFlowControl<Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>> flowControl) {
+        for (final ConcurrentLinkedQueue<Object> queue : inputs) {
+          final Object message = queue.peek();
+          if (message == STOP) {
+            flowControl.error(error);
+            cancelExecution(); // TODO: 18/03/21 ???
+            return false;
+          }
         }
+        return super.executeBlock(flowControl);
       }
     }
 
     private class EndState extends MessageState {
 
       @Override
-      void postMessages(
-          @NotNull AwaitableFlowControl<Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>> flowControl,
-          @NotNull ArrayList<Object> messages) {
-        if (messages.contains(STOP)) {
-          flowControl.stop();
-          cancelExecution(); // TODO: 18/03/21 ???
-        } else {
-          super.postMessages(flowControl, messages);
+      public boolean executeBlock(
+          @NotNull AwaitableFlowControl<Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>> flowControl) {
+        for (final ConcurrentLinkedQueue<Object> queue : inputs) {
+          final Object message = queue.peek();
+          if (message == STOP) {
+            flowControl.stop();
+            cancelExecution(); // TODO: 18/03/21 ???
+            return true;
+          }
         }
-      }
-    }
-
-    private class AbortState extends MessageState {
-
-      @Override
-      void postMessages(
-          @NotNull AwaitableFlowControl<Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>> flowControl,
-          @NotNull ArrayList<Object> messages) {
-        if (messages.contains(STOP)) {
-          flowControl.abort();
-        } else {
-          super.postMessages(flowControl, messages);
-        }
+        return super.executeBlock(flowControl);
       }
     }
   }

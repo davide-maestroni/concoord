@@ -117,14 +117,8 @@ public class Any<T> implements Task<T> {
         scheduler.scheduleLow(new ErrorCommand(error));
       }
 
-      public void end(int reason) {
-        final Runnable command;
-        if (reason == Awaiter.DONE) {
-          command = new EndCommand();
-        } else {
-          command = new AbortCommand();
-        }
-        scheduler.scheduleLow(command);
+      public void end() {
+        scheduler.scheduleLow(new EndCommand());
       }
 
       private class ErrorCommand implements Runnable {
@@ -152,15 +146,6 @@ public class Any<T> implements Task<T> {
           }
         }
       }
-
-      private class AbortCommand implements Runnable {
-
-        public void run() {
-          inputs.offer(STOP);
-          state = new AbortState();
-          flowControl.schedule();
-        }
-      }
     }
 
     private class InputState implements State<T> {
@@ -181,10 +166,11 @@ public class Any<T> implements Task<T> {
 
     private class MessageState implements State<T> {
 
+      @SuppressWarnings("unchecked")
       public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) {
         final Object message = inputs.poll();
         if (message != null) {
-          postMessage(flowControl, message);
+          flowControl.postOutput(message != NULL ? (T) message : null);
           if (maxEvents >= 0) {
             --events;
           }
@@ -201,11 +187,6 @@ public class Any<T> implements Task<T> {
         }
         return false;
       }
-
-      @SuppressWarnings("unchecked")
-      void postMessage(@NotNull AwaitableFlowControl<T> flowControl, Object message) {
-        flowControl.postOutput(message != NULL ? (T) message : null);
-      }
     }
 
     private class ErrorState extends MessageState {
@@ -217,37 +198,25 @@ public class Any<T> implements Task<T> {
       }
 
       @Override
-      void postMessage(@NotNull AwaitableFlowControl<T> flowControl, Object message) {
-        if (message == STOP) {
+      public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) {
+        if (inputs.peek() == STOP) {
           flowControl.error(error);
           cancelExecution(); // TODO: 18/03/21 ???
-        } else {
-          super.postMessage(flowControl, message);
+          return false;
         }
+        return super.executeBlock(flowControl);
       }
     }
 
     private class EndState extends MessageState {
 
       @Override
-      void postMessage(@NotNull AwaitableFlowControl<T> flowControl, Object message) {
-        if (message == STOP) {
+      public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) {
+        if (inputs.peek() == STOP) {
           flowControl.stop();
-        } else {
-          super.postMessage(flowControl, message);
+          return true;
         }
-      }
-    }
-
-    private class AbortState extends MessageState {
-
-      @Override
-      void postMessage(@NotNull AwaitableFlowControl<T> flowControl, Object message) {
-        if (message == STOP) {
-          flowControl.abort();
-        } else {
-          super.postMessage(flowControl, message);
-        }
+        return super.executeBlock(flowControl);
       }
     }
   }

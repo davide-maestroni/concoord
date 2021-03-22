@@ -26,6 +26,7 @@ import concoord.flow.Yield;
 import concoord.lang.Try.Catch;
 import concoord.lang.Try.Finally;
 import java.util.ArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
@@ -41,12 +42,12 @@ public class TryTest {
     ).on(scheduler);
     ArrayList<Integer> messages = new ArrayList<>();
     AtomicReference<Throwable> testError = new AtomicReference<>();
-    AtomicInteger testEnd = new AtomicInteger(-1);
-    awaitable.await(-1, messages::add, testError::set, testEnd::set);
+    AtomicBoolean testEnd = new AtomicBoolean();
+    awaitable.await(-1, messages::add, testError::set, () -> testEnd.set(true));
     lazyExecutor.advance(Integer.MAX_VALUE);
     assertThat(messages).containsExactly(1, 2, 3);
     assertThat(testError).hasValue(null);
-    assertThat(testEnd).hasValue(Awaiter.DONE);
+    assertThat(testEnd).isTrue();
   }
 
   @Test
@@ -61,12 +62,12 @@ public class TryTest {
     ).on(scheduler);
     ArrayList<Integer> messages = new ArrayList<>();
     AtomicReference<Throwable> testError = new AtomicReference<>();
-    AtomicInteger testEnd = new AtomicInteger(-1);
-    awaitable.await(-1, messages::add, testError::set, testEnd::set);
+    AtomicBoolean testEnd = new AtomicBoolean();
+    awaitable.await(-1, messages::add, testError::set, () -> testEnd.set(true));
     lazyExecutor.advance(Integer.MAX_VALUE);
     assertThat(messages).containsExactly(1);
     assertThat(testError).hasValue(null);
-    assertThat(testEnd).hasValue(Awaiter.DONE);
+    assertThat(testEnd).isTrue();
   }
 
   @Test
@@ -81,12 +82,12 @@ public class TryTest {
     ).on(scheduler);
     ArrayList<Integer> messages = new ArrayList<>();
     AtomicReference<Throwable> testError = new AtomicReference<>();
-    AtomicInteger testEnd = new AtomicInteger(-1);
-    awaitable.await(-1, messages::add, testError::set, testEnd::set);
+    AtomicBoolean testEnd = new AtomicBoolean();
+    awaitable.await(-1, messages::add, testError::set, () -> testEnd.set(true));
     lazyExecutor.advance(Integer.MAX_VALUE);
     assertThat(messages).isEmpty();
     assertThat(testError.get()).isExactlyInstanceOf(ArithmeticException.class);
-    assertThat(testEnd).hasValue(-1);
+    assertThat(testEnd).isFalse();
   }
 
   @Test
@@ -102,12 +103,12 @@ public class TryTest {
     ).on(scheduler);
     ArrayList<Integer> messages = new ArrayList<>();
     AtomicReference<Throwable> testError = new AtomicReference<>();
-    AtomicInteger testEnd = new AtomicInteger(-1);
-    awaitable.await(-1, messages::add, testError::set, testEnd::set);
+    AtomicBoolean testEnd = new AtomicBoolean();
+    awaitable.await(-1, messages::add, testError::set, () -> testEnd.set(true));
     lazyExecutor.advance(Integer.MAX_VALUE);
     assertThat(messages).containsExactly(3);
     assertThat(testError).hasValue(null);
-    assertThat(testEnd).hasValue(Awaiter.DONE);
+    assertThat(testEnd).isTrue();
   }
 
   @Test
@@ -123,12 +124,12 @@ public class TryTest {
     ).on(scheduler);
     ArrayList<Integer> messages = new ArrayList<>();
     AtomicReference<Throwable> testError = new AtomicReference<>();
-    AtomicInteger testEnd = new AtomicInteger(-1);
-    awaitable.await(-1, messages::add, testError::set, testEnd::set);
+    AtomicBoolean testEnd = new AtomicBoolean();
+    awaitable.await(-1, messages::add, testError::set, () -> testEnd.set(true));
     lazyExecutor.advance(Integer.MAX_VALUE);
     assertThat(messages).containsExactly(3);
     assertThat(testError).hasValue(null);
-    assertThat(testEnd).hasValue(Awaiter.DONE);
+    assertThat(testEnd).isTrue();
   }
 
   @Test
@@ -144,11 +145,11 @@ public class TryTest {
     ).on(scheduler);
     ArrayList<Integer> messages = new ArrayList<>();
     AtomicReference<Throwable> testError = new AtomicReference<>();
-    AtomicInteger testEnd = new AtomicInteger(-1);
-    awaitable.await(-1, messages::add, testError::set, testEnd::set);
+    AtomicBoolean testEnd = new AtomicBoolean();
+    awaitable.await(-1, messages::add, testError::set, () -> testEnd.set(true));
     lazyExecutor.advance(Integer.MAX_VALUE);
     assertThat(messages).containsExactly(1);
     assertThat(testError).hasValue(null);
-    assertThat(testEnd).hasValue(Awaiter.DONE);
+    assertThat(testEnd).isTrue();
   }
 }

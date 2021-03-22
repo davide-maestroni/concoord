@@ -41,6 +41,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 public class Try<T> implements Task<T> {
 
@@ -81,15 +82,16 @@ public class Try<T> implements Task<T> {
   public interface Block<T, E extends Throwable> {
 
     @NotNull
-    Result<? extends T> execute(@NotNull E error) throws Exception;
+    Result<? extends T> execute(@Nullable E error) throws Exception;
   }
 
   public static class Catch<T, E extends Throwable> implements Block<T, Throwable> {
 
     private final List<? extends Class<? extends E>> types;
-    private final Block<? extends T, ? super E> block;
+    private final ErrorBlock<? extends T, ? super E> block;
 
-    public Catch(@NotNull Class<? extends E> first, @NotNull Block<? extends T, ? super E> block) {
+    public Catch(@NotNull Class<? extends E> first,
+        @NotNull ErrorBlock<? extends T, ? super E> block) {
       new IfSomeOf(
           new IfNull("first", first),
           new IfNull("block", block)
@@ -99,7 +101,7 @@ public class Try<T> implements Task<T> {
     }
 
     public Catch(@NotNull Class<? extends E> first,
-        @NotNull Class<? extends E> second, @NotNull Block<? extends T, ? super E> block) {
+        @NotNull Class<? extends E> second, @NotNull ErrorBlock<? extends T, ? super E> block) {
       new IfSomeOf(
           new IfNull("first", first),
           new IfNull("second", second),
@@ -111,7 +113,7 @@ public class Try<T> implements Task<T> {
 
     public Catch(@NotNull Class<? extends E> first,
         @NotNull Class<? extends E> second, @NotNull Class<? extends E> third,
-        @NotNull Block<? extends T, ? super E> block) {
+        @NotNull ErrorBlock<? extends T, ? super E> block) {
       new IfSomeOf(
           new IfNull("first", first),
           new IfNull("second", second),
@@ -124,7 +126,7 @@ public class Try<T> implements Task<T> {
 
     public Catch(@NotNull Class<? extends E> first,
         @NotNull Class<? extends E> second, @NotNull Class<? extends E> third,
-        @NotNull Class<? extends E> fourth, @NotNull Block<? extends T, ? super E> block) {
+        @NotNull Class<? extends E> fourth, @NotNull ErrorBlock<? extends T, ? super E> block) {
       new IfSomeOf(
           new IfNull("first", first),
           new IfNull("second", second),
@@ -137,7 +139,7 @@ public class Try<T> implements Task<T> {
     }
 
     public Catch(@NotNull List<? extends Class<? extends E>> types,
-        @NotNull Block<? extends T, ? super E> block) {
+        @NotNull ErrorBlock<? extends T, ? super E> block) {
       new IfSomeOf(
           new IfAnyOf(
               new IfNull("types", types),
@@ -151,13 +153,19 @@ public class Try<T> implements Task<T> {
 
     @NotNull
     @SuppressWarnings("unchecked")
-    public final Result<? extends T> execute(@NotNull Throwable error) throws Exception {
+    public final Result<? extends T> execute(@Nullable Throwable error) throws Exception {
       for (final Class<? extends E> type : types) {
         if (type.isInstance(error)) {
           return block.execute((E) error);
         }
       }
       return new Continue<T>();
+    }
+
+    public interface ErrorBlock<T, E extends Throwable> {
+
+      @NotNull
+      Result<? extends T> execute(@NotNull E error) throws Exception;
     }
   }
 
@@ -169,7 +177,7 @@ public class Try<T> implements Task<T> {
       new IfNull("block", block).throwException();
       this.block = new Block<T, Throwable>() {
         @NotNull
-        public Result<? extends T> execute(@NotNull Throwable error) throws Exception {
+        public Result<? extends T> execute(@Nullable Throwable error) throws Exception {
           block.execute();
           return new Continue<T>();
         }
@@ -180,7 +188,7 @@ public class Try<T> implements Task<T> {
       new IfNull("block", block).throwException();
       this.block = new Block<T, Throwable>() {
         @NotNull
-        public Result<? extends T> execute(@NotNull Throwable error) throws Exception {
+        public Result<? extends T> execute(@Nullable Throwable error) throws Exception {
           return block.execute();
         }
       };
@@ -192,7 +200,7 @@ public class Try<T> implements Task<T> {
     }
 
     @NotNull
-    public Result<? extends T> execute(@NotNull Throwable error) throws Exception {
+    public Result<? extends T> execute(@Nullable Throwable error) throws Exception {
       return block.execute(error);
     }
 
@@ -327,12 +335,14 @@ public class Try<T> implements Task<T> {
       }
 
       private void applyResult(@NotNull AwaitableFlowControl<? super T> flowControl,
-          @NotNull Throwable error) {
+          @Nullable Throwable error) {
         if (result != null) {
           result.apply(flowControl);
           flowControl.stop();
-        } else {
+        } else if (error != null) {
           flowControl.error(error);
+        } else {
+          flowControl.stop();
         }
       }
     }
@@ -354,14 +364,8 @@ public class Try<T> implements Task<T> {
         scheduler.scheduleLow(new ErrorCommand(error));
       }
 
-      public void end(int reason) {
-        final Runnable command;
-        if (reason == Awaiter.DONE) {
-          command = new EndCommand();
-        } else {
-          command = new AbortCommand();
-        }
-        scheduler.scheduleLow(command);
+      public void end() {
+        scheduler.scheduleLow(new EndCommand());
       }
 
       private class ErrorCommand implements Runnable {
@@ -387,15 +391,6 @@ public class Try<T> implements Task<T> {
           flowControl.schedule();
         }
       }
-
-      private class AbortCommand implements Runnable {
-
-        public void run() {
-          inputs.offer(STOP);
-          state = new AbortState();
-          flowControl.schedule();
-        }
-      }
     }
 
     private class InputState implements State<T> {
@@ -413,13 +408,14 @@ public class Try<T> implements Task<T> {
 
     private class MessageState implements State<T> {
 
+      @SuppressWarnings("unchecked")
       public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
         final Object message = inputs.poll();
         if (message != null) {
           if (maxEvents >= 0) {
             --events;
           }
-          execute(flowControl, message);
+          flowControl.postOutput(message != NULL ? (T) message : null);
           return true;
         }
         if (events < 1) {
@@ -427,11 +423,6 @@ public class Try<T> implements Task<T> {
           awaitable.await(events, new TryAwaiter(flowControl));
         }
         return false;
-      }
-
-      @SuppressWarnings("unchecked")
-      void execute(@NotNull AwaitableFlowControl<T> flowControl, Object message) throws Exception {
-        flowControl.postOutput(message != NULL ? (T) message : null);
       }
     }
 
@@ -444,10 +435,11 @@ public class Try<T> implements Task<T> {
       }
 
       @Override
-      void execute(@NotNull AwaitableFlowControl<T> flowControl, Object message) throws Exception {
-        if (message == STOP) {
+      public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
+        if (inputs.peek() == STOP) {
           if (blocks.isEmpty()) {
             flowControl.error(error);
+            return false;
           } else {
             final Logger logger = flowControl.logger();
             final ErrorFlowControl<T> errorFlowControl = new ErrorFlowControl<T>(logger);
@@ -468,23 +460,23 @@ public class Try<T> implements Task<T> {
             }
             errorFlowControl.applyResult(flowControl, error);
           }
-        } else {
-          super.execute(flowControl, message);
+          return true;
         }
+        return super.executeBlock(flowControl);
       }
     }
 
     private class EndState extends MessageState {
 
       @Override
-      void execute(@NotNull AwaitableFlowControl<T> flowControl, Object message) throws Exception {
-        if (message == STOP) {
+      public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
+        if (inputs.peek() == STOP) {
           if (blocks.isEmpty()) {
             flowControl.stop();
           } else {
             final Logger logger = flowControl.logger();
             final EndFlowControl<T> endFlowControl = new EndFlowControl<T>(logger);
-            Throwable error = new TryThrowable();
+            Throwable error = null;
             for (final Block<? extends T, ? super Throwable> block : blocks) {
               logger.log(new DbgMessage("[executing] block: %s", new PrintIdentity(block)));
               try {
@@ -499,49 +491,10 @@ public class Try<T> implements Task<T> {
             }
             endFlowControl.applyResult(flowControl, error);
           }
-        } else {
-          super.execute(flowControl, message);
+          return true;
         }
+        return super.executeBlock(flowControl);
       }
-    }
-
-    private class AbortState extends MessageState {
-
-      @Override
-      void execute(@NotNull AwaitableFlowControl<T> flowControl, Object message) throws Exception {
-        if (message == STOP) {
-          if (blocks.isEmpty()) {
-            flowControl.abort();
-          } else {
-            final Logger logger = flowControl.logger();
-            final EndFlowControl<T> endFlowControl = new EndFlowControl<T>(logger);
-            Throwable error = new TryThrowable();
-            for (final Block<? extends T, ? super Throwable> block : blocks) {
-              logger.log(new DbgMessage("[executing] block: %s", new PrintIdentity(block)));
-              try {
-                if (block instanceof Finally) {
-                  block.execute(error).apply(endFlowControl);
-                }
-              } catch (final Exception e) {
-                new IfInterrupt(e).throwException();
-                logger.log(new WrnMessage(new LogMessage("original output overwritten by:"), e));
-                error = e;
-              }
-            }
-            endFlowControl.applyResult(flowControl, error);
-          }
-        } else {
-          super.execute(flowControl, message);
-        }
-      }
-    }
-  }
-
-  private static class TryThrowable extends Throwable {
-
-    @Override
-    public Throwable fillInStackTrace() {
-      return this;
     }
   }
 }

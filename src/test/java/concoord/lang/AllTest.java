@@ -18,13 +18,12 @@ package concoord.lang;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import concoord.concurrent.Awaitable;
-import concoord.concurrent.Awaiter;
 import concoord.concurrent.LazyExecutor;
 import concoord.concurrent.ScheduledExecutor;
 import concoord.test.TestCancel;
 import concoord.util.collection.Tuple;
 import java.util.ArrayList;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
@@ -42,13 +41,13 @@ public class AllTest {
     ArrayList<Tuple<String, Integer, Object, Object, Object, Object, Object, Object, Object, Object>> messages =
         new ArrayList<>();
     AtomicReference<Throwable> testError = new AtomicReference<>();
-    AtomicInteger testEnd = new AtomicInteger(-1);
-    awaitable.await(-1, messages::add, testError::set, testEnd::set);
+    AtomicBoolean testEnd = new AtomicBoolean();
+    awaitable.await(-1, messages::add, testError::set, () -> testEnd.set(true));
     lazyExecutor.advance(Integer.MAX_VALUE);
     assertThat(messages)
         .containsExactly(new Tuple<>("1", 1), new Tuple<>("2", 2), new Tuple<>("3", 3));
     assertThat(testError).hasValue(null);
-    assertThat(testEnd).hasValue(Awaiter.DONE);
+    assertThat(testEnd).isTrue();
   }
 
   @Test
