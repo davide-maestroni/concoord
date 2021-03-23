@@ -81,6 +81,11 @@ public class BaseAwaitable<T> implements Awaitable<T> {
   @NotNull
   public Cancelable await(int maxEvents, @NotNull Awaiter<? super T> awaiter) {
     new IfNull("awaiter", awaiter).throwException();
+    if (maxEvents == 0) {
+      awaitableLogger.log(new WrnMessage("await() called with 0 events"));
+      // awaiter will never be called
+      return new DummyCancelable();
+    }
     final InternalFlowControl flowControl = new InternalFlowControl(maxEvents, awaiter);
     scheduler.scheduleHigh(flowControl);
     return new BaseCancelable(flowControl);
@@ -173,6 +178,20 @@ public class BaseAwaitable<T> implements Awaitable<T> {
     }
 
     public void end() {
+    }
+  }
+
+  private static class DummyCancelable implements Cancelable {
+
+    public boolean isError() {
+      return false;
+    }
+
+    public boolean isDone() {
+      return false;
+    }
+
+    public void cancel() {
     }
   }
 
