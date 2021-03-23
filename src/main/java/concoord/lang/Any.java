@@ -210,7 +210,7 @@ public class Any<T> implements Task<T> {
         if (inputs.peek() == STOP) {
           flowControl.error(error);
           cancelExecution(); // TODO: 18/03/21 ???
-          return false;
+          return true;
         }
         return super.executeBlock(flowControl);
       }

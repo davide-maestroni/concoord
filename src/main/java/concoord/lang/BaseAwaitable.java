@@ -208,6 +208,7 @@ public class BaseAwaitable<T> implements Awaitable<T> {
         );
         new IfInterrupt(e).throwException();
         flowControl.error(e);
+        nextFlowControl();
       }
     }
   }
@@ -235,6 +236,7 @@ public class BaseAwaitable<T> implements Awaitable<T> {
         );
         new IfInterrupt(e).throwException();
         flowControl.error(e);
+        nextFlowControl();
       }
     }
   }
@@ -272,6 +274,7 @@ public class BaseAwaitable<T> implements Awaitable<T> {
         );
         new IfInterrupt(e).throwException();
         flowControl.error(e);
+        nextFlowControl();
       }
     }
   }
@@ -311,6 +314,7 @@ public class BaseAwaitable<T> implements Awaitable<T> {
         );
         new IfInterrupt(e).throwException();
         flowControl.error(e);
+        nextFlowControl();
       }
     }
   }
@@ -485,7 +489,13 @@ public class BaseAwaitable<T> implements Awaitable<T> {
       currentState = new ErrorState(error);
       awaitableLogger.log(new DbgMessage("[failing]"));
       abortExecution();
-      currentState.run();
+      final InternalFlowControl flowControl = currentFlowControl;
+      if (flowControl == null) {
+        return;
+      }
+      if (flowControl.outputEvents() != 0) {
+        flowControl.sendError(error);
+      }
     }
 
     public void execute() {

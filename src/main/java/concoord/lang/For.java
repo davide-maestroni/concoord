@@ -201,7 +201,7 @@ public class For<T, M> implements Task<T> {
       public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
         if (inputs.peek() == STOP) {
           flowControl.error(error);
-          return false;
+          return true;
         }
         return super.executeBlock(flowControl);
       }

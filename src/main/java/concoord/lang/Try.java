@@ -447,7 +447,7 @@ public class Try<T> implements Task<T> {
         if (inputs.peek() == STOP) {
           if (blocks.isEmpty()) {
             flowControl.error(error);
-            return false;
+            return true;
           } else {
             final Logger logger = flowControl.logger();
             final ErrorFlowControl<T> errorFlowControl = new ErrorFlowControl<T>(logger);

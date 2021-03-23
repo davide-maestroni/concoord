@@ -366,7 +366,7 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
           if (message == STOP) {
             flowControl.error(error);
             cancelExecution(); // TODO: 18/03/21 ???
-            return false;
+            return true;
           }
         }
         return super.executeBlock(flowControl);
