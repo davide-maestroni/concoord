@@ -40,9 +40,10 @@ public class Fork<T> implements Task<T> {
   private final Trampoline trampoline = new Trampoline();
   private final ReadState read = new ReadState();
   private final WriteState write = new WriteState();
-  private final int maxEvents;
   private final Awaitable<T> awaitable;
   private final Buffer<T> buffer;
+  private int maxEvents;
+  private int inputEvents;
   private Runnable state = read;
 
   public Fork(@NotNull Awaitable<T> awaitable, @NotNull Buffer<T> buffer) {
@@ -74,6 +75,7 @@ public class Fork<T> implements Task<T> {
 
     public void run() {
       int events = maxEvents;
+      maxEvents = 0;
       for (ForkControl forkControl : controls.keySet()) {
         int inputEvents = forkControl.inputEvents();
         if (events >= 0) {
@@ -86,6 +88,7 @@ public class Fork<T> implements Task<T> {
       }
       if (events > 0) {
         state = write;
+        inputEvents = events;
         awaitable.await(events, new ForkAwaiter());
       }
     }
@@ -100,6 +103,9 @@ public class Fork<T> implements Task<T> {
         buffer.add((T) message);
         for (ForkControl forkControl : controls.keySet()) {
           forkControl.run();
+        }
+        if (--inputEvents == 0) {
+          state = read;
         }
       }
     }
