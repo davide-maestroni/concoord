@@ -20,14 +20,12 @@ import org.jetbrains.annotations.NotNull;
 
 public class Trampoline extends ScheduledExecutor {
 
-  private static final ImmediateExecutor immediateExecutor = new ImmediateExecutor();
-
   public Trampoline() {
-    super(immediateExecutor);
+    super(new ImmediateExecutor());
   }
 
   public Trampoline(int throughput) {
-    super(immediateExecutor, throughput);
+    super(new ImmediateExecutor(), throughput);
   }
 
   private static class ImmediateExecutor implements Executor {
