@@ -44,7 +44,7 @@ public class Streamed<T> implements Task<T> {
     this(new DefaultBufferFactory<T>());
   }
 
-  public Streamed(final int initialCapacity) {
+  public Streamed(int initialCapacity) {
     this(new CapacityBufferFactory<T>(initialCapacity));
   }
 

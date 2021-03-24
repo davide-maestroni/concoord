@@ -40,17 +40,17 @@ public class Fork<T> implements Task<T> {
   private final Trampoline trampoline = new Trampoline();
   private final ReadState read = new ReadState();
   private final WriteState write = new WriteState();
-  private final Awaitable<T> awaitable;
+  private final Awaitable<? extends T> awaitable;
   private final Buffer<T> buffer;
   private int maxEvents;
   private int inputEvents;
   private Runnable state = read;
 
-  public Fork(@NotNull Awaitable<T> awaitable, @NotNull Buffer<T> buffer) {
+  public Fork(@NotNull Awaitable<? extends T> awaitable, @NotNull Buffer<T> buffer) {
     this(1, awaitable, buffer);
   }
 
-  public Fork(int maxEvents, @NotNull Awaitable<T> awaitable, @NotNull Buffer<T> buffer) {
+  public Fork(int maxEvents, @NotNull Awaitable<? extends T> awaitable, @NotNull Buffer<T> buffer) {
     new IfSomeOf(
         new IfNull("awaitable", awaitable),
         new IfNull("buffer", buffer)
