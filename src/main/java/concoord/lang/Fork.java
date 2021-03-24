@@ -208,7 +208,7 @@ public class Fork<T> implements Task<T> {
       return forkState.executeBlock(flowControl);
     }
 
-    public void abortExecution() throws Exception {
+    public void abortExecution(@NotNull Throwable error) {
       controls.remove(this);
     }
 

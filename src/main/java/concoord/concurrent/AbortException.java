@@ -17,4 +17,10 @@ package concoord.concurrent;
 
 public class AbortException extends RuntimeException {
 
+  public AbortException() {
+  }
+
+  public AbortException(Throwable cause) {
+    super(cause);
+  }
 }

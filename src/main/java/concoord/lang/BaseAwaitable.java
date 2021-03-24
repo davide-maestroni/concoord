@@ -101,16 +101,16 @@ public class BaseAwaitable<T> implements Awaitable<T> {
     scheduler.scheduleHigh(new AbortCommand());
   }
 
-  private void abortExecution() {
+  private void abortExecution(@NotNull Throwable error) {
     try {
       if (currentAwaitable != null) {
         currentAwaitable.abort();
         currentAwaitable = null;
       }
-      executionControl.abortExecution();
+      executionControl.abortExecution(error);
     } catch (final Exception e) {
       awaitableLogger.log(
-          new ErrMessage(new LogMessage("failed to cancel execution (ignoring)"), e)
+          new ErrMessage(new LogMessage("failed to abort execution (ignoring)"), e)
       );
       new IfInterrupt(e).throwException();
     }
@@ -145,7 +145,7 @@ public class BaseAwaitable<T> implements Awaitable<T> {
 
     boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception;
 
-    void abortExecution() throws Exception;
+    void abortExecution(@NotNull Throwable error) throws Exception;
   }
 
   private static class BaseCancelable implements Cancelable {
@@ -417,7 +417,7 @@ public class BaseAwaitable<T> implements Awaitable<T> {
       aborted = true;
       currentState = new ErrorState(error);
       awaitableLogger.log(new InfMessage("[aborting]"));
-      abortExecution();
+      abortExecution(error);
       currentState.run();
     }
   }
@@ -507,7 +507,7 @@ public class BaseAwaitable<T> implements Awaitable<T> {
       aborted = true;
       currentState = new ErrorState(error);
       awaitableLogger.log(new DbgMessage("[failing]"));
-      abortExecution();
+      abortExecution(error);
       final InternalFlowControl flowControl = currentFlowControl;
       if (flowControl == null) {
         return;
@@ -574,7 +574,7 @@ public class BaseAwaitable<T> implements Awaitable<T> {
       if (!(error instanceof CancelException)) {
         awaitableLogger.log(new InfMessage(new LogMessage("[failed] with error:"), error));
         try {
-          executionControl.abortExecution();
+          executionControl.abortExecution(error);
         } catch (final Exception e) {
           awaitableLogger.log(
               new ErrMessage(new LogMessage("exception during failure (ignored)"), e)

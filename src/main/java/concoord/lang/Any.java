@@ -83,7 +83,7 @@ public class Any<T> implements Task<T> {
       return state.executeBlock(flowControl);
     }
 
-    public void abortExecution() {
+    public void abortExecution(@NotNull Throwable error) {
       for (final Awaitable<?> awaitable : awaitables) {
         awaitable.abort();
       }

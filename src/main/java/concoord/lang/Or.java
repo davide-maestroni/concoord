@@ -66,7 +66,7 @@ public class Or<T> implements Task<T> {
       return true;
     }
 
-    public void abortExecution() {
+    public void abortExecution(@NotNull Throwable error) {
     }
   }
 }

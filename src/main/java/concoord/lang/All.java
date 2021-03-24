@@ -220,7 +220,7 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
       return state.executeBlock(flowControl);
     }
 
-    public void abortExecution() {
+    public void abortExecution(@NotNull Throwable error) {
       for (final Awaitable<?> awaitable : awaitables) {
         awaitable.abort();
       }
