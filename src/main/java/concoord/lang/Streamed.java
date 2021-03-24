@@ -21,6 +21,7 @@ import concoord.concurrent.Awaiter;
 import concoord.concurrent.Scheduler;
 import concoord.concurrent.Task;
 import concoord.data.Buffer;
+import concoord.data.Buffered;
 import concoord.lang.BaseAwaitable.AwaitableFlowControl;
 import concoord.lang.BaseAwaitable.ExecutionControl;
 import concoord.util.assertion.IfNull;
@@ -37,19 +38,30 @@ public class Streamed<T> implements Task<T> {
   private static final Object NULL = new Object();
   private static final Object STOP = new Object();
 
-  private final ConcurrentLinkedQueue<Object> queue = new ConcurrentLinkedQueue<Object>();
-  private final Buffer<T> buffer;
-  private final Iterator<T> iterator;
+  private final BufferFactory<T> factory;
 
-  public Streamed(@NotNull Buffer<T> buffer) {
-    new IfNull("buffer", buffer).throwException();
-    this.buffer = buffer;
-    this.iterator = buffer.iterator();
+  public Streamed() {
+    this(new DefaultBufferFactory<T>());
+  }
+
+  public Streamed(final int initialCapacity) {
+    this(new CapacityBufferFactory<T>(initialCapacity));
+  }
+
+  public Streamed(@NotNull BufferFactory<T> factory) {
+    new IfNull("factory", factory).throwException();
+    this.factory = factory;
   }
 
   @NotNull
   public StreamedAwaitable<T> on(@NotNull Scheduler scheduler) {
-    return new BaseStreamedAwaitable<T>(scheduler, new StreamedControl<T>(queue, buffer, iterator));
+    return new BaseStreamedAwaitable<T>(scheduler, new StreamedControl<T>(factory.create()));
+  }
+
+  public interface BufferFactory<T> {
+
+    @NotNull
+    Buffer<T> create();
   }
 
   public interface StreamedAwaitable<T> extends Awaitable<T>, Awaiter<T> {
@@ -58,21 +70,41 @@ public class Streamed<T> implements Task<T> {
     Closeable asCloseable();
   }
 
+  private static class DefaultBufferFactory<T> implements BufferFactory<T> {
+
+    @NotNull
+    public Buffer<T> create() {
+      return new Buffered<T>();
+    }
+  }
+
+  private static class CapacityBufferFactory<T> implements BufferFactory<T> {
+
+    private final int initialCapacity;
+
+    private CapacityBufferFactory(int initialCapacity) {
+      this.initialCapacity = initialCapacity;
+    }
+
+    @NotNull
+    public Buffer<T> create() {
+      return new Buffered<T>(initialCapacity);
+    }
+  }
+
   private static class StreamedControl<T> implements ExecutionControl<T>, Runnable {
 
+    private final ConcurrentLinkedQueue<Object> queue = new ConcurrentLinkedQueue<Object>();
     private final AtomicReference<Throwable> error = new AtomicReference<Throwable>();
     private final MessageState message = new MessageState();
-    private final ConcurrentLinkedQueue<Object> queue;
     private final Buffer<T> buffer;
     private final Iterator<T> inputs;
     private AwaitableFlowControl<T> flowControl;
     private State<T> state = message;
 
-    private StreamedControl(@NotNull ConcurrentLinkedQueue<Object> queue,
-        @NotNull Buffer<T> buffer, @NotNull Iterator<T> inputs) {
-      this.queue = queue;
+    private StreamedControl(@NotNull Buffer<T> buffer) {
       this.buffer = buffer;
-      this.inputs = inputs;
+      this.inputs = buffer.iterator();
     }
 
     public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {

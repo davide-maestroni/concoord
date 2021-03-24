@@ -33,7 +33,7 @@ public class StreamedTest {
   public void basic() throws Exception {
     LazyExecutor lazyExecutor = new LazyExecutor();
     ScheduledExecutor scheduler = new ScheduledExecutor(lazyExecutor);
-    Streamed<Integer> streamed = new Streamed<>(new Buffered<>());
+    Streamed<Integer> streamed = new Streamed<>(Buffered::new);
     ArrayList<Integer> testMessages = new ArrayList<>();
     AtomicReference<Throwable> testError = new AtomicReference<>();
     AtomicBoolean testEnd = new AtomicBoolean();
