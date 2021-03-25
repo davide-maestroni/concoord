@@ -87,7 +87,7 @@ public class Parallel<T, M> implements Task<T> {
         new ParallelControl<T, M>(
             scheduler,
             maxEvents,
-            factory.create(),
+            factory,
             strategy,
             awaitable,
             block
@@ -108,28 +108,27 @@ public class Parallel<T, M> implements Task<T> {
 
     private final ConcurrentLinkedQueue<Object> queue = new ConcurrentLinkedQueue<Object>();
     private final ArrayList<Awaitable<T>> awaitables = new ArrayList<Awaitable<T>>();
-    private final InputState input = new InputState();
     private final MessageState message = new MessageState();
     private final Scheduler scheduler;
     private final int maxEvents;
-    private final Buffer<T> buffer;
+    private final BufferFactory<T> factory;
     private final SchedulingStrategy<? super M> strategy;
     private final Awaitable<M> awaitable;
     private final Block<? extends T, ? super M> block;
-    private final Iterator<T> inputs;
-    private State<T> state = input;
+    private State<T> state = new InputState();
+    private Buffer<T> buffer;
+    private Iterator<T> inputs;
     private int events;
 
     private ParallelControl(@NotNull Scheduler scheduler, int maxEvents,
-        @NotNull Buffer<T> buffer, @NotNull SchedulingStrategy<? super M> strategy,
+        @NotNull BufferFactory<T> factory, @NotNull SchedulingStrategy<? super M> strategy,
         @NotNull Awaitable<M> awaitable, @NotNull Block<? extends T, ? super M> block) {
       this.scheduler = scheduler;
       this.maxEvents = maxEvents;
-      this.buffer = buffer;
+      this.factory = factory;
       this.strategy = strategy;
       this.awaitable = awaitable;
       this.block = block;
-      this.inputs = buffer.iterator();
     }
 
     public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
@@ -280,7 +279,9 @@ public class Parallel<T, M> implements Task<T> {
 
     private class InputState implements State<T> {
 
-      public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) {
+      public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
+        buffer = factory.create();
+        inputs = buffer.iterator();
         state = message;
         events = maxEvents;
         awaitable.await(events, new ParallelAwaiter(flowControl));

@@ -56,7 +56,7 @@ public class Streamed<T> implements Task<T> {
 
   @NotNull
   public StreamedAwaitable<T> on(@NotNull Scheduler scheduler) {
-    return new BaseStreamedAwaitable<T>(scheduler, new StreamedControl<T>(factory.create()));
+    return new BaseStreamedAwaitable<T>(scheduler, new StreamedControl<T>(factory));
   }
 
   public interface StreamedAwaitable<T> extends Awaitable<T>, Awaiter<T> {
@@ -70,14 +70,14 @@ public class Streamed<T> implements Task<T> {
     private final ConcurrentLinkedQueue<Object> queue = new ConcurrentLinkedQueue<Object>();
     private final AtomicReference<Throwable> error = new AtomicReference<Throwable>();
     private final MessageState message = new MessageState();
-    private final Buffer<T> buffer;
-    private final Iterator<T> inputs;
+    private final BufferFactory<T> factory;
+    private State<T> state = new InitState();
     private AwaitableFlowControl<T> flowControl;
-    private State<T> state = message;
+    private Buffer<T> buffer;
+    private Iterator<T> inputs;
 
-    private StreamedControl(@NotNull Buffer<T> buffer) {
-      this.buffer = buffer;
-      this.inputs = buffer.iterator();
+    private StreamedControl(@NotNull BufferFactory<T> factory) {
+      this.factory = factory;
     }
 
     public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
@@ -127,6 +127,16 @@ public class Streamed<T> implements Task<T> {
     private interface State<T> {
 
       boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception;
+    }
+
+    private class InitState implements State<T> {
+
+      public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
+        buffer = factory.create();
+        inputs = buffer.iterator();
+        state = message;
+        return state.executeBlock(flowControl);
+      }
     }
 
     private class MessageState implements State<T> {

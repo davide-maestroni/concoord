@@ -20,5 +20,5 @@ import org.jetbrains.annotations.NotNull;
 public interface BufferFactory<T> {
 
   @NotNull
-  Buffer<T> create();
+  Buffer<T> create() throws Exception;
 }
