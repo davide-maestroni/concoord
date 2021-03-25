@@ -26,9 +26,6 @@ public class DefaultBufferFactory<T> implements BufferFactory<T> {
   }
 
   public DefaultBufferFactory(int initialCapacity) {
-    if (initialCapacity < 1) {
-      throw new IllegalArgumentException(Integer.toString(initialCapacity));
-    }
     this.factory = new CapacityBufferFactory<T>(initialCapacity);
   }
 
