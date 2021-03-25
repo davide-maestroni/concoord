@@ -21,7 +21,8 @@ import concoord.concurrent.Awaiter;
 import concoord.concurrent.Scheduler;
 import concoord.concurrent.Task;
 import concoord.data.Buffer;
-import concoord.data.Buffered;
+import concoord.data.BufferFactory;
+import concoord.data.DefaultBufferFactory;
 import concoord.lang.BaseAwaitable.AwaitableFlowControl;
 import concoord.lang.BaseAwaitable.ExecutionControl;
 import concoord.util.assertion.IfNull;
@@ -45,7 +46,7 @@ public class Streamed<T> implements Task<T> {
   }
 
   public Streamed(int initialCapacity) {
-    this(new CapacityBufferFactory<T>(initialCapacity));
+    this(new DefaultBufferFactory<T>(initialCapacity));
   }
 
   public Streamed(@NotNull BufferFactory<T> factory) {
@@ -58,38 +59,10 @@ public class Streamed<T> implements Task<T> {
     return new BaseStreamedAwaitable<T>(scheduler, new StreamedControl<T>(factory.create()));
   }
 
-  public interface BufferFactory<T> {
-
-    @NotNull
-    Buffer<T> create();
-  }
-
   public interface StreamedAwaitable<T> extends Awaitable<T>, Awaiter<T> {
 
     @NotNull
     Closeable asCloseable();
-  }
-
-  private static class DefaultBufferFactory<T> implements BufferFactory<T> {
-
-    @NotNull
-    public Buffer<T> create() {
-      return new Buffered<T>();
-    }
-  }
-
-  private static class CapacityBufferFactory<T> implements BufferFactory<T> {
-
-    private final int initialCapacity;
-
-    private CapacityBufferFactory(int initialCapacity) {
-      this.initialCapacity = initialCapacity;
-    }
-
-    @NotNull
-    public Buffer<T> create() {
-      return new Buffered<T>(initialCapacity);
-    }
   }
 
   private static class StreamedControl<T> implements ExecutionControl<T>, Runnable {
@@ -118,10 +91,10 @@ public class Streamed<T> implements Task<T> {
 
     @SuppressWarnings("unchecked")
     public void run() {
-      final ConcurrentLinkedQueue<Object> inputs = this.queue;
-      final Object message = inputs.peek();
+      final ConcurrentLinkedQueue<Object> queue = this.queue;
+      final Object message = queue.peek();
       if ((message != null) && (message != STOP)) {
-        inputs.remove();
+        queue.remove();
         buffer.add(message != NULL ? (T) message : null);
       }
       if (flowControl != null) {
