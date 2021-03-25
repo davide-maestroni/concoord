@@ -17,6 +17,7 @@ package concoord.scheduling;
 
 import concoord.concurrent.Scheduler;
 import concoord.lang.Parallel.SchedulingStrategy;
+import concoord.util.assertion.IfContainsNull;
 import concoord.util.assertion.IfNull;
 import java.util.ArrayList;
 import org.jetbrains.annotations.NotNull;
@@ -63,15 +64,14 @@ public class LoadBalancing<M> implements SchedulingStrategy<M> {
     private class InitState implements SchedulerFactory {
 
       @NotNull
-      @SuppressWarnings("ConstantConditions")
       public Scheduler create() throws Exception {
+        final SchedulerFactory factory = LoadBalancingFactory.this.factory;
+        final ArrayList<Scheduler> schedulers = LoadBalancingFactory.this.schedulers;
         for (int i = 0; i < maxParallelism; ++i) {
           final Scheduler scheduler = factory.create();
-          if (scheduler == null) {
-            throw new NullPointerException("scheduler cannot be null");
-          }
           schedulers.add(scheduler);
         }
+        new IfContainsNull("schedulers", schedulers).throwException();
         state = new FactoryState();
         return state.create();
       }

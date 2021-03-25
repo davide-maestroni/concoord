@@ -56,16 +56,13 @@ public class RoundRobin<M> implements SchedulingStrategy<M> {
     }
 
     @NotNull
-    @SuppressWarnings("ConstantConditions")
     public Scheduler create() throws Exception {
       final int index = this.index;
       final ArrayList<Scheduler> schedulers = this.schedulers;
       final Scheduler scheduler;
       if (schedulers.size() == index) {
         scheduler = factory.create();
-        if (scheduler == null) {
-          throw new NullPointerException("scheduler cannot be null");
-        }
+        new IfNull("scheduler", scheduler).throwException();
         schedulers.add(scheduler);
       } else {
         scheduler = schedulers.get(index);
