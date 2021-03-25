@@ -21,11 +21,11 @@ import concoord.util.assertion.IfNull;
 import java.util.ArrayList;
 import org.jetbrains.annotations.NotNull;
 
-public class RoundRobin<M> implements SchedulingStrategy<M> {
+public class LoadBalancing<M> implements SchedulingStrategy<M> {
 
   private final SchedulerFactory factory;
 
-  public RoundRobin(int maxParallelism, @NotNull SchedulerFactory factory) {
+  public LoadBalancing(int maxParallelism, @NotNull SchedulerFactory factory) {
     new IfNull("factory", factory).throwException();
     if (maxParallelism == 0) {
       // no parallelism
@@ -34,7 +34,7 @@ public class RoundRobin<M> implements SchedulingStrategy<M> {
       // infinite parallelism
       this.factory = factory;
     } else {
-      this.factory = new RoundRobinFactory(maxParallelism, factory);
+      this.factory = new LoadBalancingFactory(maxParallelism, factory);
     }
   }
 
@@ -43,35 +43,56 @@ public class RoundRobin<M> implements SchedulingStrategy<M> {
     return factory.create();
   }
 
-  private static class RoundRobinFactory implements SchedulerFactory {
+  private static class LoadBalancingFactory implements SchedulerFactory {
 
     private final ArrayList<Scheduler> schedulers = new ArrayList<Scheduler>();
     private final int maxParallelism;
     private final SchedulerFactory factory;
-    private int index;
+    private SchedulerFactory state = new InitState();
 
-    private RoundRobinFactory(int maxParallelism, @NotNull SchedulerFactory factory) {
+    private LoadBalancingFactory(int maxParallelism, @NotNull SchedulerFactory factory) {
       this.maxParallelism = maxParallelism;
       this.factory = factory;
     }
 
     @NotNull
-    @SuppressWarnings("ConstantConditions")
     public Scheduler create() throws Exception {
-      final int index = this.index;
-      final ArrayList<Scheduler> schedulers = this.schedulers;
-      final Scheduler scheduler;
-      if (schedulers.size() == index) {
-        scheduler = factory.create();
-        if (scheduler == null) {
-          throw new NullPointerException("scheduler cannot be null");
+      return state.create();
+    }
+
+    private class InitState implements SchedulerFactory {
+
+      @NotNull
+      @SuppressWarnings("ConstantConditions")
+      public Scheduler create() throws Exception {
+        for (int i = 0; i < maxParallelism; ++i) {
+          final Scheduler scheduler = factory.create();
+          if (scheduler == null) {
+            throw new NullPointerException("scheduler cannot be null");
+          }
+          schedulers.add(scheduler);
         }
-        schedulers.add(scheduler);
-      } else {
-        scheduler = schedulers.get(index);
+        state = new FactoryState();
+        return state.create();
       }
-      this.index = (index + 1) % maxParallelism;
-      return scheduler;
+    }
+
+    private class FactoryState implements SchedulerFactory {
+
+      @NotNull
+      @SuppressWarnings("ConstantConditions")
+      public Scheduler create() {
+        int min = Integer.MAX_VALUE;
+        Scheduler selected = null;
+        for (Scheduler scheduler : schedulers) {
+          final int pendingCommands = scheduler.pendingCommands();
+          if (pendingCommands < min) {
+            min = pendingCommands;
+            selected = scheduler;
+          }
+        }
+        return selected;
+      }
     }
   }
 }
