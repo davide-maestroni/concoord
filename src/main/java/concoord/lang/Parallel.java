@@ -320,7 +320,7 @@ public class Parallel<T, M> implements Task<T> {
 
       @Override
       public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
-        if (queue.peek() == STOP) {
+        if (!inputs.hasNext() && (queue.peek() == STOP)) {
           flowControl.error(error);
           return true;
         }
@@ -332,7 +332,7 @@ public class Parallel<T, M> implements Task<T> {
 
       @Override
       public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
-        if (queue.peek() == STOP) {
+        if (!inputs.hasNext() && (queue.peek() == STOP)) {
           flowControl.stop();
           return true;
         }
