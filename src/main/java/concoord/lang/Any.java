@@ -61,13 +61,13 @@ public class Any<T> implements Task<T> {
     private static final Object NULL = new Object();
     private static final Object STOP = new Object();
 
-    private final InputState input = new InputState();
-    private final MessageState message = new MessageState();
+    private final InputState inputState = new InputState();
+    private final MessageState messageState = new MessageState();
     private final ConcurrentLinkedQueue<Object> inputs = new ConcurrentLinkedQueue<Object>();
     private final Scheduler scheduler;
     private final List<Awaitable<? extends T>> awaitables;
     private final ArrayList<Cancelable> cancelables;
-    private State<T> state = input;
+    private State<T> currentState = inputState;
     private int maxEvents;
     private int events;
     private int stopped;
@@ -80,7 +80,7 @@ public class Any<T> implements Task<T> {
     }
 
     public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
-      return state.executeBlock(flowControl);
+      return currentState.executeBlock(flowControl);
     }
 
     public void abortExecution(@NotNull Throwable error) {
@@ -102,7 +102,7 @@ public class Any<T> implements Task<T> {
 
     private class AnyAwaiter implements Awaiter<Object> {
 
-      private final FlowCommand flow = new FlowCommand();
+      private final FlowCommand flowCmd = new FlowCommand();
       private final AwaitableFlowControl<T> flowControl;
 
       private AnyAwaiter(@NotNull AwaitableFlowControl<T> flowControl) {
@@ -111,7 +111,7 @@ public class Any<T> implements Task<T> {
 
       public void message(Object message) {
         inputs.offer(message != null ? message : NULL);
-        scheduler.scheduleLow(flow);
+        scheduler.scheduleLow(flowCmd);
       }
 
       public void error(@NotNull Throwable error) {
@@ -139,7 +139,7 @@ public class Any<T> implements Task<T> {
 
         public void run() {
           inputs.offer(STOP);
-          state = new ErrorState(error);
+          currentState = new ErrorState(error);
           flowControl.execute();
         }
       }
@@ -149,7 +149,7 @@ public class Any<T> implements Task<T> {
         public void run() {
           if (++stopped == awaitables.size()) {
             inputs.offer(STOP);
-            state = new EndState();
+            currentState = new EndState();
             flowControl.execute();
           }
         }
@@ -159,7 +159,7 @@ public class Any<T> implements Task<T> {
     private class InputState implements State<T> {
 
       public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) {
-        state = message;
+        currentState = messageState;
         events = maxEvents = flowControl.outputEvents();
         final ArrayList<Cancelable> cancelables = AnyControl.this.cancelables;
         for (final Awaitable<? extends T> awaitable : awaitables) {

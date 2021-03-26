@@ -38,13 +38,13 @@ public class Fork<T> implements Task<T> {
   private final WeakHashMap<ForkControl, Void> controls = new WeakHashMap<ForkControl, Void>();
   private final ConcurrentLinkedQueue<Object> inputs = new ConcurrentLinkedQueue<Object>();
   private final Trampoline trampoline = new Trampoline();
-  private final ReadState read = new ReadState();
-  private final WriteState write = new WriteState();
+  private final ReadState readState = new ReadState();
+  private final WriteState writeState = new WriteState();
   private final Awaitable<? extends T> awaitable;
   private final Buffer<T> buffer;
   private int maxEvents;
   private int inputEvents;
-  private Runnable state = read;
+  private Runnable currentState = readState;
 
   public Fork(@NotNull Awaitable<? extends T> awaitable, @NotNull Buffer<T> buffer) {
     this(1, awaitable, buffer);
@@ -87,7 +87,7 @@ public class Fork<T> implements Task<T> {
         }
       }
       if (events > 0) {
-        state = write;
+        currentState = writeState;
         inputEvents = events;
         awaitable.await(events, new ForkAwaiter());
       }
@@ -105,7 +105,7 @@ public class Fork<T> implements Task<T> {
           forkControl.run();
         }
         if (--inputEvents == 0) {
-          state = read;
+          currentState = readState;
         }
       }
     }
@@ -151,11 +151,11 @@ public class Fork<T> implements Task<T> {
 
   private class ForkAwaiter implements Awaiter<T> {
 
-    private final FlowCommand flow = new FlowCommand();
+    private final FlowCommand flowCmd = new FlowCommand();
 
     public void message(T message) {
       inputs.offer(message != null ? message : NULL);
-      trampoline.scheduleLow(flow);
+      trampoline.scheduleLow(flowCmd);
     }
 
     public void error(@NotNull Throwable error) {
@@ -169,7 +169,7 @@ public class Fork<T> implements Task<T> {
     private class FlowCommand implements Runnable {
 
       public void run() {
-        state.run();
+        currentState.run();
       }
     }
 
@@ -183,8 +183,8 @@ public class Fork<T> implements Task<T> {
 
       public void run() {
         inputs.offer(STOP);
-        state = new ErrorState(error);
-        state.run();
+        currentState = new ErrorState(error);
+        currentState.run();
       }
     }
 
@@ -192,8 +192,8 @@ public class Fork<T> implements Task<T> {
 
       public void run() {
         inputs.offer(STOP);
-        state = new EndState();
-        state.run();
+        currentState = new EndState();
+        currentState.run();
       }
     }
   }
@@ -251,7 +251,7 @@ public class Fork<T> implements Task<T> {
           flowControl.postOutput(iterator.next());
           return true;
         } else {
-          state.run();
+          currentState.run();
         }
         return false;
       }

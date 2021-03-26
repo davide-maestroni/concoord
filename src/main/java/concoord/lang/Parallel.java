@@ -27,6 +27,7 @@ import concoord.lang.BaseAwaitable.ExecutionControl;
 import concoord.lang.For.Block;
 import concoord.logging.DbgMessage;
 import concoord.logging.PrintIdentity;
+import concoord.scheduling.SchedulingStrategyFactory;
 import concoord.util.assertion.IfNull;
 import concoord.util.assertion.IfSomeOf;
 import java.util.ArrayList;
@@ -38,44 +39,45 @@ import org.jetbrains.annotations.NotNull;
 public class Parallel<T, M> implements Task<T> {
 
   private final int maxEvents;
-  private final BufferFactory<T> factory;
-  private final SchedulingStrategy<? super M> strategy;
+  private final BufferFactory<T> bufferFactory;
+  private final SchedulingStrategyFactory<? super M> strategyFactory;
   private final Awaitable<M> awaitable;
   private final Block<? extends T, ? super M> block;
 
-  public Parallel(@NotNull SchedulingStrategy<? super M> strategy,
+  public Parallel(@NotNull SchedulingStrategyFactory<? super M> strategyFactory,
       @NotNull Awaitable<M> awaitable, @NotNull Block<? extends T, ? super M> block) {
-    this(1, new DefaultBufferFactory<T>(), strategy, awaitable, block);
+    this(1, new DefaultBufferFactory<T>(), strategyFactory, awaitable, block);
   }
 
-  public Parallel(int maxEvents, @NotNull SchedulingStrategy<? super M> strategy,
+  public Parallel(int maxEvents, @NotNull SchedulingStrategyFactory<? super M> strategyFactory,
       @NotNull Awaitable<M> awaitable, @NotNull Block<T, ? super M> block) {
-    this(maxEvents, new DefaultBufferFactory<T>(), strategy, awaitable, block);
+    this(maxEvents, new DefaultBufferFactory<T>(), strategyFactory, awaitable, block);
   }
 
   public Parallel(int maxEvents, int initialCapacity,
-      @NotNull SchedulingStrategy<? super M> strategy, @NotNull Awaitable<M> awaitable,
-      @NotNull Block<T, ? super M> block) {
-    this(maxEvents, new DefaultBufferFactory<T>(initialCapacity), strategy, awaitable, block);
+      @NotNull SchedulingStrategyFactory<? super M> strategyFactory,
+      @NotNull Awaitable<M> awaitable, @NotNull Block<T, ? super M> block) {
+    this(maxEvents, new DefaultBufferFactory<T>(initialCapacity), strategyFactory, awaitable, block);
   }
 
-  public Parallel(@NotNull BufferFactory<T> factory, @NotNull SchedulingStrategy<? super M> strategy,
+  public Parallel(@NotNull BufferFactory<T> bufferFactory,
+      @NotNull SchedulingStrategyFactory<? super M> strategyFactory,
       @NotNull Awaitable<M> awaitable, @NotNull Block<? extends T, ? super M> block) {
-    this(1, factory, strategy, awaitable, block);
+    this(1, bufferFactory, strategyFactory, awaitable, block);
   }
 
-  public Parallel(int maxEvents, @NotNull BufferFactory<T> factory,
-      @NotNull SchedulingStrategy<? super M> strategy, @NotNull Awaitable<M> awaitable,
-      @NotNull Block<? extends T, ? super M> block) {
+  public Parallel(int maxEvents, @NotNull BufferFactory<T> bufferFactory,
+      @NotNull SchedulingStrategyFactory<? super M> strategyFactory,
+      @NotNull Awaitable<M> awaitable, @NotNull Block<? extends T, ? super M> block) {
     new IfSomeOf(
-        new IfNull("factory", factory),
-        new IfNull("strategy", strategy),
+        new IfNull("bufferFactory", bufferFactory),
+        new IfNull("strategyFactory", strategyFactory),
         new IfNull("awaitable", awaitable),
         new IfNull("block", block)
     ).throwException();
     this.maxEvents = maxEvents;
-    this.factory = factory;
-    this.strategy = strategy;
+    this.bufferFactory = bufferFactory;
+    this.strategyFactory = strategyFactory;
     this.awaitable = awaitable;
     this.block = block;
   }
@@ -87,8 +89,8 @@ public class Parallel<T, M> implements Task<T> {
         new ParallelControl<T, M>(
             scheduler,
             maxEvents,
-            factory,
-            strategy,
+            bufferFactory,
+            strategyFactory,
             awaitable,
             block
         )
@@ -108,31 +110,33 @@ public class Parallel<T, M> implements Task<T> {
 
     private final ConcurrentLinkedQueue<Object> queue = new ConcurrentLinkedQueue<Object>();
     private final ArrayList<Awaitable<T>> awaitables = new ArrayList<Awaitable<T>>();
-    private final MessageState message = new MessageState();
+    private final MessageState messageState = new MessageState();
     private final Scheduler scheduler;
     private final int maxEvents;
-    private final BufferFactory<T> factory;
-    private final SchedulingStrategy<? super M> strategy;
+    private final BufferFactory<T> bufferFactory;
+    private final SchedulingStrategyFactory<? super M> strategyFactory;
     private final Awaitable<M> awaitable;
     private final Block<? extends T, ? super M> block;
-    private State<T> state = new InputState();
+    private State<T> currentState = new InputState();
+    private SchedulingStrategy<? super M> strategy;
     private Buffer<T> buffer;
     private Iterator<T> inputs;
     private int events;
 
     private ParallelControl(@NotNull Scheduler scheduler, int maxEvents,
-        @NotNull BufferFactory<T> factory, @NotNull SchedulingStrategy<? super M> strategy,
+        @NotNull BufferFactory<T> bufferFactory,
+        @NotNull SchedulingStrategyFactory<? super M> strategyFactory,
         @NotNull Awaitable<M> awaitable, @NotNull Block<? extends T, ? super M> block) {
       this.scheduler = scheduler;
       this.maxEvents = maxEvents;
-      this.factory = factory;
-      this.strategy = strategy;
+      this.bufferFactory = bufferFactory;
+      this.strategyFactory = strategyFactory;
       this.awaitable = awaitable;
       this.block = block;
     }
 
     public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
-      return state.executeBlock(flowControl);
+      return currentState.executeBlock(flowControl);
     }
 
     public void abortExecution(@NotNull Throwable error) {
@@ -149,7 +153,9 @@ public class Parallel<T, M> implements Task<T> {
 
     private class ParallelAwaiter implements Awaiter<M> {
 
-      private final FlowCommand flow = new FlowCommand();
+      private final ConcurrentLinkedQueue<Object> messages = new ConcurrentLinkedQueue<Object>();
+      private final FlowCommand flowCmd = new FlowCommand();
+      private final MessageCommand messageCmd = new MessageCommand();
       private final AwaitableFlowControl<T> flowControl;
 
       private ParallelAwaiter(@NotNull AwaitableFlowControl<T> flowControl) {
@@ -157,7 +163,8 @@ public class Parallel<T, M> implements Task<T> {
       }
 
       public void message(M message) {
-        scheduler.scheduleLow(new MessageCommand(message));
+        messages.offer(message != null ? message : NULL);
+        scheduler.scheduleLow(messageCmd);
       }
 
       public void error(@NotNull Throwable error) {
@@ -184,15 +191,13 @@ public class Parallel<T, M> implements Task<T> {
 
       private class MessageCommand implements Runnable {
 
-        private final M message;
-
-        private MessageCommand(M message) {
-          this.message = message;
-        }
-
         @SuppressWarnings("unchecked")
         public void run() {
-          final M message = this.message;
+          final Object next = messages.poll();
+          if (next == null) {
+            return;
+          }
+          final M message = next != NULL ? (M) next : null;
           try {
             final Scheduler scheduler = strategy.nextScheduler(message);
             flowControl.logger().log(
@@ -211,7 +216,7 @@ public class Parallel<T, M> implements Task<T> {
             awaitable.await(-1, new ForAwaiter(awaitable));
           } catch (final Exception e) {
             queue.offer(STOP);
-            state = new ErrorState(e);
+            currentState = new ErrorState(e);
             flowControl.execute();
           }
         }
@@ -227,7 +232,7 @@ public class Parallel<T, M> implements Task<T> {
 
         public void run() {
           queue.offer(STOP);
-          state = new ErrorState(error);
+          currentState = new ErrorState(error);
           flowControl.execute();
         }
       }
@@ -236,7 +241,7 @@ public class Parallel<T, M> implements Task<T> {
 
         public void run() {
           queue.offer(STOP);
-          state = new EndState();
+          currentState = new EndState();
           flowControl.execute();
         }
       }
@@ -264,7 +269,7 @@ public class Parallel<T, M> implements Task<T> {
 
         public void message(T message) throws Exception {
           queue.offer(message != null ? message : NULL);
-          scheduler.scheduleLow(flow);
+          scheduler.scheduleLow(flowCmd);
         }
 
         public void error(@NotNull Throwable error) throws Exception {
@@ -280,9 +285,10 @@ public class Parallel<T, M> implements Task<T> {
     private class InputState implements State<T> {
 
       public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
-        buffer = factory.create();
+        strategy = strategyFactory.create();
+        buffer = bufferFactory.create();
         inputs = buffer.iterator();
-        state = message;
+        currentState = messageState;
         events = maxEvents;
         awaitable.await(events, new ParallelAwaiter(flowControl));
         if (maxEvents < 0) {

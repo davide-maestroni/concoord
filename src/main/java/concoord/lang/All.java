@@ -193,13 +193,13 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
     private static final Object NULL = new Object();
     private static final Object STOP = new Object();
 
-    private final InputState input = new InputState();
-    private final MessageState message = new MessageState();
+    private final InputState inputState = new InputState();
+    private final MessageState messageState = new MessageState();
     private final ArrayList<ConcurrentLinkedQueue<Object>> inputs;
     private final Scheduler scheduler;
     private final List<Awaitable<?>> awaitables;
     private final ArrayList<Cancelable> cancelables;
-    private State<Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>> state = input;
+    private State<Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>> currentState = inputState;
     private int maxEvents;
     private int events;
 
@@ -217,7 +217,7 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
     public boolean executeBlock(
         @NotNull AwaitableFlowControl<Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>> flowControl)
         throws Exception {
-      return state.executeBlock(flowControl);
+      return currentState.executeBlock(flowControl);
     }
 
     public void abortExecution(@NotNull Throwable error) {
@@ -239,7 +239,7 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
 
     private class AllAwaiter implements Awaiter<Object> {
 
-      private final FlowCommand flow = new FlowCommand();
+      private final FlowCommand flowCmd = new FlowCommand();
       private final AwaitableFlowControl<?> flowControl;
       private final ConcurrentLinkedQueue<Object> queue;
 
@@ -251,7 +251,7 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
 
       public void message(Object message) {
         queue.offer(message != null ? message : NULL);
-        scheduler.scheduleLow(flow);
+        scheduler.scheduleLow(flowCmd);
       }
 
       public void error(@NotNull Throwable error) {
@@ -279,7 +279,7 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
 
         public void run() {
           queue.offer(STOP);
-          state = new ErrorState(error);
+          currentState = new ErrorState(error);
           flowControl.execute();
         }
       }
@@ -288,7 +288,7 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
 
         public void run() {
           queue.offer(STOP);
-          state = new EndState();
+          currentState = new EndState();
           flowControl.execute();
         }
       }
@@ -298,7 +298,7 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
 
       public boolean executeBlock(
           @NotNull AwaitableFlowControl<Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>> flowControl) {
-        state = message;
+        currentState = messageState;
         events = maxEvents = flowControl.outputEvents();
         final List<Awaitable<?>> awaitables = AllControl.this.awaitables;
         for (int i = 0; i < awaitables.size(); ++i) {

@@ -35,7 +35,7 @@ public class ParallelTest {
     LazyExecutor lazyExecutor = new LazyExecutor();
     ScheduledExecutor scheduler = new ScheduledExecutor(lazyExecutor);
     Awaitable<String> awaitable = new Parallel<>(
-        new RoundRobin<>(3, Trampoline::new),
+        () -> new RoundRobin<>(3, Trampoline::new),
         new Iter<>("1", "2", "3").on(scheduler),
         (m) -> new Yield<>("N" + m, Integer.MAX_VALUE)
     ).on(scheduler);

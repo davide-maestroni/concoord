@@ -24,12 +24,18 @@ import concoord.logging.DbgMessage;
 import concoord.logging.PrintIdentity;
 import concoord.util.assertion.IfNull;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Iterator;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 public class Iter<T> implements Task<T> {
 
   private final Iterable<? extends T> messages;
+
+  public Iter(@Nullable T message) {
+    this(Collections.singleton(message));
+  }
 
   public Iter(@NotNull T... messages) {
     this(Arrays.asList(messages));

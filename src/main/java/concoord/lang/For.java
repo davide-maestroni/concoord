@@ -69,13 +69,13 @@ public class For<T, M> implements Task<T> {
     private static final Object STOP = new Object();
 
     private final ConcurrentLinkedQueue<Object> inputs = new ConcurrentLinkedQueue<Object>();
-    private final InputState input = new InputState();
-    private final MessageState message = new MessageState();
+    private final InputState inputState = new InputState();
+    private final MessageState messageState = new MessageState();
     private final Scheduler scheduler;
     private final int maxEvents;
     private final Awaitable<M> awaitable;
     private final Block<T, ? super M> block;
-    private State<T> state = input;
+    private State<T> currentState = inputState;
     private int events;
 
     private ForControl(@NotNull Scheduler scheduler, int maxEvents,
@@ -87,7 +87,7 @@ public class For<T, M> implements Task<T> {
     }
 
     public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
-      return state.executeBlock(flowControl);
+      return currentState.executeBlock(flowControl);
     }
 
     public void abortExecution(@NotNull Throwable error) {
@@ -101,7 +101,7 @@ public class For<T, M> implements Task<T> {
 
     private class ForAwaiter implements Awaiter<M> {
 
-      private final FlowCommand flow = new FlowCommand();
+      private final FlowCommand flowCmd = new FlowCommand();
       private final AwaitableFlowControl<T> flowControl;
 
       private ForAwaiter(@NotNull AwaitableFlowControl<T> flowControl) {
@@ -110,7 +110,7 @@ public class For<T, M> implements Task<T> {
 
       public void message(M message) {
         inputs.offer(message != null ? message : NULL);
-        scheduler.scheduleLow(flow);
+        scheduler.scheduleLow(flowCmd);
       }
 
       public void error(@NotNull Throwable error) {
@@ -138,7 +138,7 @@ public class For<T, M> implements Task<T> {
 
         public void run() {
           inputs.offer(STOP);
-          state = new ErrorState(error);
+          currentState = new ErrorState(error);
           flowControl.execute();
         }
       }
@@ -147,7 +147,7 @@ public class For<T, M> implements Task<T> {
 
         public void run() {
           inputs.offer(STOP);
-          state = new EndState();
+          currentState = new EndState();
           flowControl.execute();
         }
       }
@@ -156,7 +156,7 @@ public class For<T, M> implements Task<T> {
     private class InputState implements State<T> {
 
       public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) {
-        state = message;
+        currentState = messageState;
         events = maxEvents;
         awaitable.await(events, new ForAwaiter(flowControl));
         if (maxEvents < 0) {

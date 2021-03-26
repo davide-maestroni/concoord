@@ -69,9 +69,9 @@ public class Streamed<T> implements Task<T> {
 
     private final ConcurrentLinkedQueue<Object> queue = new ConcurrentLinkedQueue<Object>();
     private final AtomicReference<Throwable> error = new AtomicReference<Throwable>();
-    private final MessageState message = new MessageState();
+    private final MessageState messageState = new MessageState();
     private final BufferFactory<T> factory;
-    private State<T> state = new InitState();
+    private State<T> currentState = new InitState();
     private AwaitableFlowControl<T> flowControl;
     private Buffer<T> buffer;
     private Iterator<T> inputs;
@@ -82,7 +82,7 @@ public class Streamed<T> implements Task<T> {
 
     public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
       this.flowControl = flowControl;
-      return state.executeBlock(flowControl);
+      return currentState.executeBlock(flowControl);
     }
 
     public void abortExecution(@NotNull Throwable error) {
@@ -104,13 +104,13 @@ public class Streamed<T> implements Task<T> {
 
     private void error(@NotNull Throwable error) {
       queue.offer(STOP);
-      state = new ErrorState(error);
+      currentState = new ErrorState(error);
       run();
     }
 
     private void end() {
       queue.offer(STOP);
-      state = new EndState();
+      currentState = new EndState();
       run();
     }
 
@@ -134,8 +134,8 @@ public class Streamed<T> implements Task<T> {
       public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
         buffer = factory.create();
         inputs = buffer.iterator();
-        state = message;
-        return state.executeBlock(flowControl);
+        currentState = messageState;
+        return currentState.executeBlock(flowControl);
       }
     }
 
