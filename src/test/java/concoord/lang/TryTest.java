@@ -18,7 +18,6 @@ package concoord.lang;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import concoord.concurrent.Awaitable;
-import concoord.concurrent.Awaiter;
 import concoord.concurrent.LazyExecutor;
 import concoord.concurrent.ScheduledExecutor;
 import concoord.flow.Return;
@@ -27,7 +26,6 @@ import concoord.lang.Try.Catch;
 import concoord.lang.Try.Finally;
 import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 

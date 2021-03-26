@@ -56,7 +56,8 @@ public class Parallel<T, M> implements Task<T> {
   public Parallel(int maxEvents, int initialCapacity,
       @NotNull SchedulingStrategyFactory<? super M> strategyFactory,
       @NotNull Awaitable<M> awaitable, @NotNull Block<T, ? super M> block) {
-    this(maxEvents, new DefaultBufferFactory<T>(initialCapacity), strategyFactory, awaitable, block);
+    this(maxEvents, new DefaultBufferFactory<T>(initialCapacity), strategyFactory, awaitable,
+        block);
   }
 
   public Parallel(@NotNull BufferFactory<T> bufferFactory,
