@@ -31,7 +31,6 @@ import concoord.scheduling.SchedulingStrategyFactory;
 import concoord.util.assertion.IfNull;
 import concoord.util.assertion.IfSomeOf;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import org.jetbrains.annotations.NotNull;
@@ -208,7 +207,7 @@ public class Parallel<T, M> implements Task<T> {
                 )
             );
             final Awaitable<T> awaitable = new For<T, M>(
-                new Iter<M>(Collections.singleton(message)).on(scheduler),
+                new Iter<M>(message).on(scheduler),
                 (Block<T, ? super M>) block
             )
                 .on(scheduler);
