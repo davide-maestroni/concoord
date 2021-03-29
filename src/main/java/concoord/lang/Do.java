@@ -60,6 +60,9 @@ public class Do<T> implements Task<T> {
       return true;
     }
 
+    public void cancelExecution() {
+    }
+
     public void abortExecution(@NotNull Throwable error) {
     }
   }

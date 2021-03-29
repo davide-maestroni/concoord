@@ -89,7 +89,7 @@ public class Any<T> implements Task<T> {
       }
     }
 
-    private void cancelExecution() {
+    public void cancelExecution() {
       for (Cancelable cancelable : cancelables) {
         cancelable.cancel();
       }
@@ -115,6 +115,7 @@ public class Any<T> implements Task<T> {
       }
 
       public void error(@NotNull Throwable error) {
+        // TODO: 29/03/21 CancelException
         scheduler.scheduleLow(new ErrorCommand(error));
       }
 
@@ -160,13 +161,13 @@ public class Any<T> implements Task<T> {
 
       public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) {
         currentState = messageState;
-        events = maxEvents = flowControl.outputEvents();
+        events = maxEvents = flowControl.inputEvents();
+        if (events < 0) {
+          events = 1;
+        }
         final ArrayList<Cancelable> cancelables = AnyControl.this.cancelables;
         for (final Awaitable<? extends T> awaitable : awaitables) {
-          cancelables.add(awaitable.await(events, new AnyAwaiter(flowControl)));
-        }
-        if (maxEvents < 0) {
-          events = 1;
+          cancelables.add(awaitable.await(maxEvents, new AnyAwaiter(flowControl)));
         }
         return false;
       }
@@ -185,6 +186,7 @@ public class Any<T> implements Task<T> {
           return true;
         }
         if (events < 1) {
+          // TODO: 29/03/21 broken
           events = flowControl.inputEvents();
           final ArrayList<Cancelable> cancelables = AnyControl.this.cancelables;
           cancelables.clear();

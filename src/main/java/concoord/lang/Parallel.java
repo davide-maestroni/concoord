@@ -139,6 +139,10 @@ public class Parallel<T, M> implements Task<T> {
       return currentState.executeBlock(flowControl);
     }
 
+    public void cancelExecution() throws Exception {
+      // TODO: 29/03/21 CancelException
+    }
+
     public void abortExecution(@NotNull Throwable error) {
       this.awaitable.abort();
       for (final Awaitable<T> awaitable : awaitables) {
@@ -182,7 +186,7 @@ public class Parallel<T, M> implements Task<T> {
           final ConcurrentLinkedQueue<Object> queue = ParallelControl.this.queue;
           final Object message = queue.peek();
           if ((message != null) && (message != STOP)) {
-            queue.remove();
+            queue.poll();
             buffer.add(message != NULL ? (T) message : null);
           }
           flowControl.execute();

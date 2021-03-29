@@ -55,9 +55,10 @@ public class BaseAwaitable<T> implements Awaitable<T> {
   private final InternalAwaiter awaiter = new InternalAwaiter();
   private final Scheduler scheduler;
   private final ExecutionControl<T> executionControl;
+  private Runnable currentState = readState;
   private InternalFlowControl currentFlowControl;
   private Awaitable<? extends T> currentAwaitable;
-  private Runnable currentState = readState;
+  private Cancelable currentCancelable;
   private boolean hasOutputs;
   private boolean stopped;
   private boolean aborted;
@@ -106,6 +107,7 @@ public class BaseAwaitable<T> implements Awaitable<T> {
       if (currentAwaitable != null) {
         currentAwaitable.abort();
         currentAwaitable = null;
+        currentCancelable = null;
       }
       executionControl.abortExecution(error);
     } catch (final Exception e) {
@@ -122,6 +124,18 @@ public class BaseAwaitable<T> implements Awaitable<T> {
       scheduler.scheduleLow(currentFlowControl);
     } else {
       awaitableLogger.log(new InfMessage("[settled]"));
+      final Cancelable cancelable = this.currentCancelable;
+      if (cancelable != null) {
+        cancelable.cancel();
+      }
+      try {
+        executionControl.cancelExecution();
+      } catch (final Exception e) {
+        awaitableLogger.log(new ErrMessage(new LogMessage("failed to cancel execution"), e));
+        new IfInterrupt(e).throwException();
+        currentState = new ErrorState(e);
+        awaitableLogger.log(new DbgMessage("[failing]"));
+      }
     }
   }
 
@@ -144,6 +158,8 @@ public class BaseAwaitable<T> implements Awaitable<T> {
   public interface ExecutionControl<T> {
 
     boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception;
+
+    void cancelExecution() throws Exception;
 
     void abortExecution(@NotNull Throwable error) throws Exception;
   }
@@ -211,7 +227,7 @@ public class BaseAwaitable<T> implements Awaitable<T> {
         if (awaitable != null) {
           currentState = writeState;
           awaitableLogger.log(new DbgMessage("[writing]"));
-          awaitable.await(flowControl.outputEvents(), awaiter);
+          currentCancelable = awaitable.await(flowControl.outputEvents(), awaiter);
         } else if (stopped) {
           currentState = new EndState();
           awaitableLogger.log(new DbgMessage("[ending]"));
@@ -286,6 +302,43 @@ public class BaseAwaitable<T> implements Awaitable<T> {
           currentState = readState;
           awaitableLogger.log(new DbgMessage("[reading]"));
           currentState.run();
+        }
+      } catch (final Exception e) {
+        awaitableLogger.log(
+            new ErrMessage(new LogMessage("posting failed with an exception"), e)
+        );
+        new IfInterrupt(e).throwException();
+        flowControl.error(e);
+        nextFlowControl();
+      }
+    }
+  }
+
+  private class FlushCancelState implements Runnable {
+
+    @SuppressWarnings("unchecked")
+    public void run() {
+      final InternalFlowControl flowControl = currentFlowControl;
+      if (flowControl == null) {
+        return;
+      }
+      try {
+        final Object message = messages.poll();
+        if (message != null) {
+          flowControl.resetPosts();
+          flowControl.postOutput(message != NULL ? (T) message : null);
+          if ((flowControl.outputEvents() == 0) || aborted) {
+            nextFlowControl();
+          } else {
+            scheduler.scheduleLow(stateCmd);
+          }
+        } else if (stopped) {
+          currentState = new EndState();
+          awaitableLogger.log(new DbgMessage("[ending]"));
+          currentState.run();
+        } else {
+          currentState = writeState;
+          currentCancelable = currentAwaitable.await(flowControl.outputEvents(), awaiter);
         }
       } catch (final Exception e) {
         awaitableLogger.log(
@@ -388,11 +441,18 @@ public class BaseAwaitable<T> implements Awaitable<T> {
     }
 
     public void run() {
-      currentAwaitable = null;
       if (aborted) {
+        currentAwaitable = null;
+        currentCancelable = null;
         return;
       }
-      currentState = new FlushErrorState(error);
+      if (error instanceof CancelException) {
+        currentState = new FlushCancelState();
+      } else {
+        currentAwaitable = null;
+        currentCancelable = null;
+        currentState = new FlushErrorState(error);
+      }
       currentState.run();
     }
   }
@@ -401,6 +461,7 @@ public class BaseAwaitable<T> implements Awaitable<T> {
 
     public void run() {
       currentAwaitable = null;
+      currentCancelable = null;
       if (aborted) {
         return;
       }

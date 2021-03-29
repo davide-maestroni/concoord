@@ -124,10 +124,10 @@ public class ScheduledExecutor implements Scheduler {
           }
           return;
         } else {
-          lowQueue.remove();
+          lowQueue.poll();
         }
       } else {
-        highQueue.remove();
+        highQueue.poll();
       }
 
       status.set(RUNNING);
@@ -168,10 +168,10 @@ public class ScheduledExecutor implements Scheduler {
               continue;
             }
           } else {
-            lowQueue.remove();
+            lowQueue.poll();
           }
         } else {
-          highQueue.remove();
+          highQueue.poll();
         }
 
         status.set(RUNNING);

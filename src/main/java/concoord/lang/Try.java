@@ -242,6 +242,10 @@ public class Try<T> implements Task<T> {
       return currentState.executeBlock(flowControl);
     }
 
+    public void cancelExecution() throws Exception {
+      // TODO: 29/03/21 CancelException
+    }
+
     public void abortExecution(@NotNull Throwable error) {
       awaitable.abort();
     }
@@ -405,11 +409,11 @@ public class Try<T> implements Task<T> {
 
       public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) {
         currentState = messageState;
-        events = maxEvents = flowControl.outputEvents();
-        awaitable.await(events, new TryAwaiter(flowControl));
-        if (maxEvents < 0) {
+        events = maxEvents = flowControl.inputEvents();
+        if (events < 0) {
           events = 1;
         }
+        awaitable.await(maxEvents, new TryAwaiter(flowControl));
         return false;
       }
     }

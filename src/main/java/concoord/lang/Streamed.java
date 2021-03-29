@@ -85,6 +85,10 @@ public class Streamed<T> implements Task<T> {
       return currentState.executeBlock(flowControl);
     }
 
+    public void cancelExecution() {
+      // do nothing, message flow is internally handled by the buffer
+    }
+
     public void abortExecution(@NotNull Throwable error) {
       this.error.set(error);
     }
@@ -94,7 +98,7 @@ public class Streamed<T> implements Task<T> {
       final ConcurrentLinkedQueue<Object> queue = this.queue;
       final Object message = queue.peek();
       if ((message != null) && (message != STOP)) {
-        queue.remove();
+        queue.poll();
         buffer.add(message != NULL ? (T) message : null);
       }
       if (flowControl != null) {

@@ -17,6 +17,8 @@ package concoord.lang;
 
 import concoord.concurrent.Awaitable;
 import concoord.concurrent.Awaiter;
+import concoord.concurrent.CancelException;
+import concoord.concurrent.Cancelable;
 import concoord.concurrent.Scheduler;
 import concoord.concurrent.Task;
 import concoord.flow.Result;
@@ -66,16 +68,18 @@ public class For<T, M> implements Task<T> {
   private static class ForControl<T, M> implements ExecutionControl<T> {
 
     private static final Object NULL = new Object();
+    private static final Object CANCEL = new Object();
     private static final Object STOP = new Object();
 
     private final ConcurrentLinkedQueue<Object> inputs = new ConcurrentLinkedQueue<Object>();
     private final InputState inputState = new InputState();
     private final MessageState messageState = new MessageState();
     private final Scheduler scheduler;
-    private final int maxEvents;
     private final Awaitable<M> awaitable;
     private final Block<T, ? super M> block;
     private State<T> currentState = inputState;
+    private Cancelable cancelable;
+    private int maxEvents;
     private int events;
 
     private ForControl(@NotNull Scheduler scheduler, int maxEvents,
@@ -88,6 +92,13 @@ public class For<T, M> implements Task<T> {
 
     public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
       return currentState.executeBlock(flowControl);
+    }
+
+    public void cancelExecution() {
+      final Cancelable cancelable = this.cancelable;
+      if (cancelable != null) {
+        cancelable.cancel();
+      }
     }
 
     public void abortExecution(@NotNull Throwable error) {
@@ -114,7 +125,12 @@ public class For<T, M> implements Task<T> {
       }
 
       public void error(@NotNull Throwable error) {
-        scheduler.scheduleLow(new ErrorCommand(error));
+        if (error instanceof CancelException) {
+          inputs.offer(CANCEL);
+          scheduler.scheduleLow(flowCmd);
+        } else {
+          scheduler.scheduleLow(new ErrorCommand(error));
+        }
       }
 
       public void end() {
@@ -158,10 +174,10 @@ public class For<T, M> implements Task<T> {
       public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) {
         currentState = messageState;
         events = maxEvents;
-        awaitable.await(events, new ForAwaiter(flowControl));
-        if (maxEvents < 0) {
+        if (events < 0) {
           events = 1;
         }
+        cancelable = awaitable.await(maxEvents, new ForAwaiter(flowControl));
         return false;
       }
     }
@@ -171,6 +187,14 @@ public class For<T, M> implements Task<T> {
       @SuppressWarnings("unchecked")
       public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
         final Object message = inputs.poll();
+        if (message == CANCEL) {
+          events = maxEvents = flowControl.inputEvents();
+          if (events < 0) {
+            events = 1;
+          }
+          cancelable = awaitable.await(maxEvents, new ForAwaiter(flowControl));
+          return false;
+        }
         if (message != null) {
           if (maxEvents >= 0) {
             --events;
@@ -182,8 +206,11 @@ public class For<T, M> implements Task<T> {
           return true;
         }
         if (events < 1) {
-          events = flowControl.inputEvents();
-          awaitable.await(events, new ForAwaiter(flowControl));
+          events = maxEvents = flowControl.inputEvents();
+          if (events < 0) {
+            events = 1;
+          }
+          cancelable = awaitable.await(maxEvents, new ForAwaiter(flowControl));
         }
         return false;
       }

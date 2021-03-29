@@ -77,7 +77,7 @@ public class Fork<T> implements Task<T> {
       int events = maxEvents;
       maxEvents = 0;
       for (ForkControl forkControl : controls.keySet()) {
-        int inputEvents = forkControl.inputEvents();
+        final int inputEvents = forkControl.inputEvents();
         if (events >= 0) {
           if (inputEvents < 0) {
             events = inputEvents;
@@ -104,7 +104,7 @@ public class Fork<T> implements Task<T> {
         for (ForkControl forkControl : controls.keySet()) {
           forkControl.run();
         }
-        if (--inputEvents == 0) {
+        if ((inputEvents > 0) && (--inputEvents == 0)) {
           currentState = readState;
         }
       }
@@ -208,11 +208,16 @@ public class Fork<T> implements Task<T> {
       return forkState.executeBlock(flowControl);
     }
 
+    public void cancelExecution() {
+      // do nothing, message flow is internally handled by the buffer
+    }
+
     public void abortExecution(@NotNull Throwable error) {
       controls.remove(this);
     }
 
     public void run() {
+      final AwaitableFlowControl<T> flowControl = this.flowControl;
       if (flowControl != null) {
         flowControl.execute();
       }
@@ -227,6 +232,7 @@ public class Fork<T> implements Task<T> {
     }
 
     private int inputEvents() {
+      final AwaitableFlowControl<T> flowControl = this.flowControl;
       if (flowControl != null) {
         return flowControl.inputEvents();
       }
