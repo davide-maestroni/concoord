@@ -17,6 +17,8 @@ package concoord.lang;
 
 import concoord.concurrent.Awaitable;
 import concoord.concurrent.Awaiter;
+import concoord.concurrent.CancelException;
+import concoord.concurrent.Cancelable;
 import concoord.concurrent.Scheduler;
 import concoord.concurrent.Task;
 import concoord.flow.Break;
@@ -219,17 +221,14 @@ public class Try<T> implements Task<T> {
   private static class TryControl<T> implements ExecutionControl<T> {
 
     private static final Object NULL = new Object();
-    private static final Object STOP = new Object();
 
-    private final ConcurrentLinkedQueue<Object> inputs = new ConcurrentLinkedQueue<Object>();
-    private final InputState inputState = new InputState();
-    private final MessageState messageState = new MessageState();
+    private final ConcurrentLinkedQueue<Object> queue = new ConcurrentLinkedQueue<Object>();
     private final Scheduler scheduler;
     private final Awaitable<T> awaitable;
     private final List<Block<? extends T, ? super Throwable>> blocks;
-    private State<T> currentState = inputState;
-    private int maxEvents;
-    private int events;
+    private State<T> controlState = new InputState();
+    private TryAwaiter awaiter;
+    private Cancelable cancelable;
 
     private TryControl(@NotNull Scheduler scheduler, @NotNull Awaitable<T> awaitable,
         @NotNull List<Block<? extends T, ? super Throwable>> blocks) {
@@ -239,11 +238,14 @@ public class Try<T> implements Task<T> {
     }
 
     public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
-      return currentState.executeBlock(flowControl);
+      return controlState.executeBlock(flowControl);
     }
 
-    public void cancelExecution() throws Exception {
-      // TODO: 29/03/21 CancelException
+    public void cancelExecution() {
+      final Cancelable cancelable = this.cancelable;
+      if (cancelable != null) {
+        cancelable.cancel();
+      }
     }
 
     public void abortExecution(@NotNull Throwable error) {
@@ -353,29 +355,48 @@ public class Try<T> implements Task<T> {
 
     private class TryAwaiter implements Awaiter<T> {
 
-      private final FlowCommand flowCmd = new FlowCommand();
-      private final AwaitableFlowControl<T> flowControl;
-
-      private TryAwaiter(@NotNull AwaitableFlowControl<T> flowControl) {
-        this.flowControl = flowControl;
-      }
+      private final MessageCommand messageCommand = new MessageCommand();
+      private State<T> awaiterState = new ReadState();
+      private AwaitableFlowControl<T> flowControl;
+      private int eventCount;
 
       public void message(T message) {
-        inputs.offer(message != null ? message : NULL);
-        scheduler.scheduleLow(flowCmd);
+        queue.offer(message != null ? message : NULL);
+        scheduler.scheduleLow(messageCommand);
       }
 
       public void error(@NotNull Throwable error) {
-        scheduler.scheduleLow(new ErrorCommand(error));
+        if (error instanceof CancelException) {
+          scheduler.scheduleLow(new CancelCommand());
+        } else {
+          scheduler.scheduleLow(new ErrorCommand(error));
+        }
       }
 
       public void end() {
         scheduler.scheduleLow(new EndCommand());
       }
 
-      private class FlowCommand implements Runnable {
+      private boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl)
+          throws Exception {
+        this.flowControl = flowControl;
+        return awaiterState.executeBlock(flowControl);
+      }
+
+      private class MessageCommand implements Runnable {
 
         public void run() {
+          if (eventCount > 0) {
+            --eventCount;
+          }
+          flowControl.execute();
+        }
+      }
+
+      private class CancelCommand implements Runnable {
+
+        public void run() {
+          eventCount = 0;
           flowControl.execute();
         }
       }
@@ -389,8 +410,7 @@ public class Try<T> implements Task<T> {
         }
 
         public void run() {
-          inputs.offer(STOP);
-          currentState = new ErrorState(error);
+          awaiterState = new ErrorState(error);
           flowControl.execute();
         }
       }
@@ -398,57 +418,32 @@ public class Try<T> implements Task<T> {
       private class EndCommand implements Runnable {
 
         public void run() {
-          inputs.offer(STOP);
-          currentState = new EndState();
+          awaiterState = new EndState();
           flowControl.execute();
         }
       }
-    }
 
-    private class InputState implements State<T> {
+      private class ReadState implements State<T> {
 
-      public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) {
-        currentState = messageState;
-        events = maxEvents = flowControl.inputEvents();
-        if (events < 0) {
-          events = 1;
-        }
-        awaitable.await(maxEvents, new TryAwaiter(flowControl));
-        return false;
-      }
-    }
-
-    private class MessageState implements State<T> {
-
-      @SuppressWarnings("unchecked")
-      public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
-        final Object message = inputs.poll();
-        if (message != null) {
-          if (maxEvents >= 0) {
-            --events;
+        public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) {
+          if (eventCount == 0) {
+            eventCount = flowControl.inputEvents();
+            cancelable = awaitable.await(eventCount, TryAwaiter.this);
+            return false;
           }
-          flowControl.postOutput(message != NULL ? (T) message : null);
           return true;
         }
-        if (events < 1) {
-          events = flowControl.inputEvents();
-          awaitable.await(events, new TryAwaiter(flowControl));
+      }
+
+      private class ErrorState implements State<T> {
+
+        private final Throwable error;
+
+        private ErrorState(@NotNull Throwable error) {
+          this.error = error;
         }
-        return false;
-      }
-    }
 
-    private class ErrorState extends MessageState {
-
-      private final Throwable error;
-
-      private ErrorState(@NotNull Throwable error) {
-        this.error = error;
-      }
-
-      @Override
-      public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
-        if (inputs.peek() == STOP) {
+        public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) {
           if (blocks.isEmpty()) {
             flowControl.error(error);
             return true;
@@ -474,15 +469,11 @@ public class Try<T> implements Task<T> {
           }
           return true;
         }
-        return super.executeBlock(flowControl);
       }
-    }
 
-    private class EndState extends MessageState {
+      private class EndState implements State<T> {
 
-      @Override
-      public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
-        if (inputs.peek() == STOP) {
+        public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) {
           if (blocks.isEmpty()) {
             flowControl.stop();
           } else {
@@ -505,7 +496,29 @@ public class Try<T> implements Task<T> {
           }
           return true;
         }
-        return super.executeBlock(flowControl);
+      }
+    }
+
+    private class InputState implements State<T> {
+
+      public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
+        controlState = new MessageState();
+        awaiter = new TryAwaiter();
+        awaiter.executeBlock(flowControl);
+        return false;
+      }
+    }
+
+    private class MessageState implements State<T> {
+
+      @SuppressWarnings("unchecked")
+      public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
+        final Object message = queue.poll();
+        if (message != null) {
+          flowControl.postOutput(message != NULL ? (T) message : null);
+          return true;
+        }
+        return awaiter.executeBlock(flowControl);
       }
     }
   }

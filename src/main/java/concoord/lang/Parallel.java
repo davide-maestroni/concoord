@@ -17,6 +17,8 @@ package concoord.lang;
 
 import concoord.concurrent.Awaitable;
 import concoord.concurrent.Awaiter;
+import concoord.concurrent.CancelException;
+import concoord.concurrent.Cancelable;
 import concoord.concurrent.Scheduler;
 import concoord.concurrent.Task;
 import concoord.data.Buffer;
@@ -26,11 +28,13 @@ import concoord.lang.BaseAwaitable.AwaitableFlowControl;
 import concoord.lang.BaseAwaitable.ExecutionControl;
 import concoord.lang.For.Block;
 import concoord.logging.DbgMessage;
+import concoord.logging.ErrMessage;
+import concoord.logging.LogMessage;
 import concoord.logging.PrintIdentity;
 import concoord.scheduling.SchedulingStrategyFactory;
 import concoord.util.assertion.IfNull;
 import concoord.util.assertion.IfSomeOf;
-import java.util.ArrayList;
+import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import org.jetbrains.annotations.NotNull;
@@ -106,10 +110,10 @@ public class Parallel<T, M> implements Task<T> {
   private static class ParallelControl<T, M> implements ExecutionControl<T> {
 
     private static final Object NULL = new Object();
-    private static final Object STOP = new Object();
 
-    private final ConcurrentLinkedQueue<Object> queue = new ConcurrentLinkedQueue<Object>();
-    private final ArrayList<Awaitable<T>> awaitables = new ArrayList<Awaitable<T>>();
+    private final ConcurrentLinkedQueue<Object> outputQueue = new ConcurrentLinkedQueue<Object>();
+    private final IdentityHashMap<Awaitable<T>, Cancelable> awaitables =
+        new IdentityHashMap<Awaitable<T>, Cancelable>();
     private final MessageState messageState = new MessageState();
     private final Scheduler scheduler;
     private final int maxEvents;
@@ -120,8 +124,9 @@ public class Parallel<T, M> implements Task<T> {
     private State<T> currentState = new InputState();
     private SchedulingStrategy<? super M> strategy;
     private Buffer<T> buffer;
-    private Iterator<T> inputs;
-    private int events;
+    private Iterator<T> iterator;
+    private ParallelAwaiter awaiter;
+    private Cancelable cancelable;
 
     private ParallelControl(@NotNull Scheduler scheduler, int maxEvents,
         @NotNull BufferFactory<T> bufferFactory,
@@ -139,13 +144,16 @@ public class Parallel<T, M> implements Task<T> {
       return currentState.executeBlock(flowControl);
     }
 
-    public void cancelExecution() throws Exception {
-      // TODO: 29/03/21 CancelException
+    public void cancelExecution() {
+      final Cancelable cancelable = this.cancelable;
+      if (cancelable != null) {
+        cancelable.cancel();
+      }
     }
 
     public void abortExecution(@NotNull Throwable error) {
       this.awaitable.abort();
-      for (final Awaitable<T> awaitable : awaitables) {
+      for (final Awaitable<T> awaitable : awaitables.keySet()) {
         awaitable.abort();
       }
     }
@@ -157,53 +165,50 @@ public class Parallel<T, M> implements Task<T> {
 
     private class ParallelAwaiter implements Awaiter<M> {
 
-      private final ConcurrentLinkedQueue<Object> messages = new ConcurrentLinkedQueue<Object>();
-      private final FlowCommand flowCmd = new FlowCommand();
-      private final MessageCommand messageCmd = new MessageCommand();
-      private final AwaitableFlowControl<T> flowControl;
-
-      private ParallelAwaiter(@NotNull AwaitableFlowControl<T> flowControl) {
-        this.flowControl = flowControl;
-      }
+      private final ConcurrentLinkedQueue<Object> inputQueue = new ConcurrentLinkedQueue<Object>();
+      private final InputMessageCommand inputMessageCommand = new InputMessageCommand();
+      private State<T> awaiterState = new InitState();
+      private AwaitableFlowControl<T> flowControl;
+      private int eventCount;
 
       public void message(M message) {
-        messages.offer(message != null ? message : NULL);
-        scheduler.scheduleLow(messageCmd);
+        inputQueue.offer(message != null ? message : NULL);
+        scheduler.scheduleLow(inputMessageCommand);
       }
 
       public void error(@NotNull Throwable error) {
-        scheduler.scheduleLow(new ErrorCommand(error));
+        if (error instanceof CancelException) {
+          scheduler.scheduleLow(new CancelCommand());
+        } else {
+          scheduler.scheduleLow(new ErrorCommand(error));
+        }
       }
 
       public void end() {
         scheduler.scheduleLow(new EndCommand());
       }
 
-      private class FlowCommand implements Runnable {
-
-        @SuppressWarnings("unchecked")
-        public void run() {
-          final ConcurrentLinkedQueue<Object> queue = ParallelControl.this.queue;
-          final Object message = queue.peek();
-          if ((message != null) && (message != STOP)) {
-            queue.poll();
-            buffer.add(message != NULL ? (T) message : null);
-          }
-          flowControl.execute();
-        }
+      private boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl)
+          throws Exception {
+        this.flowControl = flowControl;
+        return awaiterState.executeBlock(flowControl);
       }
 
-      private class MessageCommand implements Runnable {
+      private class InputMessageCommand implements Runnable {
 
         @SuppressWarnings("unchecked")
         public void run() {
-          final Object next = messages.poll();
-          if (next == null) {
+          final Object message = inputQueue.poll();
+          if (message == null) {
             return;
           }
-          final M message = next != NULL ? (M) next : null;
+          if (eventCount > 0) {
+            --eventCount;
+          }
+          final AwaitableFlowControl<T> flowControl = ParallelAwaiter.this.flowControl;
+          final M input = message != NULL ? (M) message : null;
           try {
-            final Scheduler scheduler = strategy.nextScheduler(message);
+            final Scheduler scheduler = strategy.nextScheduler(input);
             flowControl.logger().log(
                 new DbgMessage(
                     "[scheduling] block: %s, on scheduler: %s",
@@ -212,17 +217,26 @@ public class Parallel<T, M> implements Task<T> {
                 )
             );
             final Awaitable<T> awaitable = new For<T, M>(
-                new Iter<M>(message).on(scheduler),
+                new Iter<M>(input).on(scheduler),
                 (Block<T, ? super M>) block
             )
                 .on(scheduler);
-            awaitables.add(awaitable);
-            awaitable.await(-1, new ForAwaiter(awaitable));
+            awaitables.put(awaitable, awaitable.await(-1, new ForAwaiter(awaitable)));
           } catch (final Exception e) {
-            queue.offer(STOP);
-            currentState = new ErrorState(e);
+            flowControl.logger().log(
+                new ErrMessage(new LogMessage("failed to schedule next block"), e)
+            );
+            awaiterState = new ErrorState(e);
             flowControl.execute();
           }
+        }
+      }
+
+      private class CancelCommand implements Runnable {
+
+        public void run() {
+          eventCount = 0;
+          flowControl.execute();
         }
       }
 
@@ -235,8 +249,7 @@ public class Parallel<T, M> implements Task<T> {
         }
 
         public void run() {
-          queue.offer(STOP);
-          currentState = new ErrorState(error);
+          awaiterState = new ErrorState(error);
           flowControl.execute();
         }
       }
@@ -244,27 +257,62 @@ public class Parallel<T, M> implements Task<T> {
       private class EndCommand implements Runnable {
 
         public void run() {
-          queue.offer(STOP);
-          currentState = new EndState();
+          awaiterState = new EndState();
           flowControl.execute();
         }
       }
 
-      private class RemoveCommand implements Runnable {
+      private class InitState implements State<T> {
 
-        private final Awaitable<T> awaitable;
+        public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) {
+          awaiterState = new ReadState();
+          eventCount = maxEvents;
+          cancelable = awaitable.await(eventCount, ParallelAwaiter.this);
+          return false;
+        }
+      }
 
-        private RemoveCommand(@NotNull Awaitable<T> awaitable) {
-          this.awaitable = awaitable;
+      private class ReadState implements State<T> {
+
+        public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) {
+          if (eventCount == 0) {
+            eventCount = flowControl.outputEvents();
+            cancelable = awaitable.await(eventCount, ParallelAwaiter.this);
+            return false;
+          }
+          return true;
+        }
+      }
+
+      private class ErrorState implements State<T> {
+
+        private final Throwable error;
+
+        private ErrorState(@NotNull Throwable error) {
+          this.error = error;
         }
 
-        public void run() {
-          awaitables.remove(awaitable);
+        public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) {
+          flowControl.error(error);
+          cancelExecution(); // TODO: 18/03/21 ???
+          return true;
+        }
+      }
+
+      private class EndState implements State<T> {
+
+        public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) {
+          if (awaitables.isEmpty()) {
+            flowControl.stop();
+            return true;
+          }
+          return false;
         }
       }
 
       private class ForAwaiter implements Awaiter<T> {
 
+        private final OutputMessageCommand outputMessageCommand = new OutputMessageCommand();
         private final Awaitable<T> awaitable;
 
         private ForAwaiter(@NotNull Awaitable<T> awaitable) {
@@ -272,8 +320,8 @@ public class Parallel<T, M> implements Task<T> {
         }
 
         public void message(T message) throws Exception {
-          queue.offer(message != null ? message : NULL);
-          scheduler.scheduleLow(flowCmd);
+          outputQueue.offer(message != null ? message : NULL);
+          scheduler.scheduleLow(outputMessageCommand);
         }
 
         public void error(@NotNull Throwable error) throws Exception {
@@ -283,6 +331,31 @@ public class Parallel<T, M> implements Task<T> {
         public void end() throws Exception {
           scheduler.scheduleLow(new RemoveCommand(awaitable));
         }
+
+        private class OutputMessageCommand implements Runnable {
+
+          @SuppressWarnings("unchecked")
+          public void run() {
+            final Object message = outputQueue.poll();
+            if (message != null) {
+              buffer.add(message != NULL ? (T) message : null);
+              flowControl.execute();
+            }
+          }
+        }
+
+        private class RemoveCommand implements Runnable {
+
+          private final Awaitable<T> awaitable;
+
+          private RemoveCommand(@NotNull Awaitable<T> awaitable) {
+            this.awaitable = awaitable;
+          }
+
+          public void run() {
+            awaitables.remove(awaitable);
+          }
+        }
       }
     }
 
@@ -291,13 +364,10 @@ public class Parallel<T, M> implements Task<T> {
       public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
         strategy = strategyFactory.create();
         buffer = bufferFactory.create();
-        inputs = buffer.iterator();
+        iterator = buffer.iterator();
         currentState = messageState;
-        events = maxEvents;
-        awaitable.await(events, new ParallelAwaiter(flowControl));
-        if (maxEvents < 0) {
-          events = 1;
-        }
+        awaiter = new ParallelAwaiter();
+        awaiter.executeBlock(flowControl);
         return false;
       }
     }
@@ -305,48 +375,11 @@ public class Parallel<T, M> implements Task<T> {
     private class MessageState implements State<T> {
 
       public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
-        if (inputs.hasNext()) {
-          if (maxEvents >= 0) {
-            --events;
-          }
-          flowControl.postOutput(inputs.next());
+        if (iterator.hasNext()) {
+          flowControl.postOutput(iterator.next());
           return true;
         }
-        if (events < 1) {
-          events = flowControl.inputEvents();
-          awaitable.await(events, new ParallelAwaiter(flowControl));
-        }
-        return false;
-      }
-    }
-
-    private class ErrorState extends MessageState {
-
-      private final Throwable error;
-
-      private ErrorState(@NotNull Throwable error) {
-        this.error = error;
-      }
-
-      @Override
-      public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
-        if (!inputs.hasNext() && (queue.peek() == STOP)) {
-          flowControl.error(error);
-          return true;
-        }
-        return super.executeBlock(flowControl);
-      }
-    }
-
-    private class EndState extends MessageState {
-
-      @Override
-      public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
-        if (!inputs.hasNext() && (queue.peek() == STOP)) {
-          flowControl.stop();
-          return true;
-        }
-        return super.executeBlock(flowControl);
+        return awaiter.executeBlock(flowControl);
       }
     }
   }
