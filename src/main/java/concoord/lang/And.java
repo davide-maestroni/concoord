@@ -18,7 +18,7 @@ package concoord.lang;
 import concoord.concurrent.Awaitable;
 import concoord.concurrent.Scheduler;
 import concoord.concurrent.Task;
-import concoord.lang.BaseAwaitable.AwaitableFlowControl;
+import concoord.lang.BaseAwaitable.BaseFlowControl;
 import concoord.lang.BaseAwaitable.ExecutionControl;
 import concoord.util.assertion.IfAnyOf;
 import concoord.util.assertion.IfContainsNull;
@@ -57,7 +57,7 @@ public class And<T> implements Task<T> {
       this.iterator = iterator;
     }
 
-    public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) {
+    public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) {
       if (iterator.hasNext()) {
         flowControl.postOutput(iterator.next());
       } else {

@@ -21,7 +21,7 @@ import concoord.concurrent.CancelException;
 import concoord.concurrent.Cancelable;
 import concoord.concurrent.Scheduler;
 import concoord.concurrent.Task;
-import concoord.lang.BaseAwaitable.AwaitableFlowControl;
+import concoord.lang.BaseAwaitable.BaseFlowControl;
 import concoord.lang.BaseAwaitable.ExecutionControl;
 import concoord.logging.DbgMessage;
 import concoord.util.assertion.IfAnyOf;
@@ -209,7 +209,7 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
     }
 
     public boolean executeBlock(
-        @NotNull AwaitableFlowControl<Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>> flowControl)
+        @NotNull BaseFlowControl<Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>> flowControl)
         throws Exception {
       return controlState.executeBlock(flowControl);
     }
@@ -228,16 +228,16 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
 
     private interface State<T> {
 
-      boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception;
+      boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception;
     }
 
     private class AllAwaiter implements Awaiter<Object> {
 
-      private final ConcurrentLinkedQueue<Object> queue = new ConcurrentLinkedQueue<Object>();
+      private final ConcurrentLinkedQueue<Object> inputQueue = new ConcurrentLinkedQueue<Object>();
       private final MessageCommand messageCommand = new MessageCommand();
       private final int index;
       private State<Object> awaiterState = new ReadState();
-      private AwaitableFlowControl<?> flowControl;
+      private BaseFlowControl<?> flowControl;
       private int eventCount;
 
       private AllAwaiter(int index) {
@@ -245,7 +245,7 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
       }
 
       public void message(Object message) {
-        queue.offer(message != null ? message : NULL);
+        inputQueue.offer(message != null ? message : NULL);
         scheduler.scheduleLow(messageCommand);
       }
 
@@ -262,15 +262,15 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
       }
 
       @SuppressWarnings("unchecked")
-      private boolean executeBlock(@NotNull AwaitableFlowControl<?> flowControl)
+      private boolean executeBlock(@NotNull BaseFlowControl<?> flowControl)
           throws Exception {
         this.flowControl = flowControl;
-        return awaiterState.executeBlock((AwaitableFlowControl<Object>) flowControl);
+        return awaiterState.executeBlock((BaseFlowControl<Object>) flowControl);
       }
 
       @NotNull
       private ConcurrentLinkedQueue<Object> queue() {
-        return queue;
+        return inputQueue;
       }
 
       private class MessageCommand implements Runnable {
@@ -315,7 +315,7 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
 
       private class ReadState implements State<Object> {
 
-        public boolean executeBlock(@NotNull AwaitableFlowControl<Object> flowControl) {
+        public boolean executeBlock(@NotNull BaseFlowControl<Object> flowControl) {
           if (eventCount == 0) {
             eventCount = flowControl.outputEvents();
             cancelables.set(index, awaitables.get(index).await(eventCount, AllAwaiter.this));
@@ -333,7 +333,7 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
           this.error = error;
         }
 
-        public boolean executeBlock(@NotNull AwaitableFlowControl<Object> flowControl) {
+        public boolean executeBlock(@NotNull BaseFlowControl<Object> flowControl) {
           flowControl.error(error);
           cancelExecution(); // TODO: 18/03/21 ???
           return true;
@@ -342,7 +342,7 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
 
       private class EndState implements State<Object> {
 
-        public boolean executeBlock(@NotNull AwaitableFlowControl<Object> flowControl)
+        public boolean executeBlock(@NotNull BaseFlowControl<Object> flowControl)
             throws Exception {
           flowControl.stop();
           cancelExecution(); // TODO: 18/03/21 ???
@@ -354,7 +354,7 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
     private class InputState implements State<Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>> {
 
       public boolean executeBlock(
-          @NotNull AwaitableFlowControl<Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>> flowControl)
+          @NotNull BaseFlowControl<Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>> flowControl)
           throws Exception {
         controlState = new MessageState();
         final List<Awaitable<?>> awaitables = AllControl.this.awaitables;
@@ -373,7 +373,7 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
     private class MessageState implements State<Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>> {
 
       public boolean executeBlock(
-          @NotNull AwaitableFlowControl<Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>> flowControl)
+          @NotNull BaseFlowControl<Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>> flowControl)
           throws Exception {
         boolean execute = false;
         final ArrayList<Object> messages = new ArrayList<Object>();

@@ -19,7 +19,7 @@ import concoord.concurrent.Awaitable;
 import concoord.concurrent.Scheduler;
 import concoord.concurrent.Task;
 import concoord.flow.Result;
-import concoord.lang.BaseAwaitable.AwaitableFlowControl;
+import concoord.lang.BaseAwaitable.BaseFlowControl;
 import concoord.lang.BaseAwaitable.ExecutionControl;
 import concoord.logging.DbgMessage;
 import concoord.logging.PrintIdentity;
@@ -54,7 +54,7 @@ public class Do<T> implements Task<T> {
       this.block = block;
     }
 
-    public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
+    public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
       flowControl.logger().log(new DbgMessage("[executing] block: %s", new PrintIdentity(block)));
       block.execute().apply(flowControl);
       return true;

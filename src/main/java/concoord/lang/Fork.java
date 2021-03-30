@@ -21,7 +21,7 @@ import concoord.concurrent.Scheduler;
 import concoord.concurrent.Task;
 import concoord.concurrent.Trampoline;
 import concoord.data.Buffer;
-import concoord.lang.BaseAwaitable.AwaitableFlowControl;
+import concoord.lang.BaseAwaitable.BaseFlowControl;
 import concoord.lang.BaseAwaitable.ExecutionControl;
 import concoord.util.assertion.IfNull;
 import concoord.util.assertion.IfSomeOf;
@@ -35,7 +35,7 @@ public class Fork<T> implements Task<T> {
   private static final Object NULL = new Object();
 
   private final WeakHashMap<ForkControl, Void> controls = new WeakHashMap<ForkControl, Void>();
-  private final ConcurrentLinkedQueue<Object> queue = new ConcurrentLinkedQueue<Object>();
+  private final ConcurrentLinkedQueue<Object> inputQueue = new ConcurrentLinkedQueue<Object>();
   private final Trampoline trampoline = new Trampoline();
   private final ReadRunnable readState = new ReadRunnable();
   private final WriteRunnable writeState = new WriteRunnable();
@@ -67,7 +67,7 @@ public class Fork<T> implements Task<T> {
 
   private interface State<T> {
 
-    boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception;
+    boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception;
   }
 
   private class ReadRunnable implements Runnable {
@@ -97,7 +97,7 @@ public class Fork<T> implements Task<T> {
 
     @SuppressWarnings("unchecked")
     public void run() {
-      final Object message = queue.poll();
+      final Object message = inputQueue.poll();
       if (message != null) {
         buffer.add((T) message);
         for (ForkControl forkControl : controls.keySet()) {
@@ -120,7 +120,7 @@ public class Fork<T> implements Task<T> {
 
     @Override
     public void run() {
-      final Object message = queue.peek();
+      final Object message = inputQueue.peek();
       if (message == null) {
         for (ForkControl forkControl : controls.keySet()) {
           forkControl.error(error);
@@ -136,7 +136,7 @@ public class Fork<T> implements Task<T> {
 
     @Override
     public void run() {
-      final Object message = queue.peek();
+      final Object message = inputQueue.peek();
       if (message == null) {
         for (ForkControl forkControl : controls.keySet()) {
           forkControl.stop();
@@ -153,7 +153,7 @@ public class Fork<T> implements Task<T> {
     private final MessageCommand messageCommand = new MessageCommand();
 
     public void message(T message) {
-      queue.offer(message != null ? message : NULL);
+      inputQueue.offer(message != null ? message : NULL);
       trampoline.scheduleLow(messageCommand);
     }
 
@@ -198,10 +198,10 @@ public class Fork<T> implements Task<T> {
   private class ForkControl implements ExecutionControl<T>, Runnable {
 
     private State<T> controlState = new InitState();
-    private AwaitableFlowControl<T> flowControl;
+    private BaseFlowControl<T> flowControl;
     private Iterator<T> iterator;
 
-    public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
+    public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
       return controlState.executeBlock(flowControl);
     }
 
@@ -214,7 +214,7 @@ public class Fork<T> implements Task<T> {
     }
 
     public void run() {
-      final AwaitableFlowControl<T> flowControl = this.flowControl;
+      final BaseFlowControl<T> flowControl = this.flowControl;
       if (flowControl != null) {
         flowControl.execute();
       }
@@ -229,7 +229,7 @@ public class Fork<T> implements Task<T> {
     }
 
     private int inputEvents() {
-      final AwaitableFlowControl<T> flowControl = this.flowControl;
+      final BaseFlowControl<T> flowControl = this.flowControl;
       if (flowControl != null) {
         return flowControl.inputEvents();
       }
@@ -238,7 +238,7 @@ public class Fork<T> implements Task<T> {
 
     private class InitState implements State<T> {
 
-      public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
+      public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
         controls.put(ForkControl.this, null);
         iterator = buffer.iterator();
         controlState = new ReadState();
@@ -248,7 +248,7 @@ public class Fork<T> implements Task<T> {
 
     private class ReadState implements State<T> {
 
-      public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
+      public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
         ForkControl.this.flowControl = flowControl;
         final Iterator<T> iterator = ForkControl.this.iterator;
         if (iterator.hasNext()) {
@@ -269,7 +269,7 @@ public class Fork<T> implements Task<T> {
         this.error = error;
       }
 
-      public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
+      public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
         ForkControl.this.flowControl = flowControl;
         final Iterator<T> iterator = ForkControl.this.iterator;
         if (iterator.hasNext()) {
@@ -283,7 +283,7 @@ public class Fork<T> implements Task<T> {
 
     private class EndState implements State<T> {
 
-      public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
+      public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
         ForkControl.this.flowControl = flowControl;
         final Iterator<T> iterator = ForkControl.this.iterator;
         if (iterator.hasNext()) {

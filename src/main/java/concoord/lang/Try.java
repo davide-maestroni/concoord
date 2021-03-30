@@ -26,7 +26,7 @@ import concoord.flow.Continue;
 import concoord.flow.FlowControl;
 import concoord.flow.Result;
 import concoord.flow.Yield;
-import concoord.lang.BaseAwaitable.AwaitableFlowControl;
+import concoord.lang.BaseAwaitable.BaseFlowControl;
 import concoord.lang.BaseAwaitable.ExecutionControl;
 import concoord.logging.DbgMessage;
 import concoord.logging.LogMessage;
@@ -222,7 +222,7 @@ public class Try<T> implements Task<T> {
 
     private static final Object NULL = new Object();
 
-    private final ConcurrentLinkedQueue<Object> queue = new ConcurrentLinkedQueue<Object>();
+    private final ConcurrentLinkedQueue<Object> inputQueue = new ConcurrentLinkedQueue<Object>();
     private final Scheduler scheduler;
     private final Awaitable<T> awaitable;
     private final List<Block<? extends T, ? super Throwable>> blocks;
@@ -237,7 +237,7 @@ public class Try<T> implements Task<T> {
       this.blocks = blocks;
     }
 
-    public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
+    public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
       return controlState.executeBlock(flowControl);
     }
 
@@ -254,7 +254,7 @@ public class Try<T> implements Task<T> {
 
     private interface State<T> {
 
-      boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception;
+      boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception;
     }
 
     private static class ErrorFlowControl<T> implements FlowControl<T> {
@@ -298,7 +298,7 @@ public class Try<T> implements Task<T> {
         return stopped;
       }
 
-      private void applyResult(@NotNull AwaitableFlowControl<? super T> flowControl,
+      private void applyResult(@NotNull BaseFlowControl<? super T> flowControl,
           @NotNull Throwable error) {
         if (result != null) {
           result.apply(flowControl);
@@ -340,7 +340,7 @@ public class Try<T> implements Task<T> {
         }
       }
 
-      private void applyResult(@NotNull AwaitableFlowControl<? super T> flowControl,
+      private void applyResult(@NotNull BaseFlowControl<? super T> flowControl,
           @Nullable Throwable error) {
         if (result != null) {
           result.apply(flowControl);
@@ -357,11 +357,11 @@ public class Try<T> implements Task<T> {
 
       private final MessageCommand messageCommand = new MessageCommand();
       private State<T> awaiterState = new ReadState();
-      private AwaitableFlowControl<T> flowControl;
+      private BaseFlowControl<T> flowControl;
       private int eventCount;
 
       public void message(T message) {
-        queue.offer(message != null ? message : NULL);
+        inputQueue.offer(message != null ? message : NULL);
         scheduler.scheduleLow(messageCommand);
       }
 
@@ -377,7 +377,7 @@ public class Try<T> implements Task<T> {
         scheduler.scheduleLow(new EndCommand());
       }
 
-      private boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl)
+      private boolean executeBlock(@NotNull BaseFlowControl<T> flowControl)
           throws Exception {
         this.flowControl = flowControl;
         return awaiterState.executeBlock(flowControl);
@@ -425,7 +425,7 @@ public class Try<T> implements Task<T> {
 
       private class ReadState implements State<T> {
 
-        public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) {
+        public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) {
           if (eventCount == 0) {
             eventCount = flowControl.inputEvents();
             cancelable = awaitable.await(eventCount, TryAwaiter.this);
@@ -443,7 +443,7 @@ public class Try<T> implements Task<T> {
           this.error = error;
         }
 
-        public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) {
+        public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) {
           if (blocks.isEmpty()) {
             flowControl.error(error);
             return true;
@@ -473,7 +473,7 @@ public class Try<T> implements Task<T> {
 
       private class EndState implements State<T> {
 
-        public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) {
+        public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) {
           if (blocks.isEmpty()) {
             flowControl.stop();
           } else {
@@ -501,7 +501,7 @@ public class Try<T> implements Task<T> {
 
     private class InputState implements State<T> {
 
-      public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
+      public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
         controlState = new MessageState();
         awaiter = new TryAwaiter();
         awaiter.executeBlock(flowControl);
@@ -512,8 +512,8 @@ public class Try<T> implements Task<T> {
     private class MessageState implements State<T> {
 
       @SuppressWarnings("unchecked")
-      public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
-        final Object message = queue.poll();
+      public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
+        final Object message = inputQueue.poll();
         if (message != null) {
           flowControl.postOutput(message != NULL ? (T) message : null);
           return true;

@@ -21,7 +21,7 @@ import concoord.concurrent.CancelException;
 import concoord.concurrent.Cancelable;
 import concoord.concurrent.Scheduler;
 import concoord.concurrent.Task;
-import concoord.lang.BaseAwaitable.AwaitableFlowControl;
+import concoord.lang.BaseAwaitable.BaseFlowControl;
 import concoord.lang.BaseAwaitable.ExecutionControl;
 import concoord.util.assertion.IfAnyOf;
 import concoord.util.assertion.IfContainsNull;
@@ -61,7 +61,7 @@ public class Any<T> implements Task<T> {
 
     private static final Object NULL = new Object();
 
-    private final ConcurrentLinkedQueue<Object> queue = new ConcurrentLinkedQueue<Object>();
+    private final ConcurrentLinkedQueue<Object> inputQueue = new ConcurrentLinkedQueue<Object>();
     private final Scheduler scheduler;
     private final List<Awaitable<? extends T>> awaitables;
     private final ArrayList<Cancelable> cancelables;
@@ -77,7 +77,7 @@ public class Any<T> implements Task<T> {
       this.awaiters = new ArrayList<AnyAwaiter>(awaitables.size());
     }
 
-    public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
+    public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
       return controlState.executeBlock(flowControl);
     }
 
@@ -95,7 +95,7 @@ public class Any<T> implements Task<T> {
 
     private interface State<T> {
 
-      boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception;
+      boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception;
     }
 
     private class AnyAwaiter implements Awaiter<Object> {
@@ -103,7 +103,7 @@ public class Any<T> implements Task<T> {
       private final MessageCommand messageCommand = new MessageCommand();
       private final int index;
       private State<Object> awaiterState = new ReadState();
-      private AwaitableFlowControl<?> flowControl;
+      private BaseFlowControl<?> flowControl;
       private int eventCount;
 
       private AnyAwaiter(int index) {
@@ -111,7 +111,7 @@ public class Any<T> implements Task<T> {
       }
 
       public void message(Object message) {
-        queue.offer(message != null ? message : NULL);
+        inputQueue.offer(message != null ? message : NULL);
         scheduler.scheduleLow(messageCommand);
       }
 
@@ -128,10 +128,10 @@ public class Any<T> implements Task<T> {
       }
 
       @SuppressWarnings("unchecked")
-      private boolean executeBlock(@NotNull AwaitableFlowControl<?> flowControl)
+      private boolean executeBlock(@NotNull BaseFlowControl<?> flowControl)
           throws Exception {
         this.flowControl = flowControl;
-        return awaiterState.executeBlock((AwaitableFlowControl<Object>) flowControl);
+        return awaiterState.executeBlock((BaseFlowControl<Object>) flowControl);
       }
 
       private class MessageCommand implements Runnable {
@@ -178,7 +178,7 @@ public class Any<T> implements Task<T> {
 
       private class ReadState implements State<Object> {
 
-        public boolean executeBlock(@NotNull AwaitableFlowControl<Object> flowControl) {
+        public boolean executeBlock(@NotNull BaseFlowControl<Object> flowControl) {
           if (eventCount == 0) {
             eventCount = flowControl.outputEvents();
             cancelables.set(index, awaitables.get(index).await(eventCount, AnyAwaiter.this));
@@ -196,7 +196,7 @@ public class Any<T> implements Task<T> {
           this.error = error;
         }
 
-        public boolean executeBlock(@NotNull AwaitableFlowControl<Object> flowControl) {
+        public boolean executeBlock(@NotNull BaseFlowControl<Object> flowControl) {
           flowControl.error(error);
           cancelExecution(); // TODO: 18/03/21 ???
           return true;
@@ -205,7 +205,7 @@ public class Any<T> implements Task<T> {
 
       private class EndState implements State<Object> {
 
-        public boolean executeBlock(@NotNull AwaitableFlowControl<Object> flowControl) {
+        public boolean executeBlock(@NotNull BaseFlowControl<Object> flowControl) {
           flowControl.stop();
           return true;
         }
@@ -214,7 +214,7 @@ public class Any<T> implements Task<T> {
 
     private class InputState implements State<T> {
 
-      public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
+      public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
         controlState = new MessageState();
         final List<Awaitable<? extends T>> awaitables = AnyControl.this.awaitables;
         final ArrayList<Cancelable> cancelables = AnyControl.this.cancelables;
@@ -232,8 +232,8 @@ public class Any<T> implements Task<T> {
     private class MessageState implements State<T> {
 
       @SuppressWarnings("unchecked")
-      public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
-        final Object message = queue.poll();
+      public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
+        final Object message = inputQueue.poll();
         if (message != null) {
           flowControl.postOutput(message != NULL ? (T) message : null);
           return true;

@@ -23,7 +23,7 @@ import concoord.concurrent.Task;
 import concoord.data.Buffer;
 import concoord.data.BufferFactory;
 import concoord.data.DefaultBufferFactory;
-import concoord.lang.BaseAwaitable.AwaitableFlowControl;
+import concoord.lang.BaseAwaitable.BaseFlowControl;
 import concoord.lang.BaseAwaitable.ExecutionControl;
 import concoord.util.assertion.IfNull;
 import java.io.Closeable;
@@ -66,11 +66,11 @@ public class Streamed<T> implements Task<T> {
 
   private static class StreamedControl<T> implements ExecutionControl<T>, Runnable {
 
-    private final ConcurrentLinkedQueue<Object> queue = new ConcurrentLinkedQueue<Object>();
+    private final ConcurrentLinkedQueue<Object> inputQueue = new ConcurrentLinkedQueue<Object>();
     private final AtomicReference<Throwable> error = new AtomicReference<Throwable>();
     private final BufferFactory<T> bufferFactory;
     private State<T> controlState = new InitState();
-    private AwaitableFlowControl<T> flowControl;
+    private BaseFlowControl<T> flowControl;
     private Buffer<T> buffer;
     private Iterator<T> iterator;
 
@@ -78,7 +78,7 @@ public class Streamed<T> implements Task<T> {
       this.bufferFactory = bufferFactory;
     }
 
-    public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
+    public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
       this.flowControl = flowControl;
       return controlState.executeBlock(flowControl);
     }
@@ -93,12 +93,11 @@ public class Streamed<T> implements Task<T> {
 
     @SuppressWarnings("unchecked")
     public void run() {
-      final ConcurrentLinkedQueue<Object> queue = this.queue;
-      final Object message = queue.poll();
+      final Object message = inputQueue.poll();
       if (message != null) {
         buffer.add(message != NULL ? (T) message : null);
       }
-      final AwaitableFlowControl<T> flowControl = this.flowControl;
+      final BaseFlowControl<T> flowControl = this.flowControl;
       if (flowControl != null) {
         flowControl.execute();
       }
@@ -121,17 +120,17 @@ public class Streamed<T> implements Task<T> {
 
     @NotNull
     private ConcurrentLinkedQueue<Object> queue() {
-      return queue;
+      return inputQueue;
     }
 
     private interface State<T> {
 
-      boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception;
+      boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception;
     }
 
     private class InitState implements State<T> {
 
-      public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
+      public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
         buffer = bufferFactory.create();
         iterator = buffer.iterator();
         controlState = new MessageState();
@@ -141,7 +140,7 @@ public class Streamed<T> implements Task<T> {
 
     private class MessageState implements State<T> {
 
-      public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
+      public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
         final Iterator<T> iterator = StreamedControl.this.iterator;
         if (iterator.hasNext()) {
           flowControl.postOutput(iterator.next());
@@ -160,7 +159,7 @@ public class Streamed<T> implements Task<T> {
       }
 
       @Override
-      public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
+      public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
         final Iterator<T> iterator = StreamedControl.this.iterator;
         if (!iterator.hasNext()) {
           flowControl.error(error);
@@ -173,7 +172,7 @@ public class Streamed<T> implements Task<T> {
     private class EndState extends MessageState {
 
       @Override
-      public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
+      public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
         final Iterator<T> iterator = StreamedControl.this.iterator;
         if (!iterator.hasNext()) {
           flowControl.stop();

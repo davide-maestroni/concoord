@@ -18,7 +18,7 @@ package concoord.lang;
 import concoord.concurrent.Awaitable;
 import concoord.concurrent.Scheduler;
 import concoord.concurrent.Task;
-import concoord.lang.BaseAwaitable.AwaitableFlowControl;
+import concoord.lang.BaseAwaitable.BaseFlowControl;
 import concoord.lang.BaseAwaitable.ExecutionControl;
 import concoord.util.assertion.IfNull;
 import org.jetbrains.annotations.NotNull;
@@ -45,7 +45,7 @@ public class Reschedule<T> implements Task<T> {
       this.awaitable = awaitable;
     }
 
-    public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) {
+    public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) {
       flowControl.postOutput(awaitable);
       flowControl.stop();
       return true;

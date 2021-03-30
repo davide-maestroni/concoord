@@ -21,15 +21,16 @@ import org.jetbrains.annotations.NotNull;
 
 public class LazyExecutor implements Executor {
 
-  private final ConcurrentLinkedQueue<Runnable> queue = new ConcurrentLinkedQueue<Runnable>();
+  private final ConcurrentLinkedQueue<Runnable> commandQueue =
+      new ConcurrentLinkedQueue<Runnable>();
 
   public void execute(@NotNull Runnable command) {
-    queue.add(command);
+    commandQueue.add(command);
   }
 
   public int advance(int maxCommands) {
     for (int i = 0; i < maxCommands; ++i) {
-      Runnable task = queue.poll();
+      Runnable task = commandQueue.poll();
       if (task != null) {
         task.run();
       } else {
