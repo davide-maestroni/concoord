@@ -21,7 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.jetbrains.annotations.NotNull;
 
-public class FailureConditionException extends RuntimeException {
+public class FailureConditionException extends IllegalArgumentException {
 
   private final ArrayList<RuntimeException> exceptions;
 

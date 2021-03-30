@@ -63,6 +63,7 @@ public class JoinFuture<V> implements Future<List<V>> {
         throw new CancellationException();
       }
       try {
+        // TODO: 30/03/21 cache result
         return new Join<V>(awaitable, maxEvents, Long.MAX_VALUE, TimeUnit.MILLISECONDS).toList();
       } catch (final JoinAbortException e) {
         throw new CancellationException(e.getMessage());
@@ -81,6 +82,7 @@ public class JoinFuture<V> implements Future<List<V>> {
         throw new CancellationException();
       }
       try {
+        // TODO: 30/03/21 cache result
         return new Join<V>(awaitable, maxEvents, Long.MAX_VALUE, unit.toMillis(timeout),
             TimeUnit.MILLISECONDS).toList();
       } catch (final JoinAbortException e) {
