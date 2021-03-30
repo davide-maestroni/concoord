@@ -184,53 +184,45 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
   @NotNull
   public Awaitable<Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>> on(
       @NotNull Scheduler scheduler) {
-    return new BaseAwaitable<Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>>(scheduler,
-        new AllControl<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>(scheduler, awaitables));
+    return new BaseAwaitable<Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>>(
+        scheduler,
+        new AllControl<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>(scheduler, awaitables)
+    );
   }
 
   private static class AllControl<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
       implements ExecutionControl<Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>> {
 
     private static final Object NULL = new Object();
-    private static final Object CANCEL = new Object();
-    private static final Object STOP = new Object();
 
-    private final InputState inputState = new InputState();
-    private final MessageState messageState = new MessageState();
-    private final ArrayList<ConcurrentLinkedQueue<Object>> inputs;
     private final Scheduler scheduler;
     private final List<Awaitable<?>> awaitables;
     private final ArrayList<Cancelable> cancelables;
-    private State<Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>> currentState = inputState;
-    private int maxEvents;
-    private int events;
+    private final ArrayList<AllAwaiter> awaiters;
+    private State<Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>> controlState = new InputState();
 
     private AllControl(@NotNull Scheduler scheduler, @NotNull List<Awaitable<?>> awaitables) {
       this.scheduler = scheduler;
       this.awaitables = awaitables;
       this.cancelables = new ArrayList<Cancelable>(awaitables.size());
-      this.inputs = new ArrayList<ConcurrentLinkedQueue<Object>>(awaitables.size());
-      for (final Awaitable<?> ignored : awaitables) {
-        final ConcurrentLinkedQueue<Object> queue = new ConcurrentLinkedQueue<Object>();
-        inputs.add(queue);
-      }
+      this.awaiters = new ArrayList<AllAwaiter>(awaitables.size());
     }
 
     public boolean executeBlock(
         @NotNull AwaitableFlowControl<Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>> flowControl)
         throws Exception {
-      return currentState.executeBlock(flowControl);
+      return controlState.executeBlock(flowControl);
+    }
+
+    public void cancelExecution() {
+      for (final Cancelable cancelable : cancelables) {
+        cancelable.cancel();
+      }
     }
 
     public void abortExecution(@NotNull Throwable error) {
       for (final Awaitable<?> awaitable : awaitables) {
         awaitable.abort();
-      }
-    }
-
-    public void cancelExecution() {
-      for (Cancelable cancelable : cancelables) {
-        cancelable.cancel();
       }
     }
 
@@ -241,25 +233,25 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
 
     private class AllAwaiter implements Awaiter<Object> {
 
-      private final FlowCommand flowCmd = new FlowCommand();
-      private final AwaitableFlowControl<?> flowControl;
-      private final ConcurrentLinkedQueue<Object> queue;
+      private final ConcurrentLinkedQueue<Object> queue = new ConcurrentLinkedQueue<Object>();
+      private final MessageCommand messageCommand = new MessageCommand();
+      private final int index;
+      private State<Object> awaiterState = new ReadState();
+      private AwaitableFlowControl<?> flowControl;
+      private int eventCount;
 
-      private AllAwaiter(@NotNull AwaitableFlowControl<?> flowControl,
-          @NotNull ConcurrentLinkedQueue<Object> queue) {
-        this.flowControl = flowControl;
-        this.queue = queue;
+      private AllAwaiter(int index) {
+        this.index = index;
       }
 
       public void message(Object message) {
         queue.offer(message != null ? message : NULL);
-        scheduler.scheduleLow(flowCmd);
+        scheduler.scheduleLow(messageCommand);
       }
 
       public void error(@NotNull Throwable error) {
         if (error instanceof CancelException) {
-          queue.offer(CANCEL);
-          scheduler.scheduleLow(flowCmd);
+          scheduler.scheduleLow(new CancelCommand());
         } else {
           scheduler.scheduleLow(new ErrorCommand(error));
         }
@@ -269,9 +261,32 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
         scheduler.scheduleLow(new EndCommand());
       }
 
-      private class FlowCommand implements Runnable {
+      @SuppressWarnings("unchecked")
+      private boolean executeBlock(@NotNull AwaitableFlowControl<?> flowControl)
+          throws Exception {
+        this.flowControl = flowControl;
+        return awaiterState.executeBlock((AwaitableFlowControl<Object>) flowControl);
+      }
+
+      @NotNull
+      private ConcurrentLinkedQueue<Object> queue() {
+        return queue;
+      }
+
+      private class MessageCommand implements Runnable {
 
         public void run() {
+          if (eventCount > 0) {
+            --eventCount;
+          }
+          flowControl.execute();
+        }
+      }
+
+      private class CancelCommand implements Runnable {
+
+        public void run() {
+          eventCount = 0;
           flowControl.execute();
         }
       }
@@ -285,8 +300,7 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
         }
 
         public void run() {
-          queue.offer(STOP);
-          currentState = new ErrorState(error);
+          awaiterState = new ErrorState(error);
           flowControl.execute();
         }
       }
@@ -294,9 +308,45 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
       private class EndCommand implements Runnable {
 
         public void run() {
-          queue.offer(STOP);
-          currentState = new EndState();
+          awaiterState = new EndState();
           flowControl.execute();
+        }
+      }
+
+      private class ReadState implements State<Object> {
+
+        public boolean executeBlock(@NotNull AwaitableFlowControl<Object> flowControl) {
+          if (eventCount == 0) {
+            eventCount = flowControl.outputEvents();
+            cancelables.set(index, awaitables.get(index).await(eventCount, AllAwaiter.this));
+            return false;
+          }
+          return true;
+        }
+      }
+
+      private class ErrorState implements State<Object> {
+
+        private final Throwable error;
+
+        private ErrorState(@NotNull Throwable error) {
+          this.error = error;
+        }
+
+        public boolean executeBlock(@NotNull AwaitableFlowControl<Object> flowControl) {
+          flowControl.error(error);
+          cancelExecution(); // TODO: 18/03/21 ???
+          return true;
+        }
+      }
+
+      private class EndState implements State<Object> {
+
+        public boolean executeBlock(@NotNull AwaitableFlowControl<Object> flowControl)
+            throws Exception {
+          flowControl.stop();
+          cancelExecution(); // TODO: 18/03/21 ???
+          return true;
         }
       }
     }
@@ -304,17 +354,17 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
     private class InputState implements State<Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>> {
 
       public boolean executeBlock(
-          @NotNull AwaitableFlowControl<Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>> flowControl) {
-        currentState = messageState;
-        events = maxEvents = flowControl.inputEvents();
-        if (events < 0) {
-          events = 1;
-        }
+          @NotNull AwaitableFlowControl<Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>> flowControl)
+          throws Exception {
+        controlState = new MessageState();
         final List<Awaitable<?>> awaitables = AllControl.this.awaitables;
+        final ArrayList<Cancelable> cancelables = AllControl.this.cancelables;
+        final ArrayList<AllAwaiter> awaiters = AllControl.this.awaiters;
         for (int i = 0; i < awaitables.size(); ++i) {
-          cancelables.add(
-              awaitables.get(i).await(maxEvents, new AllAwaiter(flowControl, inputs.get(i)))
-          );
+          final AllAwaiter awaiter = new AllAwaiter(i);
+          cancelables.add(null);
+          awaiters.add(awaiter);
+          awaiter.executeBlock(flowControl);
         }
         return false;
       }
@@ -323,84 +373,28 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
     private class MessageState implements State<Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>> {
 
       public boolean executeBlock(
-          @NotNull AwaitableFlowControl<Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>> flowControl) {
+          @NotNull AwaitableFlowControl<Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>> flowControl)
+          throws Exception {
+        boolean execute = false;
         final ArrayList<Object> messages = new ArrayList<Object>();
-        for (final ConcurrentLinkedQueue<Object> queue : inputs) {
-          final Object message = queue.peek();
+        final ArrayList<AllAwaiter> awaiters = AllControl.this.awaiters;
+        for (final AllAwaiter awaiter : awaiters) {
+          final Object message = awaiter.queue().peek();
           if (message != null) {
-            if (message == CANCEL) {
-              queue.poll();
-              events = 0;
-            } else {
-              messages.add(message != NULL ? message : null);
-            }
+            messages.add(message != NULL ? message : null);
+          } else if (awaiter.executeBlock(flowControl)) {
+            execute = true;
           }
         }
-        if (messages.size() == inputs.size()) {
-          for (final ConcurrentLinkedQueue<Object> queue : inputs) {
-            queue.poll();
+        if (messages.size() == awaiters.size()) {
+          for (final AllAwaiter awaiter : awaiters) {
+            awaiter.queue().poll();
           }
           flowControl.logger().log(new DbgMessage("[executing] message zipping"));
           flowControl.postOutput(new Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>(messages));
-          if (maxEvents >= 0) {
-            --events;
-          }
           return true;
         }
-        if (events < 1) {
-          events = maxEvents = flowControl.inputEvents();
-          if (events < 0) {
-            events = 1;
-          }
-          final List<Awaitable<?>> awaitables = AllControl.this.awaitables;
-          final ArrayList<Cancelable> cancelables = AllControl.this.cancelables;
-          cancelables.clear();
-          for (int i = 0; i < awaitables.size(); ++i) {
-            cancelables
-                .add(awaitables.get(i).await(maxEvents, new AllAwaiter(flowControl, inputs.get(i))));
-          }
-        }
-        return false;
-      }
-    }
-
-    private class ErrorState extends MessageState {
-
-      private final Throwable error;
-
-      private ErrorState(@NotNull Throwable error) {
-        this.error = error;
-      }
-
-      @Override
-      public boolean executeBlock(
-          @NotNull AwaitableFlowControl<Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>> flowControl) {
-        for (final ConcurrentLinkedQueue<Object> queue : inputs) {
-          final Object message = queue.peek();
-          if (message == STOP) {
-            flowControl.error(error);
-            cancelExecution(); // TODO: 18/03/21 ???
-            return true;
-          }
-        }
-        return super.executeBlock(flowControl);
-      }
-    }
-
-    private class EndState extends MessageState {
-
-      @Override
-      public boolean executeBlock(
-          @NotNull AwaitableFlowControl<Tuple<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>> flowControl) {
-        for (final ConcurrentLinkedQueue<Object> queue : inputs) {
-          final Object message = queue.peek();
-          if (message == STOP) {
-            flowControl.stop();
-            cancelExecution(); // TODO: 18/03/21 ???
-            return true;
-          }
-        }
-        return super.executeBlock(flowControl);
+        return execute;
       }
     }
   }

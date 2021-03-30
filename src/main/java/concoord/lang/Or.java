@@ -58,6 +58,7 @@ public class Or<T> implements Task<T> {
     }
 
     public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) {
+      final Iterator<? extends Awaitable<? extends T>> iterator = this.iterator;
       if (!flowControl.hasOutputs() && iterator.hasNext()) {
         flowControl.postOutput(iterator.next());
       } else {

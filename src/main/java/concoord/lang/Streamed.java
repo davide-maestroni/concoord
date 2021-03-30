@@ -37,9 +37,8 @@ import org.jetbrains.annotations.Nullable;
 public class Streamed<T> implements Task<T> {
 
   private static final Object NULL = new Object();
-  private static final Object STOP = new Object();
 
-  private final BufferFactory<T> factory;
+  private final BufferFactory<T> bufferFactory;
 
   public Streamed() {
     this(new DefaultBufferFactory<T>());
@@ -49,14 +48,14 @@ public class Streamed<T> implements Task<T> {
     this(new DefaultBufferFactory<T>(initialCapacity));
   }
 
-  public Streamed(@NotNull BufferFactory<T> factory) {
-    new IfNull("factory", factory).throwException();
-    this.factory = factory;
+  public Streamed(@NotNull BufferFactory<T> bufferFactory) {
+    new IfNull("bufferFactory", bufferFactory).throwException();
+    this.bufferFactory = bufferFactory;
   }
 
   @NotNull
   public StreamedAwaitable<T> on(@NotNull Scheduler scheduler) {
-    return new BaseStreamedAwaitable<T>(scheduler, new StreamedControl<T>(factory));
+    return new BaseStreamedAwaitable<T>(scheduler, new StreamedControl<T>(bufferFactory));
   }
 
   public interface StreamedAwaitable<T> extends Awaitable<T>, Awaiter<T> {
@@ -69,20 +68,19 @@ public class Streamed<T> implements Task<T> {
 
     private final ConcurrentLinkedQueue<Object> queue = new ConcurrentLinkedQueue<Object>();
     private final AtomicReference<Throwable> error = new AtomicReference<Throwable>();
-    private final MessageState messageState = new MessageState();
-    private final BufferFactory<T> factory;
-    private State<T> currentState = new InitState();
+    private final BufferFactory<T> bufferFactory;
+    private State<T> controlState = new InitState();
     private AwaitableFlowControl<T> flowControl;
     private Buffer<T> buffer;
-    private Iterator<T> inputs;
+    private Iterator<T> iterator;
 
-    private StreamedControl(@NotNull BufferFactory<T> factory) {
-      this.factory = factory;
+    private StreamedControl(@NotNull BufferFactory<T> bufferFactory) {
+      this.bufferFactory = bufferFactory;
     }
 
     public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
       this.flowControl = flowControl;
-      return currentState.executeBlock(flowControl);
+      return controlState.executeBlock(flowControl);
     }
 
     public void cancelExecution() {
@@ -96,25 +94,23 @@ public class Streamed<T> implements Task<T> {
     @SuppressWarnings("unchecked")
     public void run() {
       final ConcurrentLinkedQueue<Object> queue = this.queue;
-      final Object message = queue.peek();
-      if ((message != null) && (message != STOP)) {
-        queue.poll();
+      final Object message = queue.poll();
+      if (message != null) {
         buffer.add(message != NULL ? (T) message : null);
       }
+      final AwaitableFlowControl<T> flowControl = this.flowControl;
       if (flowControl != null) {
         flowControl.execute();
       }
     }
 
     private void error(@NotNull Throwable error) {
-      queue.offer(STOP);
-      currentState = new ErrorState(error);
+      controlState = new ErrorState(error);
       run();
     }
 
     private void end() {
-      queue.offer(STOP);
-      currentState = new EndState();
+      controlState = new EndState();
       run();
     }
 
@@ -136,18 +132,19 @@ public class Streamed<T> implements Task<T> {
     private class InitState implements State<T> {
 
       public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
-        buffer = factory.create();
-        inputs = buffer.iterator();
-        currentState = messageState;
-        return currentState.executeBlock(flowControl);
+        buffer = bufferFactory.create();
+        iterator = buffer.iterator();
+        controlState = new MessageState();
+        return controlState.executeBlock(flowControl);
       }
     }
 
     private class MessageState implements State<T> {
 
       public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
-        if (inputs.hasNext()) {
-          flowControl.postOutput(inputs.next());
+        final Iterator<T> iterator = StreamedControl.this.iterator;
+        if (iterator.hasNext()) {
+          flowControl.postOutput(iterator.next());
           return true;
         }
         return false;
@@ -164,7 +161,8 @@ public class Streamed<T> implements Task<T> {
 
       @Override
       public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
-        if (queue.peek() == STOP) {
+        final Iterator<T> iterator = StreamedControl.this.iterator;
+        if (!iterator.hasNext()) {
           flowControl.error(error);
           return true;
         }
@@ -176,7 +174,8 @@ public class Streamed<T> implements Task<T> {
 
       @Override
       public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
-        if (queue.peek() == STOP) {
+        final Iterator<T> iterator = StreamedControl.this.iterator;
+        if (!iterator.hasNext()) {
           flowControl.stop();
           return true;
         }
@@ -216,7 +215,7 @@ public class Streamed<T> implements Task<T> {
     }
 
     @NotNull
-    public CloseableAwaitable asCloseable() {
+    public Closeable asCloseable() {
       return new CloseableAwaitable(this);
     }
 

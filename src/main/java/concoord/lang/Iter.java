@@ -41,7 +41,7 @@ public class Iter<T> implements Task<T> {
     this(Arrays.asList(messages));
   }
 
-  public Iter(@NotNull final Iterable<? extends T> messages) {
+  public Iter(@NotNull Iterable<? extends T> messages) {
     new IfNull("messages", messages).throwException();
     this.messages = messages;
   }
@@ -61,6 +61,7 @@ public class Iter<T> implements Task<T> {
     }
 
     public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) {
+      final Iterator<? extends T> iterator = this.iterator;
       flowControl.logger().log(
           new DbgMessage("[executing] next iteration: %s", new PrintIdentity(iterator))
       );

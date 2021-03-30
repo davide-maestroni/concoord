@@ -33,18 +33,17 @@ import org.jetbrains.annotations.NotNull;
 public class Fork<T> implements Task<T> {
 
   private static final Object NULL = new Object();
-  private static final Object STOP = new Object();
 
   private final WeakHashMap<ForkControl, Void> controls = new WeakHashMap<ForkControl, Void>();
-  private final ConcurrentLinkedQueue<Object> inputs = new ConcurrentLinkedQueue<Object>();
+  private final ConcurrentLinkedQueue<Object> queue = new ConcurrentLinkedQueue<Object>();
   private final Trampoline trampoline = new Trampoline();
-  private final ReadState readState = new ReadState();
-  private final WriteState writeState = new WriteState();
+  private final ReadRunnable readState = new ReadRunnable();
+  private final WriteRunnable writeState = new WriteRunnable();
   private final Awaitable<? extends T> awaitable;
   private final Buffer<T> buffer;
+  private Runnable taskState = readState;
   private int maxEvents;
-  private int inputEvents;
-  private Runnable currentState = readState;
+  private int eventCount;
 
   public Fork(@NotNull Awaitable<? extends T> awaitable, @NotNull Buffer<T> buffer) {
     this(1, awaitable, buffer);
@@ -66,12 +65,12 @@ public class Fork<T> implements Task<T> {
         .on(scheduler);
   }
 
-  private interface ForkState<T> {
+  private interface State<T> {
 
     boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception;
   }
 
-  private class ReadState implements Runnable {
+  private class ReadRunnable implements Runnable {
 
     public void run() {
       int events = maxEvents;
@@ -87,42 +86,42 @@ public class Fork<T> implements Task<T> {
         }
       }
       if (events > 0) {
-        currentState = writeState;
-        inputEvents = events;
+        taskState = writeState;
+        eventCount = events;
         awaitable.await(events, new ForkAwaiter());
       }
     }
   }
 
-  private class WriteState implements Runnable {
+  private class WriteRunnable implements Runnable {
 
     @SuppressWarnings("unchecked")
     public void run() {
-      final Object message = inputs.poll();
+      final Object message = queue.poll();
       if (message != null) {
         buffer.add((T) message);
         for (ForkControl forkControl : controls.keySet()) {
           forkControl.run();
         }
-        if ((inputEvents > 0) && (--inputEvents == 0)) {
-          currentState = readState;
+        if ((eventCount > 0) && (--eventCount == 0)) {
+          taskState = readState;
         }
       }
     }
   }
 
-  private class ErrorState extends WriteState {
+  private class ErrorRunnable extends WriteRunnable {
 
     private final Throwable error;
 
-    private ErrorState(@NotNull Throwable error) {
+    private ErrorRunnable(@NotNull Throwable error) {
       this.error = error;
     }
 
     @Override
     public void run() {
-      final Object message = inputs.peek();
-      if (message == STOP) {
+      final Object message = queue.peek();
+      if (message == null) {
         for (ForkControl forkControl : controls.keySet()) {
           forkControl.error(error);
           forkControl.run();
@@ -133,12 +132,12 @@ public class Fork<T> implements Task<T> {
     }
   }
 
-  private class EndState extends WriteState {
+  private class EndRunnable extends WriteRunnable {
 
     @Override
     public void run() {
-      final Object message = inputs.peek();
-      if (message == STOP) {
+      final Object message = queue.peek();
+      if (message == null) {
         for (ForkControl forkControl : controls.keySet()) {
           forkControl.stop();
           forkControl.run();
@@ -151,11 +150,11 @@ public class Fork<T> implements Task<T> {
 
   private class ForkAwaiter implements Awaiter<T> {
 
-    private final FlowCommand flowCmd = new FlowCommand();
+    private final MessageCommand messageCommand = new MessageCommand();
 
     public void message(T message) {
-      inputs.offer(message != null ? message : NULL);
-      trampoline.scheduleLow(flowCmd);
+      queue.offer(message != null ? message : NULL);
+      trampoline.scheduleLow(messageCommand);
     }
 
     public void error(@NotNull Throwable error) {
@@ -166,10 +165,10 @@ public class Fork<T> implements Task<T> {
       trampoline.scheduleLow(new EndCommand());
     }
 
-    private class FlowCommand implements Runnable {
+    private class MessageCommand implements Runnable {
 
       public void run() {
-        currentState.run();
+        taskState.run();
       }
     }
 
@@ -182,30 +181,28 @@ public class Fork<T> implements Task<T> {
       }
 
       public void run() {
-        inputs.offer(STOP);
-        currentState = new ErrorState(error);
-        currentState.run();
+        taskState = new ErrorRunnable(error);
+        taskState.run();
       }
     }
 
     private class EndCommand implements Runnable {
 
       public void run() {
-        inputs.offer(STOP);
-        currentState = new EndState();
-        currentState.run();
+        taskState = new EndRunnable();
+        taskState.run();
       }
     }
   }
 
   private class ForkControl implements ExecutionControl<T>, Runnable {
 
-    private ForkState<T> forkState = new InitForkState();
+    private State<T> controlState = new InitState();
     private AwaitableFlowControl<T> flowControl;
     private Iterator<T> iterator;
 
     public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
-      return forkState.executeBlock(flowControl);
+      return controlState.executeBlock(flowControl);
     }
 
     public void cancelExecution() {
@@ -224,11 +221,11 @@ public class Fork<T> implements Task<T> {
     }
 
     private void error(@NotNull Throwable error) {
-      forkState = new ErrorForkState(error);
+      controlState = new ErrorState(error);
     }
 
     private void stop() {
-      forkState = new EndForkState();
+      controlState = new EndState();
     }
 
     private int inputEvents() {
@@ -239,40 +236,42 @@ public class Fork<T> implements Task<T> {
       return 0;
     }
 
-    private class InitForkState implements ForkState<T> {
+    private class InitState implements State<T> {
 
       public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
         controls.put(ForkControl.this, null);
         iterator = buffer.iterator();
-        forkState = new ReadForkState();
-        return forkState.executeBlock(flowControl);
+        controlState = new ReadState();
+        return controlState.executeBlock(flowControl);
       }
     }
 
-    private class ReadForkState implements ForkState<T> {
+    private class ReadState implements State<T> {
 
       public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
         ForkControl.this.flowControl = flowControl;
+        final Iterator<T> iterator = ForkControl.this.iterator;
         if (iterator.hasNext()) {
           flowControl.postOutput(iterator.next());
           return true;
         } else {
-          currentState.run();
+          taskState.run();
         }
         return false;
       }
     }
 
-    private class ErrorForkState implements ForkState<T> {
+    private class ErrorState implements State<T> {
 
       private final Throwable error;
 
-      private ErrorForkState(@NotNull Throwable error) {
+      private ErrorState(@NotNull Throwable error) {
         this.error = error;
       }
 
       public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
         ForkControl.this.flowControl = flowControl;
+        final Iterator<T> iterator = ForkControl.this.iterator;
         if (iterator.hasNext()) {
           flowControl.postOutput(iterator.next());
         } else {
@@ -282,10 +281,11 @@ public class Fork<T> implements Task<T> {
       }
     }
 
-    private class EndForkState implements ForkState<T> {
+    private class EndState implements State<T> {
 
       public boolean executeBlock(@NotNull AwaitableFlowControl<T> flowControl) throws Exception {
         ForkControl.this.flowControl = flowControl;
+        final Iterator<T> iterator = ForkControl.this.iterator;
         if (iterator.hasNext()) {
           flowControl.postOutput(iterator.next());
         } else {
