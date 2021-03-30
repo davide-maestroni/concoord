@@ -16,43 +16,32 @@
 package concoord.scheduling;
 
 import concoord.concurrent.Scheduler;
-import concoord.lang.Parallel.SchedulingStrategy;
 import concoord.util.assertion.IfNull;
 import java.util.ArrayList;
 import org.jetbrains.annotations.NotNull;
 
-public class RoundRobin<M> implements SchedulingStrategy<M> {
+public class RoundRobin<M> extends AbstractSchedulingStrategy<M> {
 
-  private final SchedulerFactory factory;
-
-  public RoundRobin(int maxParallelism, @NotNull SchedulerFactory factory) {
-    new IfNull("factory", factory).throwException();
-    if (maxParallelism == 0) {
-      // no parallelism
-      this.factory = new TrampolineFactory();
-    } else if (maxParallelism < 0) {
-      // infinite parallelism
-      this.factory = factory;
-    } else {
-      this.factory = new RoundRobinFactory(maxParallelism, factory);
-    }
+  public RoundRobin(int maxParallelism, @NotNull SchedulerFactory schedulerFactory) {
+    super(maxParallelism, schedulerFactory);
   }
 
   @NotNull
-  public Scheduler nextScheduler(M message) throws Exception {
-    return factory.create();
+  @Override
+  SchedulerFactory create(int maxParallelism, @NotNull SchedulerFactory schedulerFactory) {
+    return new RoundRobinFactory(maxParallelism, schedulerFactory);
   }
 
   private static class RoundRobinFactory implements SchedulerFactory {
 
     private final ArrayList<Scheduler> schedulers = new ArrayList<Scheduler>();
     private final int maxParallelism;
-    private final SchedulerFactory factory;
+    private final SchedulerFactory schedulerFactory;
     private int index;
 
-    private RoundRobinFactory(int maxParallelism, @NotNull SchedulerFactory factory) {
+    private RoundRobinFactory(int maxParallelism, @NotNull SchedulerFactory schedulerFactory) {
       this.maxParallelism = maxParallelism;
-      this.factory = factory;
+      this.schedulerFactory = schedulerFactory;
     }
 
     @NotNull
@@ -61,7 +50,7 @@ public class RoundRobin<M> implements SchedulingStrategy<M> {
       final ArrayList<Scheduler> schedulers = this.schedulers;
       final Scheduler scheduler;
       if (schedulers.size() == index) {
-        scheduler = factory.create();
+        scheduler = schedulerFactory.create();
         new IfNull("scheduler", scheduler).throwException();
         schedulers.add(scheduler);
       } else {
