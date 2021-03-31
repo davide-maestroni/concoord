@@ -13,17 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package concoord.lang;
+package concoord.scheduling;
 
-import concoord.concurrent.Awaitable;
 import concoord.concurrent.Scheduler;
-import concoord.concurrent.Task;
 import org.jetbrains.annotations.NotNull;
 
-public class ParallelOrdered<T> implements Task<T> {
+public interface SchedulingStrategy<M> {
 
   @NotNull
-  public Awaitable<T> on(@NotNull Scheduler scheduler) {
-    return null;
-  }
+  Scheduler nextScheduler(M message) throws Exception;
 }

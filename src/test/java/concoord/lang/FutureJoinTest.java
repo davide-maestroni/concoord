@@ -1,0 +1,157 @@
+/*
+ * Copyright 2021 Davide Maestroni
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package concoord.lang;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import concoord.concurrent.Awaitable;
+import concoord.concurrent.Awaiter;
+import concoord.concurrent.Cancelable;
+import concoord.concurrent.EndAwaiter;
+import concoord.concurrent.EventAwaiter;
+import concoord.concurrent.Trampoline;
+import concoord.concurrent.UncheckedInterruptedException;
+import java.util.Arrays;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
+import org.jetbrains.annotations.NotNull;
+import org.junit.jupiter.api.Test;
+
+public class FutureJoinTest {
+
+  @Test
+  public void join() throws ExecutionException, InterruptedException {
+    Awaitable<String> awaitable = new Iter<>(Arrays.asList("a", "b", "c")).on(new Trampoline());
+    assertThat(new FutureJoin<>(awaitable, 1).get()).containsExactly("a", "b", "c");
+  }
+
+  @Test
+  public void joinTotal() throws InterruptedException, ExecutionException, TimeoutException {
+    Awaitable<String> awaitable = new Iter<>(Arrays.asList("a", "b", "c")).on(new Trampoline());
+    assertThat(new FutureJoin<>(awaitable, 10).get(1, TimeUnit.SECONDS))
+        .containsExactly("a", "b", "c");
+  }
+
+  @Test
+  public void joinException() {
+    Awaitable<String> awaitable = new Do<String>(() -> {
+      throw new ArithmeticException();
+    }).on(new Trampoline());
+    assertThatThrownBy(() -> new FutureJoin<>(awaitable, 1).get())
+        .isInstanceOf(ExecutionException.class)
+        .hasCauseInstanceOf(ArithmeticException.class);
+  }
+
+  @Test
+  public void joinTotalException() {
+    Awaitable<String> awaitable = new Do<String>(() -> {
+      throw new ArithmeticException();
+    }).on(new Trampoline());
+    assertThatThrownBy(() -> new FutureJoin<>(awaitable, 10).get(1, TimeUnit.SECONDS))
+        .isInstanceOf(ExecutionException.class)
+        .hasCauseInstanceOf(ArithmeticException.class);
+  }
+
+  @Test
+  public void joinTimeout() {
+    DummyAwaitable<String> awaitable = new DummyAwaitable<>();
+    assertThatThrownBy(() -> new FutureJoin<>(awaitable, 1).get(1, TimeUnit.SECONDS))
+        .isInstanceOf(TimeoutException.class);
+  }
+
+  @Test
+  public void joinInterrupt() throws InterruptedException {
+    DummyAwaitable<String> awaitable = new DummyAwaitable<>();
+    AtomicReference<Throwable> throwable = new AtomicReference<>();
+    Thread thread = new Thread(() -> {
+      try {
+        new FutureJoin<>(awaitable, 1).get();
+      } catch (Throwable t) {
+        throwable.set(t);
+      }
+    });
+    thread.start();
+    Thread.sleep(500);
+    thread.interrupt();
+    Thread.sleep(500);
+    assertThat(throwable.get()).isInstanceOf(UncheckedInterruptedException.class);
+  }
+
+  @Test
+  public void joinTotalInterrupt() throws InterruptedException {
+    DummyAwaitable<String> awaitable = new DummyAwaitable<>();
+    AtomicReference<Throwable> throwable = new AtomicReference<>();
+    Thread thread = new Thread(() -> {
+      try {
+        new FutureJoin<>(awaitable, 10).get(1, TimeUnit.MINUTES);
+      } catch (Throwable t) {
+        throwable.set(t);
+      }
+    });
+    thread.start();
+    Thread.sleep(500);
+    thread.interrupt();
+    Thread.sleep(500);
+    assertThat(throwable.get()).isInstanceOf(UncheckedInterruptedException.class);
+  }
+
+  private static class DummyAwaitable<T> implements Awaitable<T> {
+
+    @NotNull
+    @Override
+    public Cancelable await(int maxEvents) {
+      return new DummyCancelable();
+    }
+
+    @NotNull
+    @Override
+    public Cancelable await(int maxEvents, @NotNull Awaiter<? super T> awaiter) {
+      return new DummyCancelable();
+    }
+
+    @NotNull
+    @Override
+    public Cancelable await(int maxEvents, @NotNull EventAwaiter<? super T> messageAwaiter,
+        @NotNull EventAwaiter<? super Throwable> errorAwaiter,
+        @NotNull EndAwaiter endAwaiter) {
+      return new DummyCancelable();
+    }
+
+    @Override
+    public void abort() {
+    }
+  }
+
+  private static class DummyCancelable implements Cancelable {
+
+    @Override
+    public boolean isError() {
+      return false;
+    }
+
+    @Override
+    public boolean isDone() {
+      return false;
+    }
+
+    @Override
+    public void cancel() {
+    }
+  }
+}

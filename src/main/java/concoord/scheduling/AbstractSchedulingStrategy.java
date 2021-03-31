@@ -16,7 +16,6 @@
 package concoord.scheduling;
 
 import concoord.concurrent.Scheduler;
-import concoord.lang.Parallel.SchedulingStrategy;
 import concoord.util.assertion.IfNull;
 import org.jetbrains.annotations.NotNull;
 

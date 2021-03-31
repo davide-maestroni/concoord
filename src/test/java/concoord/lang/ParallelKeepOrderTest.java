@@ -28,13 +28,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
-public class ParallelTest {
+public class ParallelKeepOrderTest {
 
   @Test
   public void basic() {
     LazyExecutor lazyExecutor = new LazyExecutor();
     ScheduledExecutor scheduler = new ScheduledExecutor(lazyExecutor);
-    Awaitable<String> awaitable = new Parallel<>(
+    Awaitable<String> awaitable = new ParallelKeepOrder<>(
         () -> new RoundRobin<>(3, Trampoline::new),
         new Iter<>("1", "2", "3").on(scheduler),
         (m) -> new Yield<>("N" + m, Integer.MAX_VALUE)
@@ -42,7 +42,7 @@ public class ParallelTest {
     ArrayList<String> testMessages = new ArrayList<>();
     AtomicReference<Throwable> testError = new AtomicReference<>();
     AtomicBoolean testEnd = new AtomicBoolean();
-    awaitable.await(Integer.MAX_VALUE, testMessages::add, testError::set, () -> testEnd.set(true));
+    awaitable.await(-1, testMessages::add, testError::set, () -> testEnd.set(true));
     lazyExecutor.advance(Integer.MAX_VALUE);
     assertThat(testMessages).containsExactly("N1", "N2", "N3");
     assertThat(testError).hasValue(null);

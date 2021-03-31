@@ -15,7 +15,6 @@
  */
 package concoord.scheduling;
 
-import concoord.lang.Parallel.SchedulingStrategy;
 import org.jetbrains.annotations.NotNull;
 
 public interface SchedulingStrategyFactory<M> {
