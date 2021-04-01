@@ -35,12 +35,13 @@ import concoord.scheduling.SchedulingStrategy;
 import concoord.scheduling.SchedulingStrategyFactory;
 import concoord.util.assertion.IfNull;
 import concoord.util.assertion.IfSomeOf;
+import concoord.util.collection.CircularQueue;
 import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import org.jetbrains.annotations.NotNull;
 
-public class ParallelAnyOrder<T, M> implements Task<T> {
+public class ParallelAnd<T, M> implements Task<T> {
 
   private final int maxEvents;
   private final BufferFactory<T> bufferFactory;
@@ -48,30 +49,30 @@ public class ParallelAnyOrder<T, M> implements Task<T> {
   private final Awaitable<M> awaitable;
   private final Block<? extends T, ? super M> block;
 
-  public ParallelAnyOrder(@NotNull SchedulingStrategyFactory<? super M> strategyFactory,
+  public ParallelAnd(@NotNull SchedulingStrategyFactory<? super M> strategyFactory,
       @NotNull Awaitable<M> awaitable, @NotNull Block<? extends T, ? super M> block) {
     this(1, new DefaultBufferFactory<T>(), strategyFactory, awaitable, block);
   }
 
-  public ParallelAnyOrder(int maxEvents, @NotNull SchedulingStrategyFactory<? super M> strategyFactory,
+  public ParallelAnd(int maxEvents, @NotNull SchedulingStrategyFactory<? super M> strategyFactory,
       @NotNull Awaitable<M> awaitable, @NotNull Block<T, ? super M> block) {
     this(maxEvents, new DefaultBufferFactory<T>(), strategyFactory, awaitable, block);
   }
 
-  public ParallelAnyOrder(int maxEvents, int initialCapacity,
+  public ParallelAnd(int maxEvents, int initialCapacity,
       @NotNull SchedulingStrategyFactory<? super M> strategyFactory,
       @NotNull Awaitable<M> awaitable, @NotNull Block<T, ? super M> block) {
     this(maxEvents, new DefaultBufferFactory<T>(initialCapacity), strategyFactory, awaitable,
         block);
   }
 
-  public ParallelAnyOrder(@NotNull BufferFactory<T> bufferFactory,
+  public ParallelAnd(@NotNull BufferFactory<T> bufferFactory,
       @NotNull SchedulingStrategyFactory<? super M> strategyFactory,
       @NotNull Awaitable<M> awaitable, @NotNull Block<? extends T, ? super M> block) {
     this(1, bufferFactory, strategyFactory, awaitable, block);
   }
 
-  public ParallelAnyOrder(int maxEvents, @NotNull BufferFactory<T> bufferFactory,
+  public ParallelAnd(int maxEvents, @NotNull BufferFactory<T> bufferFactory,
       @NotNull SchedulingStrategyFactory<? super M> strategyFactory,
       @NotNull Awaitable<M> awaitable, @NotNull Block<? extends T, ? super M> block) {
     new IfSomeOf(
@@ -91,7 +92,7 @@ public class ParallelAnyOrder<T, M> implements Task<T> {
   public Awaitable<T> on(@NotNull Scheduler scheduler) {
     return new BaseAwaitable<T>(
         scheduler,
-        new ParallelAnyOrderControl<T, M>(
+        new ParallelAndControl<T, M>(
             scheduler,
             maxEvents,
             bufferFactory,
@@ -102,13 +103,45 @@ public class ParallelAnyOrder<T, M> implements Task<T> {
     );
   }
 
-  private static class ParallelAnyOrderControl<T, M> implements ExecutionControl<T> {
+  private static class BufferedQueue<M> {
+
+    private final Buffer<M> buffer;
+    private final Iterator<M> iterator;
+    private boolean isDone;
+
+    private BufferedQueue(@NotNull Buffer<M> buffer) {
+      this.buffer = buffer;
+      this.iterator = buffer.iterator();
+    }
+
+    public void add(M message) {
+      buffer.add(message);
+    }
+
+    public boolean hasNext() {
+      return iterator.hasNext();
+    }
+
+    public M next() {
+      return iterator.next();
+    }
+
+    public void stop() {
+      isDone = true;
+    }
+
+    public boolean isDone() {
+      return isDone;
+    }
+  }
+
+  private static class ParallelAndControl<T, M> implements ExecutionControl<T> {
 
     private static final Object NULL = new Object();
 
-    private final ConcurrentLinkedQueue<Object> outputQueue = new ConcurrentLinkedQueue<Object>();
     private final IdentityHashMap<Awaitable<T>, Cancelable> awaitables =
         new IdentityHashMap<Awaitable<T>, Cancelable>();
+    private final CircularQueue<BufferedQueue<T>> queues = new CircularQueue<BufferedQueue<T>>();
     private final MessageState messageState = new MessageState();
     private final Scheduler scheduler;
     private final int maxEvents;
@@ -118,12 +151,10 @@ public class ParallelAnyOrder<T, M> implements Task<T> {
     private final Block<? extends T, ? super M> block;
     private State<T> currentState = new InputState();
     private SchedulingStrategy<? super M> strategy;
-    private Buffer<T> buffer;
-    private Iterator<T> iterator;
-    private ParallelAnyOrderAwaiter awaiter;
+    private ParallelAndAwaiter awaiter;
     private Cancelable cancelable;
 
-    private ParallelAnyOrderControl(@NotNull Scheduler scheduler, int maxEvents,
+    private ParallelAndControl(@NotNull Scheduler scheduler, int maxEvents,
         @NotNull BufferFactory<T> bufferFactory,
         @NotNull SchedulingStrategyFactory<? super M> strategyFactory,
         @NotNull Awaitable<M> awaitable, @NotNull Block<? extends T, ? super M> block) {
@@ -158,7 +189,7 @@ public class ParallelAnyOrder<T, M> implements Task<T> {
       boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception;
     }
 
-    private class ParallelAnyOrderAwaiter implements Awaiter<M> {
+    private class ParallelAndAwaiter implements Awaiter<M> {
 
       private final ConcurrentLinkedQueue<Object> inputQueue = new ConcurrentLinkedQueue<Object>();
       private final InputMessageCommand inputMessageCommand = new InputMessageCommand();
@@ -200,7 +231,7 @@ public class ParallelAnyOrder<T, M> implements Task<T> {
           if (eventCount > 0) {
             --eventCount;
           }
-          final BaseFlowControl<T> flowControl = ParallelAnyOrderAwaiter.this.flowControl;
+          final BaseFlowControl<T> flowControl = ParallelAndAwaiter.this.flowControl;
           final M input = message != NULL ? (M) message : null;
           try {
             final Scheduler scheduler = strategy.nextScheduler(input);
@@ -215,7 +246,9 @@ public class ParallelAnyOrder<T, M> implements Task<T> {
                 new Iter<M>(input).on(scheduler),
                 (Block<T, ? super M>) block
             ).on(scheduler);
-            awaitables.put(awaitable, awaitable.await(-1, new ForAwaiter(awaitable)));
+            final BufferedQueue<T> queue = new BufferedQueue<T>(bufferFactory.create());
+            queues.add(queue);
+            awaitables.put(awaitable, awaitable.await(-1, new ForAwaiter(awaitable, queue)));
           } catch (final Exception e) {
             flowControl.logger().log(
                 new ErrMessage(new LogMessage("failed to schedule next block"), e)
@@ -261,7 +294,7 @@ public class ParallelAnyOrder<T, M> implements Task<T> {
         public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) {
           awaiterState = new ReadState();
           eventCount = maxEvents;
-          cancelable = awaitable.await(eventCount, ParallelAnyOrderAwaiter.this);
+          cancelable = awaitable.await(eventCount, ParallelAndAwaiter.this);
           return false;
         }
       }
@@ -271,7 +304,7 @@ public class ParallelAnyOrder<T, M> implements Task<T> {
         public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) {
           if (eventCount == 0) {
             eventCount = flowControl.outputEvents();
-            cancelable = awaitable.await(eventCount, ParallelAnyOrderAwaiter.this);
+            cancelable = awaitable.await(eventCount, ParallelAndAwaiter.this);
             return false;
           }
           return true;
@@ -307,10 +340,13 @@ public class ParallelAnyOrder<T, M> implements Task<T> {
       private class ForAwaiter implements Awaiter<T> {
 
         private final OutputMessageCommand outputMessageCommand = new OutputMessageCommand();
+        private final ConcurrentLinkedQueue<Object> outputQueue = new ConcurrentLinkedQueue<Object>();
         private final Awaitable<T> awaitable;
+        private final BufferedQueue<T> queue;
 
-        private ForAwaiter(@NotNull Awaitable<T> awaitable) {
+        private ForAwaiter(@NotNull Awaitable<T> awaitable, @NotNull BufferedQueue<T> queue) {
           this.awaitable = awaitable;
+          this.queue = queue;
         }
 
         public void message(T message) throws Exception {
@@ -332,7 +368,7 @@ public class ParallelAnyOrder<T, M> implements Task<T> {
           public void run() {
             final Object message = outputQueue.poll();
             if (message != null) {
-              buffer.add(message != NULL ? (T) message : null);
+              queue.add(message != NULL ? (T) message : null);
               flowControl.execute();
             }
           }
@@ -347,7 +383,9 @@ public class ParallelAnyOrder<T, M> implements Task<T> {
           }
 
           public void run() {
+            queue.stop();
             awaitables.remove(awaitable);
+            flowControl.execute();
           }
         }
       }
@@ -357,10 +395,8 @@ public class ParallelAnyOrder<T, M> implements Task<T> {
 
       public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
         strategy = strategyFactory.create();
-        buffer = bufferFactory.create();
-        iterator = buffer.iterator();
         currentState = messageState;
-        awaiter = new ParallelAnyOrderAwaiter();
+        awaiter = new ParallelAndAwaiter();
         awaiter.executeBlock(flowControl);
         return false;
       }
@@ -369,9 +405,17 @@ public class ParallelAnyOrder<T, M> implements Task<T> {
     private class MessageState implements State<T> {
 
       public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
-        if (iterator.hasNext()) {
-          flowControl.postOutput(iterator.next());
-          return true;
+        final CircularQueue<BufferedQueue<T>> queues = ParallelAndControl.this.queues;
+        while (!queues.isEmpty()) {
+          final BufferedQueue<T> queue = queues.peek();
+          if (queue.hasNext()) {
+            flowControl.postOutput(queue.next());
+            return true;
+          } else if (queue.isDone()) {
+            queues.remove();
+          } else {
+            break;
+          }
         }
         return awaiter.executeBlock(flowControl);
       }

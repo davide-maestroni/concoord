@@ -28,13 +28,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
-public class ParallelKeepOrderTest {
+public class ParallelAndTest {
 
   @Test
   public void basic() {
     LazyExecutor lazyExecutor = new LazyExecutor();
     ScheduledExecutor scheduler = new ScheduledExecutor(lazyExecutor);
-    Awaitable<String> awaitable = new ParallelKeepOrder<>(
+    Awaitable<String> awaitable = new ParallelAnd<>(
         () -> new RoundRobin<>(3, Trampoline::new),
         new Iter<>("1", "2", "3").on(scheduler),
         (m) -> new Yield<>("N" + m, Integer.MAX_VALUE)
