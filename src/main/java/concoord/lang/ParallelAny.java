@@ -107,8 +107,8 @@ public class ParallelAny<T, M> implements Task<T> {
     private static final Object NULL = new Object();
 
     private final ConcurrentLinkedQueue<Object> outputQueue = new ConcurrentLinkedQueue<Object>();
-    private final IdentityHashMap<Awaitable<T>, Cancelable> awaitables =
-        new IdentityHashMap<Awaitable<T>, Cancelable>();
+    private final IdentityHashMap<Awaitable<T>, Restartable> awaitables =
+        new IdentityHashMap<Awaitable<T>, Restartable>();
     private final MessageState messageState = new MessageState();
     private final Scheduler scheduler;
     private final int maxEvents;
@@ -144,6 +144,9 @@ public class ParallelAny<T, M> implements Task<T> {
       if (cancelable != null) {
         cancelable.cancel();
       }
+      for (final Restartable restartable : awaitables.values()) {
+        restartable.cancel();
+      }
     }
 
     public void abortExecution(@NotNull Throwable error) {
@@ -151,6 +154,13 @@ public class ParallelAny<T, M> implements Task<T> {
       for (final Awaitable<T> awaitable : awaitables.keySet()) {
         awaitable.abort();
       }
+    }
+
+    private interface Restartable {
+
+      void start();
+
+      void cancel();
     }
 
     private interface State<T> {
@@ -183,8 +193,7 @@ public class ParallelAny<T, M> implements Task<T> {
         scheduler.scheduleLow(new EndCommand());
       }
 
-      private boolean executeBlock(@NotNull BaseFlowControl<T> flowControl)
-          throws Exception {
+      private boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
         this.flowControl = flowControl;
         return awaiterState.executeBlock(flowControl);
       }
@@ -215,7 +224,7 @@ public class ParallelAny<T, M> implements Task<T> {
                 new Iter<M>(input).on(scheduler),
                 (Block<T, ? super M>) block
             ).on(scheduler);
-            awaitables.put(awaitable, awaitable.await(-1, new ForAwaiter(awaitable)));
+            new ForAwaiter(awaitable).start();
           } catch (final Exception e) {
             flowControl.logger().log(
                 new ErrMessage(new LogMessage("failed to schedule next block"), e)
@@ -272,6 +281,9 @@ public class ParallelAny<T, M> implements Task<T> {
           if (eventCount == 0) {
             eventCount = flowControl.outputEvents();
             cancelable = awaitable.await(eventCount, ParallelAnyAwaiter.this);
+            for (final Restartable restartable : awaitables.values()) {
+              restartable.start();
+            }
             return false;
           }
           return true;
@@ -304,26 +316,44 @@ public class ParallelAny<T, M> implements Task<T> {
         }
       }
 
-      private class ForAwaiter implements Awaiter<T> {
+      private class ForAwaiter implements Awaiter<T>, Restartable {
 
         private final OutputMessageCommand outputMessageCommand = new OutputMessageCommand();
         private final Awaitable<T> awaitable;
+        private Cancelable cancelable;
 
         private ForAwaiter(@NotNull Awaitable<T> awaitable) {
           this.awaitable = awaitable;
         }
 
-        public void message(T message) throws Exception {
+        public void message(T message) {
           outputQueue.offer(message != null ? message : NULL);
           scheduler.scheduleLow(outputMessageCommand);
         }
 
-        public void error(@NotNull Throwable error) throws Exception {
-          scheduler.scheduleLow(new ErrorCommand(error));
+        public void error(@NotNull Throwable error) {
+          if (error instanceof CancelException) {
+            scheduler.scheduleLow(new CancelCommand());
+          } else {
+            scheduler.scheduleLow(new ErrorCommand(error));
+          }
         }
 
-        public void end() throws Exception {
+        public void end() {
           scheduler.scheduleLow(new EndCommand(awaitable));
+        }
+
+        public void start() {
+          if (cancelable == null) {
+            cancelable = awaitable.await(-1, this);
+            awaitables.put(awaitable, this);
+          }
+        }
+
+        public void cancel() {
+          if (cancelable != null) {
+            cancelable.cancel();
+          }
         }
 
         private class OutputMessageCommand implements Runnable {
@@ -335,6 +365,13 @@ public class ParallelAny<T, M> implements Task<T> {
               buffer.add(message != NULL ? (T) message : null);
               flowControl.execute();
             }
+          }
+        }
+
+        private class CancelCommand implements Runnable {
+
+          public void run() {
+            cancelable = null;
           }
         }
 

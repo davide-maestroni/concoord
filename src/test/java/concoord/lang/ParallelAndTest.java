@@ -23,6 +23,7 @@ import concoord.concurrent.ScheduledExecutor;
 import concoord.concurrent.Trampoline;
 import concoord.flow.Yield;
 import concoord.scheduling.RoundRobin;
+import concoord.test.TestCancel;
 import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -47,5 +48,18 @@ public class ParallelAndTest {
     assertThat(testMessages).containsExactly("N1", "N2", "N3");
     assertThat(testError).hasValue(null);
     assertThat(testEnd).isTrue();
+  }
+
+  @Test
+  public void cancel() {
+    new TestCancel<>(
+        (scheduler) ->
+            new ParallelAnd<>(
+                () -> new RoundRobin<>(3, Trampoline::new),
+                new Iter<>("1", "2", "3").on(scheduler),
+                (m) -> new Yield<>("N" + m, Integer.MAX_VALUE)
+            ).on(scheduler),
+        (messages) -> assertThat(messages).containsExactly("N1", "N2", "N3")
+    ).run();
   }
 }
