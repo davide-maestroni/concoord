@@ -69,10 +69,10 @@ class Parallel<T, M> implements Task<T> {
   interface BufferControl<M> {
 
     @NotNull
-    InputChannel<M> inputChannel();
+    InputChannel<M> inputChannel() throws Exception;
 
     @NotNull
-    OutputChannel<M> outputChannel();
+    OutputChannel<M> outputChannel() throws Exception;
   }
 
   interface InputChannel<M> {
@@ -101,7 +101,7 @@ class Parallel<T, M> implements Task<T> {
     private final BufferControl<T> bufferControl;
     private final Awaitable<M> awaitable;
     private final Block<? extends T, ? super M> block;
-    private State<T> currentState = new InputState();
+    private State<T> controlState = new InputState();
     private SchedulingStrategy<? super M> strategy;
     private OutputChannel<T> outputChannel;
     private ParallelAwaiter awaiter;
@@ -119,7 +119,7 @@ class Parallel<T, M> implements Task<T> {
     }
 
     public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
-      return currentState.executeBlock(flowControl);
+      return controlState.executeBlock(flowControl);
     }
 
     public void cancelExecution() {
@@ -370,7 +370,7 @@ class Parallel<T, M> implements Task<T> {
       public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
         strategy = strategyFactory.create();
         outputChannel = bufferControl.outputChannel();
-        currentState = messageState;
+        controlState = new MessageState();
         awaiter = new ParallelAwaiter();
         awaiter.executeBlock(flowControl);
         return false;
