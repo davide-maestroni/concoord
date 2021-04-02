@@ -127,15 +127,15 @@ class Parallel<T, M> implements Task<T> {
       if (cancelable != null) {
         cancelable.cancel();
       }
+      for (final Restartable restartable : awaitables.values()) {
+        restartable.cancel();
+      }
     }
 
     public void abortExecution(@NotNull Throwable error) {
       this.awaitable.abort();
       for (final Awaitable<T> awaitable : awaitables.keySet()) {
         awaitable.abort();
-      }
-      for (final Restartable restartable : awaitables.values()) {
-        restartable.cancel();
       }
     }
 
