@@ -314,9 +314,6 @@ public class ParallelAnd<T, M> implements Task<T> {
           if (eventCount == 0) {
             eventCount = flowControl.outputEvents();
             cancelable = awaitable.await(eventCount, ParallelAndAwaiter.this);
-            for (final Restartable restartable : awaitables.values()) {
-              restartable.start();
-            }
             return false;
           }
           return true;
@@ -453,6 +450,14 @@ public class ParallelAnd<T, M> implements Task<T> {
           } else {
             break;
           }
+        }
+        final IdentityHashMap<Awaitable<T>, Restartable> awaitables =
+            ParallelAndControl.this.awaitables;
+        if (!awaitables.isEmpty()) {
+          for (final Restartable restartable : awaitables.values()) {
+            restartable.start();
+          }
+          return false;
         }
         return awaiter.executeBlock(flowControl);
       }

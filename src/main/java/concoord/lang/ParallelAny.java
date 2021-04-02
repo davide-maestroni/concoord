@@ -281,9 +281,6 @@ public class ParallelAny<T, M> implements Task<T> {
           if (eventCount == 0) {
             eventCount = flowControl.outputEvents();
             cancelable = awaitable.await(eventCount, ParallelAnyAwaiter.this);
-            for (final Restartable restartable : awaitables.values()) {
-              restartable.start();
-            }
             return false;
           }
           return true;
@@ -410,6 +407,14 @@ public class ParallelAny<T, M> implements Task<T> {
         if (iterator.hasNext()) {
           flowControl.postOutput(iterator.next());
           return true;
+        }
+        final IdentityHashMap<Awaitable<T>, Restartable> awaitables =
+            ParallelAnyControl.this.awaitables;
+        if (!awaitables.isEmpty()) {
+          for (final Restartable restartable : awaitables.values()) {
+            restartable.start();
+          }
+          return false;
         }
         return awaiter.executeBlock(flowControl);
       }
