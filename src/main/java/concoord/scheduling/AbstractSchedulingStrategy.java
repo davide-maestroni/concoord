@@ -15,16 +15,35 @@
  */
 package concoord.scheduling;
 
+import concoord.concurrent.Awaitable;
 import concoord.concurrent.Scheduler;
+import concoord.concurrent.SchedulerFactory;
+import concoord.concurrent.Trampoline;
+import concoord.data.Buffer;
+import concoord.data.BufferFactory;
+import concoord.data.Consuming;
+import concoord.lang.Parallel.Block;
+import concoord.lang.Parallel.SchedulingStrategy;
+import concoord.lang.Streamed;
+import concoord.lang.Streamed.StreamedAwaitable;
 import concoord.util.assertion.IfNull;
+import concoord.util.assertion.IfSomeOf;
+import java.util.WeakHashMap;
 import org.jetbrains.annotations.NotNull;
 
-abstract class AbstractSchedulingStrategy<M> implements SchedulingStrategy<M> {
+abstract class AbstractSchedulingStrategy<T, M> implements SchedulingStrategy<T, M> {
 
+  private final WeakHashMap<Scheduler, ScheduledTask<T, M>> tasks =
+      new WeakHashMap<Scheduler, ScheduledTask<T, M>>();
   private final SchedulerFactory factory;
+  private final Block<T, M> block;
 
-  AbstractSchedulingStrategy(int maxParallelism, @NotNull SchedulerFactory schedulerFactory) {
-    new IfNull("schedulerFactory", schedulerFactory).throwException();
+  AbstractSchedulingStrategy(int maxParallelism, @NotNull SchedulerFactory schedulerFactory,
+      @NotNull Block<T, M> block) {
+    new IfSomeOf(
+        new IfNull("schedulerFactory", schedulerFactory),
+        new IfNull("block", block)
+    ).throwException();
     if (maxParallelism == 0) {
       // no parallelism
       this.factory = new TrampolineFactory();
@@ -34,13 +53,53 @@ abstract class AbstractSchedulingStrategy<M> implements SchedulingStrategy<M> {
     } else {
       this.factory = create(maxParallelism, schedulerFactory);
     }
+    this.block = block;
   }
 
   @NotNull
-  public Scheduler nextScheduler(M message) throws Exception {
-    return factory.create();
+  public Awaitable<T> schedule(M message) throws Exception {
+    final Scheduler scheduler = factory.create();
+    ScheduledTask<T, M> task = tasks.get(scheduler);
+    if (task == null) {
+      final StreamedAwaitable<M> input = new Streamed<M>(new ConsumingFactory<M>())
+          .on(new Trampoline());
+      final Awaitable<T> output = block.execute(scheduler, input);
+      task = new ScheduledTask<T, M>(input, output);
+      tasks.put(scheduler, task);
+    }
+    task.input().message(message);
+    return task.output();
   }
 
   @NotNull
   abstract SchedulerFactory create(int maxParallelism, @NotNull SchedulerFactory schedulerFactory);
+
+  private static class ScheduledTask<T, M> {
+
+    private final StreamedAwaitable<M> input;
+    private final Awaitable<T> output;
+
+    private ScheduledTask(@NotNull StreamedAwaitable<M> input, @NotNull Awaitable<T> output) {
+      this.input = input;
+      this.output = output;
+    }
+
+    @NotNull
+    private StreamedAwaitable<M> input() {
+      return input;
+    }
+
+    @NotNull
+    private Awaitable<T> output() {
+      return output;
+    }
+  }
+
+  private static class ConsumingFactory<M> implements BufferFactory<M> {
+
+    @NotNull
+    public Buffer<M> create() {
+      return new Consuming<M>();
+    }
+  }
 }

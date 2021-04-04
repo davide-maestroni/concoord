@@ -16,6 +16,7 @@
 package concoord.scheduling;
 
 import concoord.concurrent.Scheduler;
+import concoord.concurrent.SchedulerFactory;
 import concoord.concurrent.Trampoline;
 import org.jetbrains.annotations.NotNull;
 

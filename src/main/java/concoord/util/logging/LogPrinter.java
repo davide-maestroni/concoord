@@ -13,13 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package concoord.scheduling;
+package concoord.util.logging;
 
-import concoord.concurrent.Scheduler;
 import org.jetbrains.annotations.NotNull;
 
-public interface SchedulingStrategy<M> {
+public interface LogPrinter {
 
-  @NotNull
-  Scheduler nextScheduler(M message) throws Exception;
+  boolean canPrintDbg(@NotNull String name);
+
+  boolean canPrintInf(@NotNull String name);
+
+  boolean canPrintWrn(@NotNull String name);
+
+  boolean canPrintErr(@NotNull String name);
+
+  void printDbg(@NotNull String name, String message);
+
+  void printInf(@NotNull String name, String message);
+
+  void printWrn(@NotNull String name, String message);
+
+  void printErr(@NotNull String name, String message);
 }

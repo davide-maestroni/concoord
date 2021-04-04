@@ -16,14 +16,17 @@
 package concoord.scheduling;
 
 import concoord.concurrent.Scheduler;
+import concoord.concurrent.SchedulerFactory;
+import concoord.lang.Parallel.Block;
 import concoord.util.assertion.IfNull;
 import java.util.ArrayList;
 import org.jetbrains.annotations.NotNull;
 
-public class RoundRobin<M> extends AbstractSchedulingStrategy<M> {
+public class RoundRobin<T, M> extends AbstractSchedulingStrategy<T, M> {
 
-  public RoundRobin(int maxParallelism, @NotNull SchedulerFactory schedulerFactory) {
-    super(maxParallelism, schedulerFactory);
+  public RoundRobin(int maxParallelism, @NotNull SchedulerFactory schedulerFactory,
+      @NotNull Block<T, M> block) {
+    super(maxParallelism, schedulerFactory, block);
   }
 
   @NotNull

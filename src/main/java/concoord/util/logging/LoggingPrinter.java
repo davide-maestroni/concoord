@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package concoord.logging;
+package concoord.util.logging;
 
 import java.util.logging.ConsoleHandler;
 import java.util.logging.Handler;

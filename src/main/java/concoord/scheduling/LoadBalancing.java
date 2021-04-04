@@ -16,14 +16,17 @@
 package concoord.scheduling;
 
 import concoord.concurrent.Scheduler;
+import concoord.concurrent.SchedulerFactory;
+import concoord.lang.Parallel.Block;
 import concoord.util.assertion.IfContainsNull;
 import java.util.ArrayList;
 import org.jetbrains.annotations.NotNull;
 
-public class LoadBalancing<M> extends AbstractSchedulingStrategy<M> {
+public class LoadBalancing<T, M> extends AbstractSchedulingStrategy<T, M> {
 
-  public LoadBalancing(int maxParallelism, @NotNull SchedulerFactory schedulerFactory) {
-    super(maxParallelism, schedulerFactory);
+  public LoadBalancing(int maxParallelism, @NotNull SchedulerFactory schedulerFactory,
+      @NotNull Block<T, M> block) {
+    super(maxParallelism, schedulerFactory, block);
   }
 
   @NotNull

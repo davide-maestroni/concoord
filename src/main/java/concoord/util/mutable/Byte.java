@@ -60,6 +60,8 @@ public class Byte extends Number {
     this.value = value;
   }
 
+  // TODO: 02/04/21 updateValue(Function<byte, byte>)
+
   @Override
   public boolean equals(Object o) {
     if (this == o) {

@@ -15,12 +15,12 @@
  */
 package concoord.concurrent;
 
-import concoord.logging.ErrMessage;
-import concoord.logging.LogMessage;
-import concoord.logging.Logger;
 import concoord.util.assertion.IfEqual;
 import concoord.util.assertion.IfNull;
 import concoord.util.assertion.IfSomeOf;
+import concoord.util.logging.ErrMessage;
+import concoord.util.logging.LogMessage;
+import concoord.util.logging.Logger;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;

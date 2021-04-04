@@ -1,4 +1,4 @@
-package concoord.logging;
+package concoord.util.logging;
 
 import org.jetbrains.annotations.Nullable;
 

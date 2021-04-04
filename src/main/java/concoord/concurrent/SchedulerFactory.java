@@ -13,12 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package concoord.scheduling;
+package concoord.concurrent;
 
 import org.jetbrains.annotations.NotNull;
 
-public interface SchedulingStrategyFactory<M> {
+public interface SchedulerFactory {
 
   @NotNull
-  SchedulingStrategy<M> create() throws Exception;
+  Scheduler create() throws Exception;
 }

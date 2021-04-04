@@ -25,22 +25,27 @@ import concoord.concurrent.EndAwaiter;
 import concoord.concurrent.EventAwaiter;
 import concoord.concurrent.Scheduler;
 import concoord.flow.FlowControl;
-import concoord.logging.DbgMessage;
-import concoord.logging.ErrMessage;
-import concoord.logging.InfMessage;
-import concoord.logging.LogMessage;
-import concoord.logging.Logger;
-import concoord.logging.PrintIdentity;
-import concoord.logging.WrnMessage;
 import concoord.util.assertion.IfInterrupt;
 import concoord.util.assertion.IfNull;
 import concoord.util.assertion.IfSomeOf;
 import concoord.util.collection.CircularQueue;
+import concoord.util.logging.DbgMessage;
+import concoord.util.logging.ErrMessage;
+import concoord.util.logging.InfMessage;
+import concoord.util.logging.LogMessage;
+import concoord.util.logging.Logger;
+import concoord.util.logging.PrintIdentity;
+import concoord.util.logging.WrnMessage;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.jetbrains.annotations.NotNull;
 
 public class BaseAwaitable<T> implements Awaitable<T> {
+
+  // TODO: 04/04/21 base => standard
+  // TODO: 04/04/21 consuming buffer
+  // TODO: 04/04/21 flush queues when done/aborted
+  // TODO: 04/04/21 abstract => composition
 
   private static final Object NULL = new Object();
 

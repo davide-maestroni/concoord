@@ -13,31 +13,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package concoord.logging;
+package concoord.util.logging;
 
-import java.util.Locale;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import org.jetbrains.annotations.NotNull;
 
-public class Formatted {
+public class PrintStackTrace {
 
-  private static final Locale ROOT = new Locale("");
+  private final Throwable error;
 
-  private final Locale locale;
-  private final String format;
-  private final Object[] args;
-
-  public Formatted(@NotNull String format, Object... args) {
-    this(ROOT, format, args);
-  }
-
-  public Formatted(@NotNull Locale locale, @NotNull String format, Object... args) {
-    this.locale = locale;
-    this.format = format;
-    this.args = args;
+  public PrintStackTrace(@NotNull Throwable error) {
+    this.error = error;
   }
 
   @Override
   public String toString() {
-    return String.format(locale, format, args);
+    final StringWriter writer = new StringWriter();
+    final PrintWriter printWriter = new PrintWriter(writer);
+    error.printStackTrace(printWriter);
+    printWriter.close();
+    return writer.toString();
   }
 }

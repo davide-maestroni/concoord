@@ -36,9 +36,12 @@ public class ParallelAndTest {
     LazyExecutor lazyExecutor = new LazyExecutor();
     ScheduledExecutor scheduler = new ScheduledExecutor(lazyExecutor);
     Awaitable<String> awaitable = new ParallelAnd<>(
-        () -> new RoundRobin<>(3, Trampoline::new),
         new Iter<>("1", "2", "3").on(scheduler),
-        (m) -> new Yield<>("N" + m, Integer.MAX_VALUE)
+        () -> new RoundRobin<>(
+            3,
+            Trampoline::new,
+            (s, a) -> new For<>(a, (m) -> new Yield<>("N" + m, Integer.MAX_VALUE)).on(s)
+        )
     ).on(scheduler);
     ArrayList<String> testMessages = new ArrayList<>();
     AtomicReference<Throwable> testError = new AtomicReference<>();
@@ -55,9 +58,12 @@ public class ParallelAndTest {
     new TestCancel<>(
         (scheduler) ->
             new ParallelAnd<>(
-                () -> new RoundRobin<>(3, Trampoline::new),
                 new Iter<>("1", "2", "3").on(scheduler),
-                (m) -> new Yield<>("N" + m, Integer.MAX_VALUE)
+                () -> new RoundRobin<>(
+                    3,
+                    Trampoline::new,
+                    (s, a) -> new For<>(a, (m) -> new Yield<>("N" + m, Integer.MAX_VALUE)).on(s)
+                )
             ).on(scheduler),
         (messages) -> assertThat(messages).containsExactly("N1", "N2", "N3")
     ).run();

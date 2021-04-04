@@ -28,16 +28,16 @@ import concoord.flow.Result;
 import concoord.flow.Yield;
 import concoord.lang.BaseAwaitable.BaseFlowControl;
 import concoord.lang.BaseAwaitable.ExecutionControl;
-import concoord.logging.DbgMessage;
-import concoord.logging.LogMessage;
-import concoord.logging.Logger;
-import concoord.logging.PrintIdentity;
-import concoord.logging.WrnMessage;
 import concoord.util.assertion.IfAnyOf;
 import concoord.util.assertion.IfContainsNull;
 import concoord.util.assertion.IfInterrupt;
 import concoord.util.assertion.IfNull;
 import concoord.util.assertion.IfSomeOf;
+import concoord.util.logging.DbgMessage;
+import concoord.util.logging.LogMessage;
+import concoord.util.logging.Logger;
+import concoord.util.logging.PrintIdentity;
+import concoord.util.logging.WrnMessage;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -49,6 +49,8 @@ public class Try<T> implements Task<T> {
 
   private final Awaitable<T> awaitable;
   private final List<Block<? extends T, ? super Throwable>> blocks;
+
+  // TODO: 02/04/21 Try(Collection<Closeable> ...)???
 
   public Try(@NotNull Awaitable<T> awaitable,
       @NotNull Block<? extends T, ? super Throwable>... blocks) {

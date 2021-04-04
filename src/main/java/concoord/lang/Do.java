@@ -21,9 +21,9 @@ import concoord.concurrent.Task;
 import concoord.flow.Result;
 import concoord.lang.BaseAwaitable.BaseFlowControl;
 import concoord.lang.BaseAwaitable.ExecutionControl;
-import concoord.logging.DbgMessage;
-import concoord.logging.PrintIdentity;
 import concoord.util.assertion.IfNull;
+import concoord.util.logging.DbgMessage;
+import concoord.util.logging.PrintIdentity;
 import org.jetbrains.annotations.NotNull;
 
 public class Do<T> implements Task<T> {

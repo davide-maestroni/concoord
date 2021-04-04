@@ -21,11 +21,10 @@ import concoord.concurrent.Task;
 import concoord.data.Buffer;
 import concoord.data.BufferFactory;
 import concoord.data.DefaultBufferFactory;
-import concoord.lang.For.Block;
 import concoord.lang.Parallel.BufferControl;
 import concoord.lang.Parallel.InputChannel;
 import concoord.lang.Parallel.OutputChannel;
-import concoord.scheduling.SchedulingStrategyFactory;
+import concoord.lang.Parallel.SchedulingStrategyFactory;
 import concoord.util.assertion.IfNull;
 import concoord.util.collection.CircularQueue;
 import java.util.Iterator;
@@ -35,20 +34,18 @@ public class ParallelAnd<T, M> implements Task<T> {
 
   private final Parallel<T, M> task;
 
-  public ParallelAnd(@NotNull SchedulingStrategyFactory<? super M> strategyFactory,
-      @NotNull Awaitable<M> awaitable, @NotNull Block<? extends T, ? super M> block) {
-    this(strategyFactory, new DefaultBufferFactory<T>(), awaitable, block);
+  public ParallelAnd(@NotNull Awaitable<M> awaitable,
+      @NotNull SchedulingStrategyFactory<? extends T, ? super M> strategyFactory) {
+    this(awaitable, new DefaultBufferFactory<T>(), strategyFactory);
   }
 
-  public ParallelAnd(@NotNull SchedulingStrategyFactory<? super M> strategyFactory,
-      @NotNull BufferFactory<T> bufferFactory, @NotNull Awaitable<M> awaitable,
-      @NotNull Block<? extends T, ? super M> block) {
+  public ParallelAnd(@NotNull Awaitable<M> awaitable, @NotNull BufferFactory<T> bufferFactory,
+      @NotNull SchedulingStrategyFactory<? extends T, ? super M> strategyFactory) {
     new IfNull("bufferFactory", bufferFactory).throwException();
     this.task = new Parallel<T, M>(
-        strategyFactory,
-        new AndBufferControl<T>(bufferFactory),
         awaitable,
-        block
+        new AndBufferControl<T>(bufferFactory),
+        strategyFactory
     );
   }
 

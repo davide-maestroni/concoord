@@ -24,10 +24,10 @@ import concoord.concurrent.Task;
 import concoord.flow.Result;
 import concoord.lang.BaseAwaitable.BaseFlowControl;
 import concoord.lang.BaseAwaitable.ExecutionControl;
-import concoord.logging.DbgMessage;
-import concoord.logging.PrintIdentity;
 import concoord.util.assertion.IfNull;
 import concoord.util.assertion.IfSomeOf;
+import concoord.util.logging.DbgMessage;
+import concoord.util.logging.PrintIdentity;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import org.jetbrains.annotations.NotNull;
 
