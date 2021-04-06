@@ -51,6 +51,16 @@ public class ParallelAndTest {
     assertThat(testMessages).containsExactly("N1", "N2", "N3");
     assertThat(testError).hasValue(null);
     assertThat(testEnd).isTrue();
+    /*
+    new Parallel<>(
+      new Iter<>("1", "2", "3").on(scheduler),
+      () -> new Each<>(
+        new RoundRobin<>(3, Trampoline::new),
+        (s, a) -> new For<>(a, (m) -> new Yield<>("N" + m, -1)).on(s)
+      )
+      Ordered::new
+    )
+     */
   }
 
   @Test

@@ -43,9 +43,9 @@ import org.jetbrains.annotations.NotNull;
 public class BaseAwaitable<T> implements Awaitable<T> {
 
   // TODO: 04/04/21 base => standard
-  // TODO: 04/04/21 consuming buffer
   // TODO: 04/04/21 flush queues when done/aborted
   // TODO: 04/04/21 abstract => composition
+  // TODO: 05/04/21 stop SchedulingStrategy
 
   private static final Object NULL = new Object();
 

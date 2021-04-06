@@ -91,12 +91,7 @@ public class Streamed<T> implements Task<T> {
       this.error.set(error);
     }
 
-    @SuppressWarnings("unchecked")
     public void run() {
-      final Object message = inputQueue.poll();
-      if (message != null) {
-        buffer.add(message != NULL ? (T) message : null);
-      }
       final BaseFlowControl<T> flowControl = this.flowControl;
       if (flowControl != null) {
         flowControl.execute();
@@ -140,7 +135,12 @@ public class Streamed<T> implements Task<T> {
 
     private class MessageState implements State<T> {
 
+      @SuppressWarnings("unchecked")
       public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
+        final Object message = inputQueue.poll();
+        if (message != null) {
+          buffer.add(message != NULL ? (T) message : null);
+        }
         final Iterator<T> iterator = StreamedControl.this.iterator;
         if (iterator.hasNext()) {
           flowControl.postOutput(iterator.next());
@@ -160,12 +160,15 @@ public class Streamed<T> implements Task<T> {
 
       @Override
       public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
-        final Iterator<T> iterator = StreamedControl.this.iterator;
-        if (!iterator.hasNext()) {
-          flowControl.error(error);
-          return true;
+        if (!super.executeBlock(flowControl)) {
+          final Iterator<T> iterator = StreamedControl.this.iterator;
+          if (!iterator.hasNext()) {
+            flowControl.error(error);
+            return true;
+          }
+          return false;
         }
-        return super.executeBlock(flowControl);
+        return true;
       }
     }
 
@@ -173,12 +176,15 @@ public class Streamed<T> implements Task<T> {
 
       @Override
       public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
-        final Iterator<T> iterator = StreamedControl.this.iterator;
-        if (!iterator.hasNext()) {
-          flowControl.stop();
-          return true;
+        if (!super.executeBlock(flowControl)) {
+          final Iterator<T> iterator = StreamedControl.this.iterator;
+          if (!iterator.hasNext()) {
+            flowControl.stop();
+            return true;
+          }
+          return false;
         }
-        return super.executeBlock(flowControl);
+        return true;
       }
     }
   }

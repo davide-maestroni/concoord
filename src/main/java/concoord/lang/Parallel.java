@@ -57,6 +57,25 @@ public class Parallel<T, M> implements Task<T> {
     );
   }
 
+  interface SchedulingControl<T, M> {
+
+    void schedule(M message) throws Exception;
+
+    void abort();
+
+    void pause();
+
+    void resume();
+
+    void stop();
+
+    boolean isSettled();
+
+    boolean hasNext();
+
+    T next();
+  }
+
   interface BufferControl<M> {
 
     @NotNull
