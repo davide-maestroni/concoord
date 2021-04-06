@@ -13,19 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package concoord.scheduling;
+package concoord.scheduling.strategy;
 
 import concoord.concurrent.Scheduler;
-import concoord.concurrent.SchedulerFactory;
-import concoord.concurrent.Trampoline;
 import org.jetbrains.annotations.NotNull;
 
-class TrampolineFactory implements SchedulerFactory {
-
-  private final Trampoline trampoline = new Trampoline();
+public interface SchedulingStrategy<M> {
 
   @NotNull
-  public Scheduler create() {
-    return trampoline;
-  }
+  Scheduler schedulerFor(M message) throws Exception;
 }

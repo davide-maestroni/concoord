@@ -69,6 +69,7 @@ public class Streamed<T> implements Task<T> {
     private final ConcurrentLinkedQueue<Object> inputQueue = new ConcurrentLinkedQueue<Object>();
     private final AtomicReference<Throwable> error = new AtomicReference<Throwable>();
     private final BufferFactory<T> bufferFactory;
+    private Runnable controlCommand = new InitCommand();
     private State<T> controlState = new InitState();
     private BaseFlowControl<T> flowControl;
     private Buffer<T> buffer;
@@ -92,10 +93,7 @@ public class Streamed<T> implements Task<T> {
     }
 
     public void run() {
-      final BaseFlowControl<T> flowControl = this.flowControl;
-      if (flowControl != null) {
-        flowControl.execute();
-      }
+      controlCommand.run();
     }
 
     private void error(@NotNull Throwable error) {
@@ -123,24 +121,57 @@ public class Streamed<T> implements Task<T> {
       boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception;
     }
 
+    private class InitCommand implements Runnable {
+
+      public void run() {
+        try {
+          buffer = bufferFactory.create();
+          iterator = buffer.iterator();
+          controlState = new MessageState();
+          controlCommand = new MessageCommand();
+        } catch (Exception exception) {
+          controlState = new ErrorState(exception);
+          controlCommand = new FlowCommand();
+        }
+      }
+    }
+
+    private class FlowCommand implements Runnable {
+
+      public void run() {
+        final BaseFlowControl<T> flowControl = StreamedControl.this.flowControl;
+        if (flowControl != null) {
+          flowControl.execute();
+        }
+      }
+    }
+
+    private class MessageCommand extends FlowCommand {
+
+      @SuppressWarnings("unchecked")
+      public void run() {
+        final Object message = inputQueue.poll();
+        if (message != null) {
+          buffer.add(message != NULL ? (T) message : null);
+        }
+        super.run();
+      }
+    }
+
     private class InitState implements State<T> {
 
       public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
         buffer = bufferFactory.create();
         iterator = buffer.iterator();
         controlState = new MessageState();
+        controlCommand = new MessageCommand();
         return controlState.executeBlock(flowControl);
       }
     }
 
     private class MessageState implements State<T> {
 
-      @SuppressWarnings("unchecked")
       public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
-        final Object message = inputQueue.poll();
-        if (message != null) {
-          buffer.add(message != NULL ? (T) message : null);
-        }
         final Iterator<T> iterator = StreamedControl.this.iterator;
         if (iterator.hasNext()) {
           flowControl.postOutput(iterator.next());
@@ -161,12 +192,7 @@ public class Streamed<T> implements Task<T> {
       @Override
       public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
         if (!super.executeBlock(flowControl)) {
-          final Iterator<T> iterator = StreamedControl.this.iterator;
-          if (!iterator.hasNext()) {
-            flowControl.error(error);
-            return true;
-          }
-          return false;
+          flowControl.error(error);
         }
         return true;
       }
@@ -177,12 +203,7 @@ public class Streamed<T> implements Task<T> {
       @Override
       public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
         if (!super.executeBlock(flowControl)) {
-          final Iterator<T> iterator = StreamedControl.this.iterator;
-          if (!iterator.hasNext()) {
-            flowControl.stop();
-            return true;
-          }
-          return false;
+          flowControl.stop();
         }
         return true;
       }

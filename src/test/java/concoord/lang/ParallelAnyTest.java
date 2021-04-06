@@ -22,7 +22,9 @@ import concoord.concurrent.LazyExecutor;
 import concoord.concurrent.ScheduledExecutor;
 import concoord.concurrent.Trampoline;
 import concoord.flow.Yield;
-import concoord.scheduling.RoundRobin;
+import concoord.scheduling.buffer.Unordered;
+import concoord.scheduling.control.Partial;
+import concoord.scheduling.strategy.RoundRobin;
 import concoord.test.TestCancel;
 import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -35,13 +37,13 @@ public class ParallelAnyTest {
   public void basic() {
     LazyExecutor lazyExecutor = new LazyExecutor();
     ScheduledExecutor scheduler = new ScheduledExecutor(lazyExecutor);
-    Awaitable<String> awaitable = new ParallelAny<>(
+    Awaitable<String> awaitable = new Parallel<>(
         new Iter<>("1", "2", "3").on(scheduler),
-        () -> new RoundRobin<>(
-            3,
-            Trampoline::new,
-            (s, a) -> new For<>(a, (m) -> new Yield<>("N" + m, Integer.MAX_VALUE)).on(s)
-        )
+        () -> new Partial<>(
+            new RoundRobin<>(3, Trampoline::new),
+            (s, a) -> new For<>(a, (m) -> new Yield<>("N" + m, -1)).on(s)
+        ),
+        Unordered::new
     ).on(scheduler);
     ArrayList<String> testMessages = new ArrayList<>();
     AtomicReference<Throwable> testError = new AtomicReference<>();
@@ -57,13 +59,13 @@ public class ParallelAnyTest {
   public void cancel() {
     new TestCancel<>(
         (scheduler) ->
-            new ParallelAny<>(
+            new Parallel<>(
                 new Iter<>("1", "2", "3").on(scheduler),
-                () -> new RoundRobin<>(
-                    3,
-                    Trampoline::new,
-                    (s, a) -> new For<>(a, (m) -> new Yield<>("N" + m, Integer.MAX_VALUE)).on(s)
-                )
+                () -> new Partial<>(
+                    new RoundRobin<>(3, Trampoline::new),
+                    (s, a) -> new For<>(a, (m) -> new Yield<>("N" + m, -1)).on(s)
+                ),
+                Unordered::new
             ).on(scheduler),
         (messages) -> assertThat(messages).containsExactlyInAnyOrder("N1", "N2", "N3")
     ).run();

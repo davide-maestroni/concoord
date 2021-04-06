@@ -22,7 +22,9 @@ import concoord.concurrent.LazyExecutor;
 import concoord.concurrent.ScheduledExecutor;
 import concoord.concurrent.Trampoline;
 import concoord.flow.Yield;
-import concoord.scheduling.RoundRobin;
+import concoord.scheduling.buffer.Ordered;
+import concoord.scheduling.control.Each;
+import concoord.scheduling.strategy.RoundRobin;
 import concoord.test.TestCancel;
 import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -35,13 +37,13 @@ public class ParallelAndTest {
   public void basic() {
     LazyExecutor lazyExecutor = new LazyExecutor();
     ScheduledExecutor scheduler = new ScheduledExecutor(lazyExecutor);
-    Awaitable<String> awaitable = new ParallelAnd<>(
+    Awaitable<String> awaitable = new Parallel<>(
         new Iter<>("1", "2", "3").on(scheduler),
-        () -> new RoundRobin<>(
-            3,
-            Trampoline::new,
-            (s, a) -> new For<>(a, (m) -> new Yield<>("N" + m, Integer.MAX_VALUE)).on(s)
-        )
+        () -> new Each<>(
+            new RoundRobin<>(3, Trampoline::new),
+            (s, a) -> new For<>(a, (m) -> new Yield<>("N" + m, -1)).on(s)
+        ),
+        Ordered::new
     ).on(scheduler);
     ArrayList<String> testMessages = new ArrayList<>();
     AtomicReference<Throwable> testError = new AtomicReference<>();
@@ -67,13 +69,13 @@ public class ParallelAndTest {
   public void cancel() {
     new TestCancel<>(
         (scheduler) ->
-            new ParallelAnd<>(
+            new Parallel<>(
                 new Iter<>("1", "2", "3").on(scheduler),
-                () -> new RoundRobin<>(
-                    3,
-                    Trampoline::new,
-                    (s, a) -> new For<>(a, (m) -> new Yield<>("N" + m, Integer.MAX_VALUE)).on(s)
-                )
+                () -> new Each<>(
+                    new RoundRobin<>(3, Trampoline::new),
+                    (s, a) -> new For<>(a, (m) -> new Yield<>("N" + m, -1)).on(s)
+                ),
+                Ordered::new
             ).on(scheduler),
         (messages) -> assertThat(messages).containsExactly("N1", "N2", "N3")
     ).run();
