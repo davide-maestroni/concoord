@@ -22,8 +22,8 @@ import concoord.concurrent.Cancelable;
 import concoord.concurrent.Scheduler;
 import concoord.concurrent.Task;
 import concoord.flow.Result;
-import concoord.lang.BaseAwaitable.BaseFlowControl;
-import concoord.lang.BaseAwaitable.ExecutionControl;
+import concoord.lang.StandardAwaitable.ExecutionControl;
+import concoord.lang.StandardAwaitable.StandardFlowControl;
 import concoord.util.assertion.IfNull;
 import concoord.util.assertion.IfSomeOf;
 import concoord.util.logging.DbgMessage;
@@ -53,7 +53,7 @@ public class For<T, M> implements Task<T> {
 
   @NotNull
   public Awaitable<T> on(@NotNull Scheduler scheduler) {
-    return new BaseAwaitable<T>(
+    return new StandardAwaitable<T>(
         scheduler,
         new ForControl<T, M>(scheduler, maxEvents, awaitable, block)
     );
@@ -86,7 +86,7 @@ public class For<T, M> implements Task<T> {
       this.block = block;
     }
 
-    public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
+    public boolean executeBlock(@NotNull StandardFlowControl<T> flowControl) throws Exception {
       return controlState.executeBlock(flowControl);
     }
 
@@ -103,14 +103,14 @@ public class For<T, M> implements Task<T> {
 
     private interface State<T> {
 
-      boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception;
+      boolean executeBlock(@NotNull StandardFlowControl<T> flowControl) throws Exception;
     }
 
     private class ForAwaiter implements Awaiter<M> {
 
       private final MessageCommand messageCommand = new MessageCommand();
       private State<T> awaiterState = new InitState();
-      private BaseFlowControl<T> flowControl;
+      private StandardFlowControl<T> flowControl;
       private int eventCount;
 
       public void message(M message) {
@@ -130,7 +130,7 @@ public class For<T, M> implements Task<T> {
         scheduler.scheduleLow(new EndCommand());
       }
 
-      private boolean executeBlock(@NotNull BaseFlowControl<T> flowControl)
+      private boolean executeBlock(@NotNull StandardFlowControl<T> flowControl)
           throws Exception {
         this.flowControl = flowControl;
         return awaiterState.executeBlock(flowControl);
@@ -178,7 +178,7 @@ public class For<T, M> implements Task<T> {
 
       private class InitState implements State<T> {
 
-        public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) {
+        public boolean executeBlock(@NotNull StandardFlowControl<T> flowControl) {
           awaiterState = new ReadState();
           eventCount = maxEvents;
           cancelable = awaitable.await(eventCount, ForAwaiter.this);
@@ -188,7 +188,7 @@ public class For<T, M> implements Task<T> {
 
       private class ReadState implements State<T> {
 
-        public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) {
+        public boolean executeBlock(@NotNull StandardFlowControl<T> flowControl) {
           if (eventCount == 0) {
             eventCount = flowControl.inputEvents();
             cancelable = awaitable.await(eventCount, ForAwaiter.this);
@@ -206,7 +206,7 @@ public class For<T, M> implements Task<T> {
           this.error = error;
         }
 
-        public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) {
+        public boolean executeBlock(@NotNull StandardFlowControl<T> flowControl) {
           flowControl.error(error);
           return true;
         }
@@ -214,7 +214,7 @@ public class For<T, M> implements Task<T> {
 
       private class EndState implements State<T> {
 
-        public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) {
+        public boolean executeBlock(@NotNull StandardFlowControl<T> flowControl) {
           flowControl.stop();
           return true;
         }
@@ -223,7 +223,7 @@ public class For<T, M> implements Task<T> {
 
     private class InputState implements State<T> {
 
-      public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
+      public boolean executeBlock(@NotNull StandardFlowControl<T> flowControl) throws Exception {
         controlState = new MessageState();
         awaiter = new ForAwaiter();
         awaiter.executeBlock(flowControl);
@@ -234,7 +234,7 @@ public class For<T, M> implements Task<T> {
     private class MessageState implements State<T> {
 
       @SuppressWarnings("unchecked")
-      public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
+      public boolean executeBlock(@NotNull StandardFlowControl<T> flowControl) throws Exception {
         final Object message = inputQueue.poll();
         if (message != null) {
           flowControl.logger().log(

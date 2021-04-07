@@ -77,7 +77,7 @@ public class Buffered<M> implements Buffer<M> {
     return buffer.iterator();
   }
 
-  private static abstract class BaseBuffer<M> implements Buffer<M> {
+  private static abstract class AbstractBuffer<M> implements Buffer<M> {
 
     private final WeakHashMap<BufferedIterator<M>, Void> iterators =
         new WeakHashMap<BufferedIterator<M>, Void>();
@@ -96,7 +96,7 @@ public class Buffered<M> implements Buffer<M> {
     }
   }
 
-  private static class BufferedCollection<M> extends BaseBuffer<M> {
+  private static class BufferedCollection<M> extends AbstractBuffer<M> {
 
     private final Collection<M> data;
 
@@ -131,7 +131,7 @@ public class Buffered<M> implements Buffer<M> {
     }
   }
 
-  private static class BufferedList<M> extends BaseBuffer<M> {
+  private static class BufferedList<M> extends AbstractBuffer<M> {
 
     private final List<M> data;
 
@@ -158,7 +158,7 @@ public class Buffered<M> implements Buffer<M> {
     }
   }
 
-  private static class BufferedQueue<M> extends BaseBuffer<M> {
+  private static class BufferedQueue<M> extends AbstractBuffer<M> {
 
     private final Queue<M> data;
 
@@ -200,7 +200,7 @@ public class Buffered<M> implements Buffer<M> {
     }
   }
 
-  private static class BufferedCircularQueue<M> extends BaseBuffer<M> {
+  private static class BufferedCircularQueue<M> extends AbstractBuffer<M> {
 
     private final CircularQueue<M> data;
 

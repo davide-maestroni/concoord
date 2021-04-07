@@ -18,8 +18,8 @@ package concoord.lang;
 import concoord.concurrent.Awaitable;
 import concoord.concurrent.Scheduler;
 import concoord.concurrent.Task;
-import concoord.lang.BaseAwaitable.BaseFlowControl;
-import concoord.lang.BaseAwaitable.ExecutionControl;
+import concoord.lang.StandardAwaitable.ExecutionControl;
+import concoord.lang.StandardAwaitable.StandardFlowControl;
 import java.util.Date;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -71,7 +71,7 @@ public class Timeout implements Task<Long> {
 
   @NotNull
   public Awaitable<Long> on(@NotNull Scheduler scheduler) {
-    return new BaseAwaitable<Long>(scheduler, controlFactory.create(scheduler));
+    return new StandardAwaitable<Long>(scheduler, controlFactory.create(scheduler));
   }
 
   private interface ControlFactory {
@@ -100,7 +100,7 @@ public class Timeout implements Task<Long> {
     private final Scheduler scheduler;
     private final long delayMillis;
     private ExecutionControl<Long> controlState = startState;
-    private BaseFlowControl<Long> flowControl;
+    private StandardFlowControl<Long> flowControl;
     private Long message;
 
     private DelayControl(@NotNull Scheduler scheduler, long delayMillis) {
@@ -108,7 +108,7 @@ public class Timeout implements Task<Long> {
       this.delayMillis = delayMillis;
     }
 
-    public boolean executeBlock(@NotNull BaseFlowControl<Long> flowControl) throws Exception {
+    public boolean executeBlock(@NotNull StandardFlowControl<Long> flowControl) throws Exception {
       this.flowControl = flowControl;
       return controlState.executeBlock(flowControl);
     }
@@ -127,7 +127,7 @@ public class Timeout implements Task<Long> {
 
     private static class EndState implements ExecutionControl<Long> {
 
-      public boolean executeBlock(@NotNull BaseFlowControl<Long> flowControl) throws Exception {
+      public boolean executeBlock(@NotNull StandardFlowControl<Long> flowControl) throws Exception {
         flowControl.stop();
         return true;
       }
@@ -151,7 +151,7 @@ public class Timeout implements Task<Long> {
 
     private class StartState implements ExecutionControl<Long> {
 
-      public boolean executeBlock(@NotNull BaseFlowControl<Long> flowControl) throws Exception {
+      public boolean executeBlock(@NotNull StandardFlowControl<Long> flowControl) throws Exception {
         controlState = new MessageState();
         timer().schedule(DelayControl.this, delayMillis);
         return false;
@@ -166,7 +166,7 @@ public class Timeout implements Task<Long> {
 
     private class MessageState implements ExecutionControl<Long> {
 
-      public boolean executeBlock(@NotNull BaseFlowControl<Long> flowControl) throws Exception {
+      public boolean executeBlock(@NotNull StandardFlowControl<Long> flowControl) throws Exception {
         final Long message = DelayControl.this.message;
         if (message != null) {
           controlState = new EndState();
@@ -215,7 +215,7 @@ public class Timeout implements Task<Long> {
     private final long delayMillis;
     private final long periodMillis;
     private ExecutionControl<Long> controlState = startState;
-    private BaseFlowControl<Long> flowControl;
+    private StandardFlowControl<Long> flowControl;
 
     private PeriodControl(@NotNull Scheduler scheduler, long delayMillis, long periodMillis) {
       this.scheduler = scheduler;
@@ -223,7 +223,7 @@ public class Timeout implements Task<Long> {
       this.periodMillis = periodMillis;
     }
 
-    public boolean executeBlock(@NotNull BaseFlowControl<Long> flowControl) throws Exception {
+    public boolean executeBlock(@NotNull StandardFlowControl<Long> flowControl) throws Exception {
       this.flowControl = flowControl;
       return controlState.executeBlock(flowControl);
     }
@@ -250,7 +250,7 @@ public class Timeout implements Task<Long> {
 
     private class StartState implements ExecutionControl<Long> {
 
-      public boolean executeBlock(@NotNull BaseFlowControl<Long> flowControl) throws Exception {
+      public boolean executeBlock(@NotNull StandardFlowControl<Long> flowControl) throws Exception {
         controlState = messageState;
         timer().scheduleAtFixedRate(PeriodControl.this, delayMillis, periodMillis);
         return false;
@@ -265,7 +265,7 @@ public class Timeout implements Task<Long> {
 
     private class MessageState implements ExecutionControl<Long> {
 
-      public boolean executeBlock(@NotNull BaseFlowControl<Long> flowControl) throws Exception {
+      public boolean executeBlock(@NotNull StandardFlowControl<Long> flowControl) throws Exception {
         final Long message = outputQueue.poll();
         if (message != null) {
           flowControl.postOutput(message);

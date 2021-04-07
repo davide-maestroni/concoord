@@ -23,8 +23,8 @@ import concoord.concurrent.Task;
 import concoord.data.Buffer;
 import concoord.data.BufferFactory;
 import concoord.data.DefaultBufferFactory;
-import concoord.lang.BaseAwaitable.BaseFlowControl;
-import concoord.lang.BaseAwaitable.ExecutionControl;
+import concoord.lang.StandardAwaitable.ExecutionControl;
+import concoord.lang.StandardAwaitable.StandardFlowControl;
 import concoord.util.assertion.IfNull;
 import java.io.Closeable;
 import java.io.IOException;
@@ -55,7 +55,7 @@ public class Streamed<T> implements Task<T> {
 
   @NotNull
   public StreamedAwaitable<T> on(@NotNull Scheduler scheduler) {
-    return new BaseStreamedAwaitable<T>(scheduler, new StreamedControl<T>(bufferFactory));
+    return new StandardStreamedAwaitable<T>(scheduler, new StreamedControl<T>(bufferFactory));
   }
 
   public interface StreamedAwaitable<T> extends Awaitable<T>, Awaiter<T> {
@@ -71,7 +71,7 @@ public class Streamed<T> implements Task<T> {
     private final BufferFactory<T> bufferFactory;
     private Runnable controlCommand = new InitCommand();
     private State<T> controlState = new InitState();
-    private BaseFlowControl<T> flowControl;
+    private StandardFlowControl<T> flowControl;
     private Buffer<T> buffer;
     private Iterator<T> iterator;
 
@@ -79,7 +79,7 @@ public class Streamed<T> implements Task<T> {
       this.bufferFactory = bufferFactory;
     }
 
-    public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
+    public boolean executeBlock(@NotNull StandardFlowControl<T> flowControl) throws Exception {
       this.flowControl = flowControl;
       return controlState.executeBlock(flowControl);
     }
@@ -118,7 +118,7 @@ public class Streamed<T> implements Task<T> {
 
     private interface State<T> {
 
-      boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception;
+      boolean executeBlock(@NotNull StandardFlowControl<T> flowControl) throws Exception;
     }
 
     private class InitCommand implements Runnable {
@@ -139,7 +139,7 @@ public class Streamed<T> implements Task<T> {
     private class FlowCommand implements Runnable {
 
       public void run() {
-        final BaseFlowControl<T> flowControl = StreamedControl.this.flowControl;
+        final StandardFlowControl<T> flowControl = StreamedControl.this.flowControl;
         if (flowControl != null) {
           flowControl.execute();
         }
@@ -160,7 +160,7 @@ public class Streamed<T> implements Task<T> {
 
     private class InitState implements State<T> {
 
-      public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
+      public boolean executeBlock(@NotNull StandardFlowControl<T> flowControl) throws Exception {
         buffer = bufferFactory.create();
         iterator = buffer.iterator();
         controlState = new MessageState();
@@ -171,7 +171,7 @@ public class Streamed<T> implements Task<T> {
 
     private class MessageState implements State<T> {
 
-      public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
+      public boolean executeBlock(@NotNull StandardFlowControl<T> flowControl) throws Exception {
         final Iterator<T> iterator = StreamedControl.this.iterator;
         if (iterator.hasNext()) {
           flowControl.postOutput(iterator.next());
@@ -190,7 +190,7 @@ public class Streamed<T> implements Task<T> {
       }
 
       @Override
-      public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
+      public boolean executeBlock(@NotNull StandardFlowControl<T> flowControl) throws Exception {
         if (!super.executeBlock(flowControl)) {
           flowControl.error(error);
         }
@@ -201,7 +201,7 @@ public class Streamed<T> implements Task<T> {
     private class EndState extends MessageState {
 
       @Override
-      public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
+      public boolean executeBlock(@NotNull StandardFlowControl<T> flowControl) throws Exception {
         if (!super.executeBlock(flowControl)) {
           flowControl.stop();
         }
@@ -210,13 +210,13 @@ public class Streamed<T> implements Task<T> {
     }
   }
 
-  private static class BaseStreamedAwaitable<T> extends BaseAwaitable<T> implements
+  private static class StandardStreamedAwaitable<T> extends StandardAwaitable<T> implements
       StreamedAwaitable<T> {
 
     private final Scheduler scheduler;
     private final StreamedControl<T> executionControl;
 
-    public BaseStreamedAwaitable(@NotNull Scheduler scheduler,
+    public StandardStreamedAwaitable(@NotNull Scheduler scheduler,
         @NotNull StreamedControl<T> executionControl) {
       super(scheduler, executionControl);
       this.scheduler = scheduler;
@@ -279,9 +279,9 @@ public class Streamed<T> implements Task<T> {
 
   private static class CloseableAwaitable implements Closeable {
 
-    private final BaseStreamedAwaitable<?> awaitable;
+    private final StandardStreamedAwaitable<?> awaitable;
 
-    private CloseableAwaitable(@NotNull BaseStreamedAwaitable<?> awaitable) {
+    private CloseableAwaitable(@NotNull StandardStreamedAwaitable<?> awaitable) {
       this.awaitable = awaitable;
     }
 

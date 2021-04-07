@@ -18,8 +18,8 @@ package concoord.lang;
 import concoord.concurrent.Awaitable;
 import concoord.concurrent.Scheduler;
 import concoord.concurrent.Task;
-import concoord.lang.BaseAwaitable.BaseFlowControl;
-import concoord.lang.BaseAwaitable.ExecutionControl;
+import concoord.lang.StandardAwaitable.ExecutionControl;
+import concoord.lang.StandardAwaitable.StandardFlowControl;
 import concoord.util.assertion.IfNull;
 import concoord.util.logging.DbgMessage;
 import concoord.util.logging.PrintIdentity;
@@ -48,7 +48,7 @@ public class Iter<T> implements Task<T> {
 
   @NotNull
   public Awaitable<T> on(@NotNull Scheduler scheduler) {
-    return new BaseAwaitable<T>(scheduler, new IterControl<T>(messages.iterator()));
+    return new StandardAwaitable<T>(scheduler, new IterControl<T>(messages.iterator()));
   }
 
   private static class IterControl<T> implements ExecutionControl<T> {
@@ -60,7 +60,7 @@ public class Iter<T> implements Task<T> {
       this.iterator = iterator;
     }
 
-    public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) {
+    public boolean executeBlock(@NotNull StandardFlowControl<T> flowControl) {
       final Iterator<? extends T> iterator = this.iterator;
       flowControl.logger().log(
           new DbgMessage("[executing] next iteration: %s", new PrintIdentity(iterator))

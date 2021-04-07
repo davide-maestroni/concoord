@@ -21,8 +21,8 @@ import concoord.concurrent.CancelException;
 import concoord.concurrent.Cancelable;
 import concoord.concurrent.Scheduler;
 import concoord.concurrent.Task;
-import concoord.lang.BaseAwaitable.BaseFlowControl;
-import concoord.lang.BaseAwaitable.ExecutionControl;
+import concoord.lang.StandardAwaitable.ExecutionControl;
+import concoord.lang.StandardAwaitable.StandardFlowControl;
 import concoord.util.assertion.IfNull;
 import concoord.util.assertion.IfSomeOf;
 import concoord.util.logging.ErrMessage;
@@ -52,7 +52,7 @@ public class Parallel<T, M> implements Task<T> {
 
   @NotNull
   public Awaitable<T> on(@NotNull Scheduler scheduler) {
-    return new BaseAwaitable<T>(
+    return new StandardAwaitable<T>(
         scheduler,
         new ParallelControl<T, M>(
             scheduler,
@@ -139,7 +139,7 @@ public class Parallel<T, M> implements Task<T> {
       this.bufferControlFactory = bufferControlFactory;
     }
 
-    public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
+    public boolean executeBlock(@NotNull StandardFlowControl<T> flowControl) throws Exception {
       return controlState.executeBlock(flowControl);
     }
 
@@ -169,7 +169,7 @@ public class Parallel<T, M> implements Task<T> {
 
     private interface State<T> {
 
-      boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception;
+      boolean executeBlock(@NotNull StandardFlowControl<T> flowControl) throws Exception;
     }
 
     private class ParallelAwaiter implements Awaiter<M> {
@@ -177,7 +177,7 @@ public class Parallel<T, M> implements Task<T> {
       private final ConcurrentLinkedQueue<Object> inputQueue = new ConcurrentLinkedQueue<Object>();
       private final InputMessageCommand inputMessageCommand = new InputMessageCommand();
       private State<T> awaiterState = new ReadState();
-      private BaseFlowControl<T> flowControl;
+      private StandardFlowControl<T> flowControl;
       private int eventCount;
 
       public void message(M message) {
@@ -197,7 +197,7 @@ public class Parallel<T, M> implements Task<T> {
         scheduler.scheduleLow(new EndCommand());
       }
 
-      private boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
+      private boolean executeBlock(@NotNull StandardFlowControl<T> flowControl) throws Exception {
         this.flowControl = flowControl;
         return awaiterState.executeBlock(flowControl);
       }
@@ -213,7 +213,7 @@ public class Parallel<T, M> implements Task<T> {
           if (eventCount > 0) {
             --eventCount;
           }
-          final BaseFlowControl<T> flowControl = ParallelAwaiter.this.flowControl;
+          final StandardFlowControl<T> flowControl = ParallelAwaiter.this.flowControl;
           final M input = message != NULL ? (M) message : null;
           try {
 //            final Scheduler scheduler = strategy.schedule(input);
@@ -276,7 +276,7 @@ public class Parallel<T, M> implements Task<T> {
 
       private class ReadState implements State<T> {
 
-        public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) {
+        public boolean executeBlock(@NotNull StandardFlowControl<T> flowControl) {
           if (eventCount == 0) {
             eventCount = flowControl.outputEvents();
             cancelable = awaitable.await(eventCount, ParallelAwaiter.this);
@@ -294,7 +294,7 @@ public class Parallel<T, M> implements Task<T> {
           this.error = error;
         }
 
-        public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) {
+        public boolean executeBlock(@NotNull StandardFlowControl<T> flowControl) {
           flowControl.error(error);
           cancelExecution(); // TODO: 18/03/21 ???
           return true;
@@ -303,7 +303,7 @@ public class Parallel<T, M> implements Task<T> {
 
       private class EndState implements State<T> {
 
-        public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) {
+        public boolean executeBlock(@NotNull StandardFlowControl<T> flowControl) {
           if (awaitables.isEmpty()) {
             flowControl.stop();
             return true;
@@ -394,7 +394,7 @@ public class Parallel<T, M> implements Task<T> {
 
     private class InputState implements State<T> {
 
-      public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
+      public boolean executeBlock(@NotNull StandardFlowControl<T> flowControl) throws Exception {
         schedulingControl = schedulingControlFactory.create();
         bufferControl = bufferControlFactory.create();
         outputChannel = bufferControl.outputChannel();
@@ -406,7 +406,7 @@ public class Parallel<T, M> implements Task<T> {
 
     private class MessageState implements State<T> {
 
-      public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
+      public boolean executeBlock(@NotNull StandardFlowControl<T> flowControl) throws Exception {
         final OutputChannel<T> outputChannel = ParallelControl.this.outputChannel;
         if (outputChannel.hasNext()) {
           flowControl.postOutput(outputChannel.next());

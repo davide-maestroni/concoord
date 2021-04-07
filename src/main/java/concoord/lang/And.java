@@ -18,8 +18,8 @@ package concoord.lang;
 import concoord.concurrent.Awaitable;
 import concoord.concurrent.Scheduler;
 import concoord.concurrent.Task;
-import concoord.lang.BaseAwaitable.BaseFlowControl;
-import concoord.lang.BaseAwaitable.ExecutionControl;
+import concoord.lang.StandardAwaitable.ExecutionControl;
+import concoord.lang.StandardAwaitable.StandardFlowControl;
 import concoord.util.assertion.IfAnyOf;
 import concoord.util.assertion.IfContainsNull;
 import concoord.util.assertion.IfNull;
@@ -45,7 +45,7 @@ public class And<T> implements Task<T> {
 
   @NotNull
   public Awaitable<T> on(@NotNull Scheduler scheduler) {
-    return new BaseAwaitable<T>(scheduler, new AndControl<T>(awaitables.iterator()));
+    return new StandardAwaitable<T>(scheduler, new AndControl<T>(awaitables.iterator()));
   }
 
   private static class AndControl<T> implements ExecutionControl<T> {
@@ -57,7 +57,7 @@ public class And<T> implements Task<T> {
       this.iterator = iterator;
     }
 
-    public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) {
+    public boolean executeBlock(@NotNull StandardFlowControl<T> flowControl) {
       if (iterator.hasNext()) {
         flowControl.postOutput(iterator.next());
       } else {

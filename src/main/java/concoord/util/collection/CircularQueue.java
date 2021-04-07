@@ -230,8 +230,8 @@ public class CircularQueue<E> extends AbstractCollection<E> implements Queue<E> 
   }
 
   /**
-   * Removes the element at the specified position in this queue. Shifts any subsequent elements to
-   * the left (subtracts one from their indices).
+   * Removes the element at the specified position in this queue. Shifts any subsequent elements to the left (subtracts
+   * one from their indices).
    *
    * @param index the index of the element to be removed.
    * @return the element that was removed from the queue.

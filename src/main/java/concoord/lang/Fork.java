@@ -21,8 +21,8 @@ import concoord.concurrent.Scheduler;
 import concoord.concurrent.Task;
 import concoord.concurrent.Trampoline;
 import concoord.data.Buffer;
-import concoord.lang.BaseAwaitable.BaseFlowControl;
-import concoord.lang.BaseAwaitable.ExecutionControl;
+import concoord.lang.StandardAwaitable.ExecutionControl;
+import concoord.lang.StandardAwaitable.StandardFlowControl;
 import concoord.util.assertion.IfNull;
 import concoord.util.assertion.IfSomeOf;
 import java.util.Iterator;
@@ -61,13 +61,14 @@ public class Fork<T> implements Task<T> {
 
   @NotNull
   public Awaitable<T> on(@NotNull Scheduler scheduler) {
-    return new Reschedule<T>(new BaseAwaitable<T>(trampoline, new ForkControl()))
-        .on(scheduler);
+    return new Reschedule<T>(
+        new StandardAwaitable<T>(trampoline, new ForkControl())
+    ).on(scheduler);
   }
 
   private interface State<T> {
 
-    boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception;
+    boolean executeBlock(@NotNull StandardFlowControl<T> flowControl) throws Exception;
   }
 
   private class ReadRunnable implements Runnable {
@@ -198,10 +199,10 @@ public class Fork<T> implements Task<T> {
   private class ForkControl implements ExecutionControl<T>, Runnable {
 
     private State<T> controlState = new InitState();
-    private BaseFlowControl<T> flowControl;
+    private StandardFlowControl<T> flowControl;
     private Iterator<T> iterator;
 
-    public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
+    public boolean executeBlock(@NotNull StandardFlowControl<T> flowControl) throws Exception {
       return controlState.executeBlock(flowControl);
     }
 
@@ -214,7 +215,7 @@ public class Fork<T> implements Task<T> {
     }
 
     public void run() {
-      final BaseFlowControl<T> flowControl = this.flowControl;
+      final StandardFlowControl<T> flowControl = this.flowControl;
       if (flowControl != null) {
         flowControl.execute();
       }
@@ -229,7 +230,7 @@ public class Fork<T> implements Task<T> {
     }
 
     private int inputEvents() {
-      final BaseFlowControl<T> flowControl = this.flowControl;
+      final StandardFlowControl<T> flowControl = this.flowControl;
       if (flowControl != null) {
         return flowControl.inputEvents();
       }
@@ -238,7 +239,7 @@ public class Fork<T> implements Task<T> {
 
     private class InitState implements State<T> {
 
-      public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
+      public boolean executeBlock(@NotNull StandardFlowControl<T> flowControl) throws Exception {
         controls.put(ForkControl.this, null);
         iterator = buffer.iterator();
         controlState = new ReadState();
@@ -248,7 +249,7 @@ public class Fork<T> implements Task<T> {
 
     private class ReadState implements State<T> {
 
-      public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
+      public boolean executeBlock(@NotNull StandardFlowControl<T> flowControl) throws Exception {
         ForkControl.this.flowControl = flowControl;
         final Iterator<T> iterator = ForkControl.this.iterator;
         if (iterator.hasNext()) {
@@ -269,7 +270,7 @@ public class Fork<T> implements Task<T> {
         this.error = error;
       }
 
-      public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
+      public boolean executeBlock(@NotNull StandardFlowControl<T> flowControl) throws Exception {
         ForkControl.this.flowControl = flowControl;
         final Iterator<T> iterator = ForkControl.this.iterator;
         if (iterator.hasNext()) {
@@ -283,7 +284,7 @@ public class Fork<T> implements Task<T> {
 
     private class EndState implements State<T> {
 
-      public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
+      public boolean executeBlock(@NotNull StandardFlowControl<T> flowControl) throws Exception {
         ForkControl.this.flowControl = flowControl;
         final Iterator<T> iterator = ForkControl.this.iterator;
         if (iterator.hasNext()) {

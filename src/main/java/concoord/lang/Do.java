@@ -19,8 +19,8 @@ import concoord.concurrent.Awaitable;
 import concoord.concurrent.Scheduler;
 import concoord.concurrent.Task;
 import concoord.flow.Result;
-import concoord.lang.BaseAwaitable.BaseFlowControl;
-import concoord.lang.BaseAwaitable.ExecutionControl;
+import concoord.lang.StandardAwaitable.ExecutionControl;
+import concoord.lang.StandardAwaitable.StandardFlowControl;
 import concoord.util.assertion.IfNull;
 import concoord.util.logging.DbgMessage;
 import concoord.util.logging.PrintIdentity;
@@ -37,7 +37,7 @@ public class Do<T> implements Task<T> {
 
   @NotNull
   public Awaitable<T> on(@NotNull Scheduler scheduler) {
-    return new BaseAwaitable<T>(scheduler, new DoControl<T>(block));
+    return new StandardAwaitable<T>(scheduler, new DoControl<T>(block));
   }
 
   public interface Block<T> {
@@ -54,7 +54,7 @@ public class Do<T> implements Task<T> {
       this.block = block;
     }
 
-    public boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception {
+    public boolean executeBlock(@NotNull StandardFlowControl<T> flowControl) throws Exception {
       flowControl.logger().log(new DbgMessage("[executing] block: %s", new PrintIdentity(block)));
       block.execute().apply(flowControl);
       return true;

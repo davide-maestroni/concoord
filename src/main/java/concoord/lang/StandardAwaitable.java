@@ -40,12 +40,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.jetbrains.annotations.NotNull;
 
-public class BaseAwaitable<T> implements Awaitable<T> {
-
-  // TODO: 04/04/21 base => standard
-  // TODO: 04/04/21 flush queues when done/aborted
-  // TODO: 04/04/21 abstract => composition
-  // TODO: 05/04/21 stop SchedulingStrategy
+public class StandardAwaitable<T> implements Awaitable<T> {
 
   private static final Object NULL = new Object();
 
@@ -71,7 +66,7 @@ public class BaseAwaitable<T> implements Awaitable<T> {
   private boolean stopped;
   private boolean aborted;
 
-  public BaseAwaitable(@NotNull Scheduler scheduler,
+  public StandardAwaitable(@NotNull Scheduler scheduler,
       @NotNull ExecutionControl<T> executionControl) {
     new IfSomeOf(
         new IfNull("scheduler", scheduler),
@@ -97,7 +92,7 @@ public class BaseAwaitable<T> implements Awaitable<T> {
     }
     final InternalFlowControl flowControl = new InternalFlowControl(maxEvents, awaiter);
     scheduler.scheduleHigh(flowControl);
-    return new BaseCancelable(flowControl);
+    return new StandardCancelable(flowControl);
   }
 
   @NotNull
@@ -148,7 +143,7 @@ public class BaseAwaitable<T> implements Awaitable<T> {
     }
   }
 
-  public interface BaseFlowControl<T> extends FlowControl<T> {
+  public interface StandardFlowControl<T> extends FlowControl<T> {
 
     void error(@NotNull Throwable error);
 
@@ -166,32 +161,11 @@ public class BaseAwaitable<T> implements Awaitable<T> {
 
   public interface ExecutionControl<T> {
 
-    boolean executeBlock(@NotNull BaseFlowControl<T> flowControl) throws Exception;
+    boolean executeBlock(@NotNull StandardFlowControl<T> flowControl) throws Exception;
 
     void cancelExecution() throws Exception;
 
     void abortExecution(@NotNull Throwable error) throws Exception;
-  }
-
-  private static class BaseCancelable implements Cancelable {
-
-    private final Cancelable cancelable;
-
-    private BaseCancelable(@NotNull Cancelable cancelable) {
-      this.cancelable = cancelable;
-    }
-
-    public boolean isError() {
-      return cancelable.isError();
-    }
-
-    public boolean isDone() {
-      return cancelable.isDone();
-    }
-
-    public void cancel() {
-      cancelable.cancel();
-    }
   }
 
   private static class DummyAwaiter<T> implements Awaiter<T> {
@@ -217,6 +191,27 @@ public class BaseAwaitable<T> implements Awaitable<T> {
     }
 
     public void cancel() {
+    }
+  }
+
+  private static class StandardCancelable implements Cancelable {
+
+    private final Cancelable cancelable;
+
+    private StandardCancelable(@NotNull Cancelable cancelable) {
+      this.cancelable = cancelable;
+    }
+
+    public boolean isError() {
+      return cancelable.isError();
+    }
+
+    public boolean isDone() {
+      return cancelable.isDone();
+    }
+
+    public void cancel() {
+      cancelable.cancel();
     }
   }
 
@@ -500,7 +495,7 @@ public class BaseAwaitable<T> implements Awaitable<T> {
     }
   }
 
-  private class InternalFlowControl implements BaseFlowControl<T>, Cancelable, Runnable {
+  private class InternalFlowControl implements StandardFlowControl<T>, Cancelable, Runnable {
 
     private static final int ERROR = -1;
     private static final int RUNNING = 0;
