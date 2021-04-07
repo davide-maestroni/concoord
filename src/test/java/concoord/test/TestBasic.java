@@ -18,8 +18,6 @@ package concoord.test;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import concoord.concurrent.Awaitable;
-import concoord.concurrent.CancelException;
-import concoord.concurrent.Cancelable;
 import concoord.concurrent.LazyExecutor;
 import concoord.concurrent.ScheduledExecutor;
 import concoord.concurrent.Scheduler;
@@ -31,12 +29,12 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import org.jetbrains.annotations.NotNull;
 
-public class TestCancel<T> implements Runnable {
+public class TestBasic<T> implements Runnable {
 
   private final Function<Scheduler, Awaitable<T>> factory;
   private final Consumer<List<T>> assertion;
 
-  public TestCancel(@NotNull Function<Scheduler, Awaitable<T>> awaitableFactory,
+  public TestBasic(@NotNull Function<Scheduler, Awaitable<T>> awaitableFactory,
       @NotNull Consumer<List<T>> messageAssertion) {
     this.factory = awaitableFactory;
     this.assertion = messageAssertion;
@@ -49,33 +47,11 @@ public class TestCancel<T> implements Runnable {
     ArrayList<T> testMessages = new ArrayList<>();
     AtomicReference<Throwable> testError = new AtomicReference<>();
     AtomicBoolean testEnd = new AtomicBoolean();
-    int i = 0;
-    int count;
-    boolean done;
-    do {
-      testMessages.clear();
-      testError.set(null);
-      testEnd.set(false);
-      Awaitable<T> awaitable = factory.apply(scheduler);
-      Cancelable cancelable =
-          awaitable.await(-1, testMessages::add, testError::set, () -> testEnd.set(true));
-      count = lazyExecutor.advance(i++);
-      done = cancelable.isDone();
-      cancelable.cancel();
-      lazyExecutor.advance(Integer.MAX_VALUE);
-      if (done) {
-        assertThat(testError).hasValue(null);
-      } else {
-        assertThat(testError.get()).isExactlyInstanceOf(CancelException.class);
-      }
-      assertThat(testEnd.get()).isEqualTo(done);
-      testError.set(null);
-      testEnd.set(false);
-      awaitable.await(-1, testMessages::add, testError::set, () -> testEnd.set(true));
-      lazyExecutor.advance(Integer.MAX_VALUE);
-      assertion.accept(testMessages);
-      assertThat(testError).hasValue(null);
-      assertThat(testEnd).isTrue();
-    } while (count == (i - 1));
+    Awaitable<T> awaitable = factory.apply(scheduler);
+    awaitable.await(-1, testMessages::add, testError::set, () -> testEnd.set(true));
+    lazyExecutor.advance(Integer.MAX_VALUE);
+    assertion.accept(testMessages);
+    assertThat(testError).hasValue(null);
+    assertThat(testEnd).isTrue();
   }
 }
