@@ -52,7 +52,9 @@ public class BaseAwaitable<T> implements Awaitable<T> {
   private final Logger awaitableLogger = new Logger(Awaitable.class, this);
   private final CircularQueue<InternalFlowControl> flowControls = new CircularQueue<InternalFlowControl>();
   private final ConcurrentLinkedQueue<Object> outputQueue = new ConcurrentLinkedQueue<Object>();
+  private final ControlCommand controlCommand = new ControlCommand();
   private final StateCommand stateCommand = new StateCommand();
+  private final NoOpCommand noOpCommand = new NoOpCommand();
   private final EndCommand endCommand = new EndCommand();
   private final ReadState readState = new ReadState();
   private final WriteState writeState = new WriteState();
@@ -60,6 +62,7 @@ public class BaseAwaitable<T> implements Awaitable<T> {
   private final InternalAwaiter inputAwaiter = new InternalAwaiter();
   private final Scheduler scheduler;
   private final ExecutionControl<T> executionControl;
+  private Runnable currentCommand = noOpCommand;
   private Runnable currentState = readState;
   private InternalFlowControl currentFlowControl;
   private Awaitable<? extends T> currentAwaitable;
@@ -128,6 +131,7 @@ public class BaseAwaitable<T> implements Awaitable<T> {
     if (currentFlowControl != null) {
       scheduler.scheduleLow(currentFlowControl);
     } else {
+      currentCommand = noOpCommand;
       awaitableLogger.log(new InfMessage("[settled]"));
       final Cancelable cancelable = this.currentCancelable;
       if (cancelable != null) {
@@ -216,13 +220,16 @@ public class BaseAwaitable<T> implements Awaitable<T> {
     }
   }
 
+  private static class NoOpCommand implements Runnable {
+
+    public void run() {
+    }
+  }
+
   private class ReadState implements Runnable {
 
     public void run() {
       final InternalFlowControl flowControl = currentFlowControl;
-      if (flowControl == null) {
-        return;
-      }
       try {
         flowControl.resetPosts();
         if (!executionControl.executeBlock(flowControl)) {
@@ -240,7 +247,7 @@ public class BaseAwaitable<T> implements Awaitable<T> {
         } else if ((flowControl.outputEvents() == 0) || aborted) {
           nextFlowControl();
         } else {
-          scheduler.scheduleLow(stateCommand);
+          scheduler.scheduleLow(controlCommand);
         }
       } catch (final Exception e) {
         awaitableLogger.log(
@@ -258,9 +265,6 @@ public class BaseAwaitable<T> implements Awaitable<T> {
     @SuppressWarnings("unchecked")
     public void run() {
       final InternalFlowControl flowControl = currentFlowControl;
-      if (flowControl == null) {
-        return;
-      }
       try {
         final Object message = outputQueue.poll();
         if (message != null) {
@@ -286,9 +290,6 @@ public class BaseAwaitable<T> implements Awaitable<T> {
     @SuppressWarnings("unchecked")
     public void run() {
       final InternalFlowControl flowControl = currentFlowControl;
-      if (flowControl == null) {
-        return;
-      }
       try {
         final Object message = outputQueue.poll();
         if (message != null) {
@@ -297,7 +298,7 @@ public class BaseAwaitable<T> implements Awaitable<T> {
           if ((flowControl.outputEvents() == 0) || aborted) {
             nextFlowControl();
           } else {
-            scheduler.scheduleLow(stateCommand);
+            scheduler.scheduleLow(controlCommand);
           }
         } else if (stopped) {
           currentState = new EndState();
@@ -324,9 +325,6 @@ public class BaseAwaitable<T> implements Awaitable<T> {
     @SuppressWarnings("unchecked")
     public void run() {
       final InternalFlowControl flowControl = currentFlowControl;
-      if (flowControl == null) {
-        return;
-      }
       try {
         final Object message = outputQueue.poll();
         if (message != null) {
@@ -335,7 +333,7 @@ public class BaseAwaitable<T> implements Awaitable<T> {
           if ((flowControl.outputEvents() == 0) || aborted) {
             nextFlowControl();
           } else {
-            scheduler.scheduleLow(stateCommand);
+            scheduler.scheduleLow(controlCommand);
           }
         } else if (stopped) {
           currentState = new EndState();
@@ -367,9 +365,6 @@ public class BaseAwaitable<T> implements Awaitable<T> {
     @SuppressWarnings("unchecked")
     public void run() {
       final InternalFlowControl flowControl = currentFlowControl;
-      if (flowControl == null) {
-        return;
-      }
       try {
         final Object message = outputQueue.poll();
         if (message != null) {
@@ -378,7 +373,7 @@ public class BaseAwaitable<T> implements Awaitable<T> {
           if ((flowControl.outputEvents() == 0) || aborted) {
             nextFlowControl();
           } else {
-            scheduler.scheduleLow(stateCommand);
+            scheduler.scheduleLow(controlCommand);
           }
         } else {
           currentState = new ErrorState(error);
@@ -400,9 +395,6 @@ public class BaseAwaitable<T> implements Awaitable<T> {
 
     public void run() {
       final InternalFlowControl flowControl = currentFlowControl;
-      if (flowControl == null) {
-        return;
-      }
       if (flowControl.outputEvents() != 0) {
         flowControl.sendEnd();
       }
@@ -420,13 +412,17 @@ public class BaseAwaitable<T> implements Awaitable<T> {
 
     public void run() {
       final InternalFlowControl flowControl = currentFlowControl;
-      if (flowControl == null) {
-        return;
-      }
       if (flowControl.outputEvents() != 0) {
         flowControl.sendError(error);
       }
       nextFlowControl();
+    }
+  }
+
+  private class ControlCommand implements Runnable {
+
+    public void run() {
+      currentCommand.run();
     }
   }
 
@@ -458,7 +454,7 @@ public class BaseAwaitable<T> implements Awaitable<T> {
         currentCancelable = null;
         currentState = new FlushErrorState(error);
       }
-      currentState.run();
+      currentCommand.run();
     }
   }
 
@@ -471,7 +467,7 @@ public class BaseAwaitable<T> implements Awaitable<T> {
         return;
       }
       currentState = flushWriteState;
-      currentState.run();
+      currentCommand.run();
     }
   }
 
@@ -484,7 +480,7 @@ public class BaseAwaitable<T> implements Awaitable<T> {
       currentState = new ErrorState(error);
       awaitableLogger.log(new InfMessage("[aborting]"));
       abortExecution(error);
-      currentState.run();
+      currentCommand.run();
     }
   }
 
@@ -492,7 +488,7 @@ public class BaseAwaitable<T> implements Awaitable<T> {
 
     public void message(T message) {
       outputQueue.offer(message != null ? message : NULL);
-      scheduler.scheduleLow(stateCommand);
+      scheduler.scheduleLow(controlCommand);
     }
 
     public void error(@NotNull Throwable error) {
@@ -575,16 +571,13 @@ public class BaseAwaitable<T> implements Awaitable<T> {
       awaitableLogger.log(new DbgMessage("[failing]"));
       abortExecution(error);
       final InternalFlowControl flowControl = currentFlowControl;
-      if (flowControl == null) {
-        return;
-      }
-      if (flowControl.outputEvents() != 0) {
+      if ((flowControl != null) && (flowControl.outputEvents() != 0)) {
         flowControl.sendError(error);
       }
     }
 
     public void execute() {
-      stateCommand.run();
+      controlCommand.run();
     }
 
     public int inputEvents() {
@@ -623,6 +616,7 @@ public class BaseAwaitable<T> implements Awaitable<T> {
       final InternalFlowControl thisFlowControl = InternalFlowControl.this;
       if (currentFlowControl == null) {
         currentFlowControl = thisFlowControl;
+        currentCommand = stateCommand;
       }
       if (currentFlowControl != thisFlowControl) {
         flowControls.offer(thisFlowControl);
