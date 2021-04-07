@@ -39,7 +39,7 @@ public class ParallelTest {
                 new Iter<>("1", "2", "3").on(scheduler),
                 () -> new Each<>(
                     new RoundRobin<>(3, Trampoline::new),
-                    (s, a) -> new For<>(a, (m) -> new Yield<>("N" + m, -1)).on(s)
+                    (a, s) -> new For<>(a, (m) -> new Yield<>("N" + m, -1)).on(s)
                 ),
                 Ordered::new
             ).on(scheduler),
@@ -55,7 +55,7 @@ public class ParallelTest {
                 new Iter<>("1", "2", "3").on(scheduler),
                 () -> new Partial<>(
                     new RoundRobin<>(3, Trampoline::new),
-                    (s, a) -> new For<>(-1, a, (m) -> new Yield<>("N" + m, -1)).on(s)
+                    (a, s) -> new For<>(-1, a, (m) -> new Yield<>("N" + m, -1)).on(s)
                 ),
                 Ordered::new
             ).on(scheduler),
@@ -71,7 +71,7 @@ public class ParallelTest {
                 new Iter<>("1", "2", "3").on(scheduler),
                 () -> new Each<>(
                     new LoadBalancing<>(3, Trampoline::new),
-                    (s, a) -> new For<>(a, (m) -> new Yield<>("N" + m, -1)).on(s)
+                    (a, s) -> new For<>(a, (m) -> new Yield<>("N" + m, -1)).on(s)
                 ),
                 Ordered::new
             ).on(scheduler),
@@ -87,7 +87,7 @@ public class ParallelTest {
                 new Iter<>("1", "2", "3").on(scheduler),
                 () -> new Each<>(
                     new RoundRobin<>(3, Trampoline::new),
-                    (s, a) -> new For<>(a, (m) -> new Yield<>("N" + m, -1)).on(s)
+                    (a, s) -> new For<>(a, (m) -> new Yield<>("N" + m, -1)).on(s)
                 ),
                 Unordered::new
             ).on(scheduler),
@@ -103,7 +103,7 @@ public class ParallelTest {
                 new Iter<>("1", "2", "3").on(scheduler),
                 () -> new Each<>(
                     new LoadBalancing<>(3, Trampoline::new),
-                    (s, a) -> new For<>(a, (m) -> new Yield<>("N" + m, -1)).on(s)
+                    (a, s) -> new For<>(a, (m) -> new Yield<>("N" + m, -1)).on(s)
                 ),
                 Unordered::new
             ).on(scheduler),
@@ -119,7 +119,7 @@ public class ParallelTest {
                 new Iter<>("1", "2", "3").on(scheduler),
                 () -> new Each<>(
                     new RoundRobin<>(3, Trampoline::new),
-                    (s, a) -> new For<>(a, (m) -> new Yield<>("N" + m, -1)).on(s)
+                    (a, s) -> new For<>(a, (m) -> new Yield<>("N" + m, -1)).on(s)
                 ),
                 Ordered::new
             ).on(scheduler),
@@ -135,7 +135,7 @@ public class ParallelTest {
                 new Iter<>("1", "2", "3").on(scheduler),
                 () -> new Each<>(
                     new LoadBalancing<>(3, Trampoline::new),
-                    (s, a) -> new For<>(a, (m) -> new Yield<>("N" + m, -1)).on(s)
+                    (a, s) -> new For<>(a, (m) -> new Yield<>("N" + m, -1)).on(s)
                 ),
                 Ordered::new
             ).on(scheduler),
@@ -151,7 +151,7 @@ public class ParallelTest {
                 new Iter<>("1", "2", "3").on(scheduler),
                 () -> new Each<>(
                     new RoundRobin<>(3, Trampoline::new),
-                    (s, a) -> new For<>(a, (m) -> new Yield<>("N" + m, -1)).on(s)
+                    (a, s) -> new For<>(a, (m) -> new Yield<>("N" + m, -1)).on(s)
                 ),
                 Unordered::new
             ).on(scheduler),
@@ -167,7 +167,7 @@ public class ParallelTest {
                 new Iter<>("1", "2", "3").on(scheduler),
                 () -> new Each<>(
                     new LoadBalancing<>(3, Trampoline::new),
-                    (s, a) -> new For<>(a, (m) -> new Yield<>("N" + m, -1)).on(s)
+                    (a, s) -> new For<>(a, (m) -> new Yield<>("N" + m, -1)).on(s)
                 ),
                 Unordered::new
             ).on(scheduler),

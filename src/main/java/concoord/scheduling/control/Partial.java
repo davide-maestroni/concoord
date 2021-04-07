@@ -46,7 +46,7 @@ public class Partial<T, M> implements SchedulingControl<T, M> {
     if (task == null) {
       final StreamedAwaitable<M> input = new Streamed<M>(new ConsumingFactory<M>())
           .on(new Trampoline());
-      final Awaitable<T> output = block.execute(scheduler, input);
+      final Awaitable<T> output = block.execute(input, scheduler);
       task = new ScheduledTask<T, M>(input, output);
       tasks.put(scheduler, task);
     }

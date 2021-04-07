@@ -41,7 +41,7 @@ public class Each<T, M> implements SchedulingControl<T, M> {
     final Scheduler scheduler = strategy.schedulerFor(message);
     final StreamedAwaitable<M> input = new Streamed<M>(new ConsumingFactory<M>())
         .on(new Trampoline());
-    final Awaitable<T> output = block.execute(scheduler, input);
+    final Awaitable<T> output = block.execute(input, scheduler);
     input.message(message);
     input.end();
     return output;

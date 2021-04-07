@@ -109,7 +109,7 @@ public class Parallel<T, M> implements Task<T> {
   public interface Block<T, M> {
 
     @NotNull
-    Awaitable<T> execute(@NotNull Scheduler scheduler, @NotNull Awaitable<M> awaitable)
+    Awaitable<T> execute(@NotNull Awaitable<M> awaitable, @NotNull Scheduler scheduler)
         throws Exception;
   }
 
