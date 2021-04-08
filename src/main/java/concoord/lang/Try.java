@@ -28,6 +28,7 @@ import concoord.flow.Result;
 import concoord.flow.Yield;
 import concoord.lang.StandardAwaitable.ExecutionControl;
 import concoord.lang.StandardAwaitable.StandardFlowControl;
+import concoord.lang.Try.Finally.VoidBlock;
 import concoord.util.assertion.IfAnyOf;
 import concoord.util.assertion.IfContainsNull;
 import concoord.util.assertion.IfInterrupt;
@@ -38,6 +39,8 @@ import concoord.util.logging.LogMessage;
 import concoord.util.logging.Logger;
 import concoord.util.logging.PrintIdentity;
 import concoord.util.logging.WrnMessage;
+import java.io.Closeable;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -49,8 +52,6 @@ public class Try<T> implements Task<T> {
 
   private final Awaitable<T> awaitable;
   private final List<Block<? extends T, ? super Throwable>> blocks;
-
-  // TODO: 02/04/21 Try(Collection<Closeable> ...)???
 
   public Try(@NotNull Awaitable<T> awaitable,
       @NotNull Block<? extends T, ? super Throwable>... blocks) {
@@ -76,6 +77,46 @@ public class Try<T> implements Task<T> {
     ).throwException();
     this.awaitable = awaitable;
     this.blocks = blocks;
+  }
+
+  public Try(@NotNull Iterable<? extends Closeable> closeables, @NotNull Awaitable<T> awaitable,
+      @NotNull Block<? extends T, ? super Throwable>... blocks) {
+    new IfSomeOf(
+        new IfAnyOf(
+            new IfNull("closeables", closeables),
+            new IfContainsNull("closeables", closeables)
+        ),
+        new IfNull("awaitable", awaitable),
+        new IfAnyOf(
+            new IfNull("blocks", blocks),
+            new IfContainsNull("blocks", (Object[]) blocks)
+        )
+    ).throwException();
+    this.awaitable = awaitable;
+    final ArrayList<Block<? extends T, ? super Throwable>> allBlocks =
+        new ArrayList<Block<? extends T, ? super Throwable>>(Arrays.asList(blocks));
+    allBlocks.add(new Finally<T>(new CloseBlock(closeables)));
+    this.blocks = allBlocks;
+  }
+
+  public Try(@NotNull Iterable<? extends Closeable> closeables, @NotNull Awaitable<T> awaitable,
+      @NotNull List<Block<? extends T, ? super Throwable>> blocks) {
+    new IfSomeOf(
+        new IfAnyOf(
+            new IfNull("closeables", closeables),
+            new IfContainsNull("closeables", closeables)
+        ),
+        new IfNull("awaitable", awaitable),
+        new IfAnyOf(
+            new IfNull("blocks", blocks),
+            new IfContainsNull("blocks", blocks)
+        )
+    ).throwException();
+    this.awaitable = awaitable;
+    final ArrayList<Block<? extends T, ? super Throwable>> allBlocks =
+        new ArrayList<Block<? extends T, ? super Throwable>>(blocks);
+    allBlocks.add(new Finally<T>(new CloseBlock(closeables)));
+    this.blocks = allBlocks;
   }
 
   @NotNull
@@ -177,25 +218,14 @@ public class Try<T> implements Task<T> {
 
     private final Block<? extends T, ? super Throwable> block;
 
-    public Finally(@NotNull final VoidBlock block) {
+    public Finally(@NotNull VoidBlock block) {
       new IfNull("block", block).throwException();
-      this.block = new Block<T, Throwable>() {
-        @NotNull
-        public Result<? extends T> execute(@Nullable Throwable error) throws Exception {
-          block.execute();
-          return new Continue<T>();
-        }
-      };
+      this.block = new VoidBlockWrapper<T>(block);
     }
 
     public Finally(@NotNull final ResultBlock<T> block) {
       new IfNull("block", block).throwException();
-      this.block = new Block<T, Throwable>() {
-        @NotNull
-        public Result<? extends T> execute(@Nullable Throwable error) throws Exception {
-          return block.execute();
-        }
-      };
+      this.block = new ResultBlockWrapper<T>(block);
     }
 
     public Finally(@NotNull final Block<? extends T, ? super Throwable> block) {
@@ -217,6 +247,50 @@ public class Try<T> implements Task<T> {
 
       @NotNull
       Result<? extends T> execute() throws Exception;
+    }
+
+    private static class VoidBlockWrapper<T> implements Block<T, Throwable> {
+
+      private final VoidBlock block;
+
+      private VoidBlockWrapper(@NotNull VoidBlock block) {
+        this.block = block;
+      }
+
+      @NotNull
+      public Result<? extends T> execute(@Nullable Throwable error) throws Exception {
+        block.execute();
+        return new Continue<T>();
+      }
+    }
+
+    private static class ResultBlockWrapper<T> implements Block<T, Throwable> {
+
+      private final ResultBlock<T> block;
+
+      private ResultBlockWrapper(@NotNull ResultBlock<T> block) {
+        this.block = block;
+      }
+
+      @NotNull
+      public Result<? extends T> execute(@Nullable Throwable error) throws Exception {
+        return block.execute();
+      }
+    }
+  }
+
+  private static class CloseBlock implements VoidBlock {
+
+    private final Iterable<? extends Closeable> closeables;
+
+    private CloseBlock(@NotNull Iterable<? extends Closeable> closeables) {
+      this.closeables = closeables;
+    }
+
+    public void execute() throws Exception {
+      for (final Closeable closeable : closeables) {
+        closeable.close();
+      }
     }
   }
 
