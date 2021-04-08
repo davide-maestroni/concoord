@@ -95,7 +95,7 @@ public class Try<T> implements Task<T> {
     this.awaitable = awaitable;
     final ArrayList<Block<? extends T, ? super Throwable>> allBlocks =
         new ArrayList<Block<? extends T, ? super Throwable>>(Arrays.asList(blocks));
-    allBlocks.add(new Finally<T>(new CloseBlock(closeables)));
+    allBlocks.add(0, new Finally<T>(new CloseBlock(closeables)));
     this.blocks = allBlocks;
   }
 
@@ -115,7 +115,7 @@ public class Try<T> implements Task<T> {
     this.awaitable = awaitable;
     final ArrayList<Block<? extends T, ? super Throwable>> allBlocks =
         new ArrayList<Block<? extends T, ? super Throwable>>(blocks);
-    allBlocks.add(new Finally<T>(new CloseBlock(closeables)));
+    allBlocks.add(0, new Finally<T>(new CloseBlock(closeables)));
     this.blocks = allBlocks;
   }
 
