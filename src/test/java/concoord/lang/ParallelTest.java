@@ -19,10 +19,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import concoord.concurrent.Trampoline;
 import concoord.flow.Yield;
-import concoord.scheduling.buffer.Ordered;
-import concoord.scheduling.buffer.Unordered;
 import concoord.scheduling.control.Each;
-import concoord.scheduling.control.Partial;
+import concoord.scheduling.output.Ordered;
+import concoord.scheduling.output.Unordered;
 import concoord.scheduling.strategy.LoadBalancing;
 import concoord.scheduling.strategy.RoundRobin;
 import concoord.test.TestBasic;
@@ -37,9 +36,10 @@ public class ParallelTest {
         (scheduler) ->
             new Parallel<>(
                 new Iter<>("1", "2", "3").on(scheduler),
-                () -> new Each<>(
-                    new RoundRobin<>(3, Trampoline::new),
-                    (a, s) -> new For<>(a, (m) -> new Yield<>("N" + m, -1)).on(s)
+                () -> new RoundRobin<>(
+                    3,
+                    Trampoline::new,
+                    (a, s) -> new For<>(-1, a, (m) -> new Yield<>("N" + m, -1)).on(s)
                 ),
                 Ordered::new
             ).on(scheduler),
@@ -53,9 +53,10 @@ public class ParallelTest {
         (scheduler) ->
             new Parallel<>(
                 new Iter<>("1", "2", "3").on(scheduler),
-                () -> new Partial<>(
-                    new RoundRobin<>(3, Trampoline::new),
-                    (a, s) -> new For<>(-1, a, (m) -> new Yield<>("N" + m, -1)).on(s)
+                () -> new RoundRobin<>(
+                    -1,
+                    Trampoline::new,
+                    (a, s) -> new For<>(a, (m) -> new Yield<>("N" + m, -1)).on(s)
                 ),
                 Ordered::new
             ).on(scheduler),

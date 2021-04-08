@@ -13,12 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package concoord.scheduling.buffer;
+package concoord.scheduling.output;
 
 import concoord.data.Buffer;
 import concoord.data.BufferFactory;
 import concoord.data.DefaultBufferFactory;
-import concoord.lang.Parallel.BufferControl;
+import concoord.lang.Parallel.OutputStrategy;
 import concoord.lang.Parallel.InputChannel;
 import concoord.lang.Parallel.OutputChannel;
 import concoord.util.assertion.IfNull;
@@ -26,7 +26,7 @@ import concoord.util.collection.CircularQueue;
 import java.util.Iterator;
 import org.jetbrains.annotations.NotNull;
 
-public class Ordered<M> implements BufferControl<M> {
+public class Ordered<M> implements OutputStrategy<M> {
 
   private final CircularQueue<OrderedInputChannel<M>> inputChannels =
       new CircularQueue<OrderedInputChannel<M>>();

@@ -15,37 +15,47 @@
  */
 package concoord.scheduling.strategy;
 
+import concoord.concurrent.Awaitable;
 import concoord.concurrent.Scheduler;
 import concoord.concurrent.SchedulerFactory;
+import concoord.lang.Parallel.Block;
+import concoord.lang.Parallel.SchedulingStrategy;
+import concoord.scheduling.strategy.StandardSchedulingStrategy.SchedulingControl;
 import concoord.util.assertion.IfContainsNull;
 import java.util.ArrayList;
 import org.jetbrains.annotations.NotNull;
 
-public class LoadBalancing<M> implements SchedulingStrategy<M> {
+public class LoadBalancing<T, M> implements SchedulingStrategy<T, M> {
 
-  private final StandardSchedulingStrategy<M> strategy;
+  private final StandardSchedulingStrategy<T, M> strategy;
 
-  public LoadBalancing(int maxParallelism, @NotNull SchedulerFactory schedulerFactory) {
-    this.strategy = new StandardSchedulingStrategy<M>(
+  public LoadBalancing(int maxParallelism, @NotNull SchedulerFactory schedulerFactory,
+      @NotNull Block<T, M> block) {
+    this.strategy = new StandardSchedulingStrategy<T, M>(
         maxParallelism,
         schedulerFactory,
-        new LoadBalancingStrategy<M>(maxParallelism, schedulerFactory)
+        new LoadBalancingControl<M>(maxParallelism, schedulerFactory),
+        block
     );
   }
 
   @NotNull
-  public Scheduler schedulerFor(M message) throws Exception {
-    return strategy.schedulerFor(message);
+  public Awaitable<T> schedule(M message) throws Exception {
+    return strategy.schedule(message);
   }
 
-  private static class LoadBalancingStrategy<M> implements SchedulingStrategy<M> {
+  public void stopAll() throws Exception {
+    strategy.stopAll();
+  }
+
+  private static class LoadBalancingControl<M> implements SchedulingControl<M> {
 
     private final ArrayList<Scheduler> schedulers = new ArrayList<Scheduler>();
     private final int maxParallelism;
     private final SchedulerFactory schedulerFactory;
     private SchedulerFactory factoryState = new InitState();
 
-    private LoadBalancingStrategy(int maxParallelism, @NotNull SchedulerFactory schedulerFactory) {
+    private LoadBalancingControl(int maxParallelism, @NotNull SchedulerFactory schedulerFactory) {
       this.maxParallelism = maxParallelism;
       this.schedulerFactory = schedulerFactory;
     }
@@ -59,8 +69,8 @@ public class LoadBalancing<M> implements SchedulingStrategy<M> {
 
       @NotNull
       public Scheduler create() throws Exception {
-        final SchedulerFactory schedulerFactory = LoadBalancingStrategy.this.schedulerFactory;
-        final ArrayList<Scheduler> schedulers = LoadBalancingStrategy.this.schedulers;
+        final SchedulerFactory schedulerFactory = LoadBalancingControl.this.schedulerFactory;
+        final ArrayList<Scheduler> schedulers = LoadBalancingControl.this.schedulers;
         for (int i = 0; i < maxParallelism; ++i) {
           final Scheduler scheduler = schedulerFactory.create();
           schedulers.add(scheduler);

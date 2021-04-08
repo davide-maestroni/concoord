@@ -13,52 +13,43 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package concoord.scheduling.buffer;
+package concoord.scheduling.output;
 
 import concoord.data.Buffer;
-import concoord.data.BufferFactory;
-import concoord.data.DefaultBufferFactory;
-import concoord.lang.Parallel.BufferControl;
+import concoord.data.Buffered;
+import concoord.lang.Parallel.OutputStrategy;
 import concoord.lang.Parallel.InputChannel;
 import concoord.lang.Parallel.OutputChannel;
 import concoord.util.assertion.IfNull;
 import java.util.Iterator;
 import org.jetbrains.annotations.NotNull;
 
-public class Unordered<M> implements BufferControl<M> {
+public class Unordered<M> implements OutputStrategy<M> {
 
-  private final BufferFactory<M> bufferFactory;
-  private Buffer<M> buffer;
+  private final Buffer<M> buffer;
   private UnorderedInputChannel<M> inputChannel;
   private UnorderedOutputChannel<M> outputChannel;
 
   public Unordered() {
-    this.bufferFactory = new DefaultBufferFactory<M>();
+    this.buffer = new Buffered<M>();
   }
 
-  public Unordered(@NotNull BufferFactory<M> bufferFactory) {
-    new IfNull("bufferFactory", bufferFactory).throwException();
-    this.bufferFactory = bufferFactory;
+  public Unordered(@NotNull Buffer<M> buffer) {
+    new IfNull("buffer", buffer).throwException();
+    this.buffer = buffer;
   }
 
   @NotNull
-  public InputChannel<M> inputChannel() throws Exception {
+  public InputChannel<M> inputChannel() {
     if (inputChannel == null) {
-      if (buffer == null) {
-        buffer = bufferFactory.create();
-        new IfNull("buffer", buffer).throwException();
-      }
       inputChannel = new UnorderedInputChannel<M>(buffer);
     }
     return inputChannel;
   }
 
   @NotNull
-  public OutputChannel<M> outputChannel() throws Exception {
+  public OutputChannel<M> outputChannel() {
     if (outputChannel == null) {
-      if (buffer == null) {
-        buffer = bufferFactory.create();
-      }
       outputChannel = new UnorderedOutputChannel<M>(buffer.iterator());
     }
     return outputChannel;

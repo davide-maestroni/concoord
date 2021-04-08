@@ -15,37 +15,47 @@
  */
 package concoord.scheduling.strategy;
 
+import concoord.concurrent.Awaitable;
 import concoord.concurrent.Scheduler;
 import concoord.concurrent.SchedulerFactory;
+import concoord.lang.Parallel.Block;
+import concoord.lang.Parallel.SchedulingStrategy;
+import concoord.scheduling.strategy.StandardSchedulingStrategy.SchedulingControl;
 import concoord.util.assertion.IfNull;
 import java.util.ArrayList;
 import org.jetbrains.annotations.NotNull;
 
-public class RoundRobin<M> implements SchedulingStrategy<M> {
+public class RoundRobin<T, M> implements SchedulingStrategy<T, M> {
 
-  private final StandardSchedulingStrategy<M> strategy;
+  private final StandardSchedulingStrategy<T, M> strategy;
 
-  public RoundRobin(int maxParallelism, @NotNull SchedulerFactory schedulerFactory) {
-    this.strategy = new StandardSchedulingStrategy<M>(
+  public RoundRobin(int maxParallelism, @NotNull SchedulerFactory schedulerFactory,
+      @NotNull Block<T, M> block) {
+    this.strategy = new StandardSchedulingStrategy<T, M>(
         maxParallelism,
         schedulerFactory,
-        new RoundRobinStrategy<M>(maxParallelism, schedulerFactory)
+        new RoundRobinControl<M>(maxParallelism, schedulerFactory),
+        block
     );
   }
 
   @NotNull
-  public Scheduler schedulerFor(M message) throws Exception {
-    return strategy.schedulerFor(message);
+  public Awaitable<T> schedule(M message) throws Exception {
+    return strategy.schedule(message);
   }
 
-  private static class RoundRobinStrategy<M> implements SchedulingStrategy<M> {
+  public void stopAll() throws Exception {
+    strategy.stopAll();
+  }
+
+  private static class RoundRobinControl<M> implements SchedulingControl<M> {
 
     private final ArrayList<Scheduler> schedulers = new ArrayList<Scheduler>();
     private final int maxParallelism;
     private final SchedulerFactory schedulerFactory;
     private int index;
 
-    private RoundRobinStrategy(int maxParallelism, @NotNull SchedulerFactory schedulerFactory) {
+    private RoundRobinControl(int maxParallelism, @NotNull SchedulerFactory schedulerFactory) {
       this.maxParallelism = maxParallelism;
       this.schedulerFactory = schedulerFactory;
     }

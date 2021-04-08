@@ -31,6 +31,8 @@ import org.jetbrains.annotations.NotNull;
 
 public class TestBasic<T> implements Runnable {
 
+  // TODO: 08/04/21 abort => end (Streamed?)
+
   private final Function<Scheduler, Awaitable<T>> factory;
   private final Consumer<List<T>> assertion;
 
