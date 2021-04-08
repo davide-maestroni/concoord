@@ -319,9 +319,8 @@ public class All<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
           if (eventCount == 0) {
             eventCount = flowControl.outputEvents();
             cancelables.set(index, awaitables.get(index).await(eventCount, AllAwaiter.this));
-            return false;
           }
-          return true;
+          return false;
         }
       }
 

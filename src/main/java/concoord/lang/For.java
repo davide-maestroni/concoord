@@ -192,9 +192,8 @@ public class For<T, M> implements Task<T> {
           if (eventCount == 0) {
             eventCount = flowControl.inputEvents();
             cancelable = awaitable.await(eventCount, ForAwaiter.this);
-            return false;
           }
-          return true;
+          return false;
         }
       }
 

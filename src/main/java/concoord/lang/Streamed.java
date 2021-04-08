@@ -71,7 +71,7 @@ public class Streamed<T> implements Task<T> {
     private final BufferFactory<T> bufferFactory;
     private Runnable controlCommand = new InitCommand();
     private State<T> controlState = new InitState();
-    private StandardFlowControl<T> flowControl;
+    private StandardFlowControl<T> flowControl = new DummyFlowControl<T>();
     private Buffer<T> buffer;
     private Iterator<T> iterator;
 
@@ -139,10 +139,7 @@ public class Streamed<T> implements Task<T> {
     private class FlowCommand implements Runnable {
 
       public void run() {
-        final StandardFlowControl<T> flowControl = StreamedControl.this.flowControl;
-        if (flowControl != null) {
-          flowControl.execute();
-        }
+        flowControl.execute();
       }
     }
 

@@ -182,9 +182,8 @@ public class Any<T> implements Task<T> {
           if (eventCount == 0) {
             eventCount = flowControl.outputEvents();
             cancelables.set(index, awaitables.get(index).await(eventCount, AnyAwaiter.this));
-            return false;
           }
-          return true;
+          return false;
         }
       }
 

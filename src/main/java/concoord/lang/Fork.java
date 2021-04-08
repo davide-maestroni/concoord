@@ -199,7 +199,7 @@ public class Fork<T> implements Task<T> {
   private class ForkControl implements ExecutionControl<T>, Runnable {
 
     private State<T> controlState = new InitState();
-    private StandardFlowControl<T> flowControl;
+    private StandardFlowControl<T> flowControl = new DummyFlowControl<T>();
     private Iterator<T> iterator;
 
     public boolean executeBlock(@NotNull StandardFlowControl<T> flowControl) throws Exception {
@@ -215,10 +215,7 @@ public class Fork<T> implements Task<T> {
     }
 
     public void run() {
-      final StandardFlowControl<T> flowControl = this.flowControl;
-      if (flowControl != null) {
-        flowControl.execute();
-      }
+      flowControl.execute();
     }
 
     private void error(@NotNull Throwable error) {
@@ -230,11 +227,7 @@ public class Fork<T> implements Task<T> {
     }
 
     private int inputEvents() {
-      final StandardFlowControl<T> flowControl = this.flowControl;
-      if (flowControl != null) {
-        return flowControl.inputEvents();
-      }
-      return 0;
+      return flowControl.inputEvents();
     }
 
     private class InitState implements State<T> {

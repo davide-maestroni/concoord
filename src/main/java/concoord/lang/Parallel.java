@@ -25,8 +25,10 @@ import concoord.lang.StandardAwaitable.ExecutionControl;
 import concoord.lang.StandardAwaitable.StandardFlowControl;
 import concoord.util.assertion.IfNull;
 import concoord.util.assertion.IfSomeOf;
+import concoord.util.logging.DbgMessage;
 import concoord.util.logging.ErrMessage;
 import concoord.util.logging.LogMessage;
+import concoord.util.logging.PrintIdentity;
 import java.util.IdentityHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import org.jetbrains.annotations.NotNull;
@@ -216,22 +218,16 @@ public class Parallel<T, M> implements Task<T> {
           final StandardFlowControl<T> flowControl = ParallelAwaiter.this.flowControl;
           final M input = message != NULL ? (M) message : null;
           try {
-//            final Scheduler scheduler = strategy.schedule(input);
-//            flowControl.logger().log(
-//                new DbgMessage(
-//                    "[scheduling] block: %s, on scheduler: %s",
-//                    new PrintIdentity(block),
-//                    new PrintIdentity(scheduler)
-//                )
-//            );
             final Awaitable<? extends T> awaitable = schedulingControl.schedule(input);
             if (!awaitables.containsKey(awaitable)) {
-              // TODO: 03/04/21 log
+              flowControl.logger().log(
+                  new DbgMessage("[scheduling] awaitable: %s", new PrintIdentity(awaitable))
+              );
               new OutputAwaiter(awaitable, bufferControl.inputChannel()).start();
             }
           } catch (final Exception e) {
             flowControl.logger().log(
-                new ErrMessage(new LogMessage("failed to schedule next block"), e)
+                new ErrMessage(new LogMessage("failed to schedule next awaitable"), e)
             );
             awaiterState = new ErrorState(e);
             flowControl.execute();
@@ -280,9 +276,8 @@ public class Parallel<T, M> implements Task<T> {
           if (eventCount == 0) {
             eventCount = flowControl.outputEvents();
             cancelable = awaitable.await(eventCount, ParallelAwaiter.this);
-            return false;
           }
-          return true;
+          return false;
         }
       }
 

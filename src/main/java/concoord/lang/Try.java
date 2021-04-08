@@ -431,9 +431,8 @@ public class Try<T> implements Task<T> {
           if (eventCount == 0) {
             eventCount = flowControl.inputEvents();
             cancelable = awaitable.await(eventCount, TryAwaiter.this);
-            return false;
           }
-          return true;
+          return false;
         }
       }
 
