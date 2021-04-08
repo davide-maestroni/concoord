@@ -58,6 +58,8 @@ public class CircularQueue<E> extends AbstractCollection<E> implements Queue<E> 
     mask = initialCapacity - 1;
   }
 
+  // TODO: 08/04/21 CircularQueue(Collection)?? => addFirst
+
   /**
    * {@inheritDoc}
    */
