@@ -20,156 +20,221 @@ import static org.assertj.core.api.Assertions.assertThat;
 import concoord.concurrent.Trampoline;
 import concoord.flow.Yield;
 import concoord.scheduling.Ordered;
-import concoord.scheduling.output.OrderedOutput;
-import concoord.scheduling.streaming.SingleStreaming;
-import concoord.scheduling.output.UnorderedOutput;
+import concoord.scheduling.Unordered;
 import concoord.scheduling.strategy.LoadBalancing;
 import concoord.scheduling.strategy.RoundRobin;
 import concoord.test.TestBasic;
 import concoord.test.TestCancel;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 
 public class ParallelTest {
 
   @Test
-  public void basicEachOrderedRound() {
-    new TestBasic<>(
-        (scheduler) ->
-            new Parallel<>(
-                new Iter<>("1", "2", "3").on(scheduler),
-                () -> new Ordered<>(3, Trampoline::new, new RoundRobin<>()),
-                (a, s) -> new For<>(-1, a, (m) -> new Yield<>("N" + m, -1)).on(s)
-            ).on(scheduler),
-        (messages) -> assertThat(messages).containsExactly("N1", "N2", "N3")
-    ).run();
-  }
-
-  @Test
-  public void basicPartialOrderedRound() {
-    new TestBasic<>(
-        (scheduler) ->
-            new Parallel<>(
-                new Iter<>("1", "2", "3").on(scheduler),
-                () -> new RoundRobin<>(
-                    -1,
-                    Trampoline::new,
-                    (a, s) -> new For<>(a, (m) -> new Yield<>("N" + m, -1)).on(s)
-                ),
-                OrderedOutput::new
-            ).on(scheduler),
-        (messages) -> assertThat(messages).containsExactly("N1", "N2", "N3")
-    ).run();
+  public void basicOrderedRound() {
+    IntStream.range(-1, 4)
+        .forEach(parallelism ->
+            new TestBasic<>(
+                (scheduler) ->
+                    new Parallel<>(
+                        new Iter<>("1", "2", "3").on(scheduler),
+                        () -> new Ordered<>(parallelism, Trampoline::new, new RoundRobin<>()),
+                        (a, s) -> new For<>(-1, a, (m) -> new Yield<>("N" + m, -1)).on(s)
+                    ).on(scheduler),
+                (messages) -> assertThat(messages).containsExactly("N1", "N2", "N3")
+            ).run());
+    IntStream.range(-1, 4)
+        .forEach(parallelism ->
+            new TestBasic<>(
+                (scheduler) ->
+                    new Parallel<>(
+                        new Iter<>("1", "2", "3").on(scheduler),
+                        () -> new Ordered<>(parallelism, Trampoline::new, new RoundRobin<>()),
+                        (a, s) -> new For<>(a, (m) -> new Yield<>("N" + m)).on(s)
+                    ).on(scheduler),
+                (messages) -> assertThat(messages).containsExactly("N1", "N2", "N3")
+            ).run());
   }
 
   @Test
   public void basicOrderedBalance() {
-    new TestBasic<>(
-        (scheduler) ->
-            new Parallel<>(
-                new Iter<>("1", "2", "3").on(scheduler),
-                () -> new SingleStreaming<>(
-                    new LoadBalancing<>(3, Trampoline::new),
-                    (a, s) -> new For<>(a, (m) -> new Yield<>("N" + m, -1)).on(s)
-                ),
-                OrderedOutput::new
-            ).on(scheduler),
-        (messages) -> assertThat(messages).containsExactly("N1", "N2", "N3")
-    ).run();
+    IntStream.range(-1, 4)
+        .forEach(parallelism ->
+            new TestBasic<>(
+                (scheduler) ->
+                    new Parallel<>(
+                        new Iter<>("1", "2", "3").on(scheduler),
+                        () -> new Ordered<>(parallelism, Trampoline::new, new LoadBalancing<>()),
+                        (a, s) -> new For<>(-1, a, (m) -> new Yield<>("N" + m, -1)).on(s)
+                    ).on(scheduler),
+                (messages) -> assertThat(messages).containsExactly("N1", "N2", "N3")
+            ).run());
+    IntStream.range(-1, 4)
+        .forEach(parallelism ->
+            new TestBasic<>(
+                (scheduler) ->
+                    new Parallel<>(
+                        new Iter<>("1", "2", "3").on(scheduler),
+                        () -> new Ordered<>(parallelism, Trampoline::new, new LoadBalancing<>()),
+                        (a, s) -> new For<>(a, (m) -> new Yield<>("N" + m)).on(s)
+                    ).on(scheduler),
+                (messages) -> assertThat(messages).containsExactly("N1", "N2", "N3")
+            ).run());
   }
 
   @Test
   public void basicUnorderedRound() {
-    new TestBasic<>(
-        (scheduler) ->
-            new Parallel<>(
-                new Iter<>("1", "2", "3").on(scheduler),
-                () -> new SingleStreaming<>(
-                    new RoundRobin<>(3, Trampoline::new),
-                    (a, s) -> new For<>(a, (m) -> new Yield<>("N" + m, -1)).on(s)
-                ),
-                UnorderedOutput::new
-            ).on(scheduler),
-        (messages) -> assertThat(messages).containsExactly("N1", "N2", "N3")
-    ).run();
+    IntStream.range(-1, 4)
+        .forEach(parallelism ->
+            new TestBasic<>(
+                (scheduler) ->
+                    new Parallel<>(
+                        new Iter<>("1", "2", "3").on(scheduler),
+                        () -> new Unordered<>(parallelism, Trampoline::new, new RoundRobin<>()),
+                        (a, s) -> new For<>(-1, a, (m) -> new Yield<>("N" + m, -1)).on(s)
+                    ).on(scheduler),
+                (messages) -> assertThat(messages).containsExactlyInAnyOrder("N1", "N2", "N3")
+            ).run());
+    IntStream.range(-1, 4)
+        .forEach(parallelism ->
+            new TestBasic<>(
+                (scheduler) ->
+                    new Parallel<>(
+                        new Iter<>("1", "2", "3").on(scheduler),
+                        () -> new Unordered<>(parallelism, Trampoline::new, new RoundRobin<>()),
+                        (a, s) -> new For<>(a, (m) -> new Yield<>("N" + m)).on(s)
+                    ).on(scheduler),
+                (messages) -> assertThat(messages).containsExactlyInAnyOrder("N1", "N2", "N3")
+            ).run());
   }
 
   @Test
   public void basicUnorderedBalance() {
-    new TestBasic<>(
-        (scheduler) ->
-            new Parallel<>(
-                new Iter<>("1", "2", "3").on(scheduler),
-                () -> new SingleStreaming<>(
-                    new LoadBalancing<>(3, Trampoline::new),
-                    (a, s) -> new For<>(a, (m) -> new Yield<>("N" + m, -1)).on(s)
-                ),
-                UnorderedOutput::new
-            ).on(scheduler),
-        (messages) -> assertThat(messages).containsExactly("N1", "N2", "N3")
-    ).run();
+    IntStream.range(-1, 4)
+        .forEach(parallelism ->
+            new TestBasic<>(
+                (scheduler) ->
+                    new Parallel<>(
+                        new Iter<>("1", "2", "3").on(scheduler),
+                        () -> new Unordered<>(parallelism, Trampoline::new, new LoadBalancing<>()),
+                        (a, s) -> new For<>(-1, a, (m) -> new Yield<>("N" + m, -1)).on(s)
+                    ).on(scheduler),
+                (messages) -> assertThat(messages).containsExactlyInAnyOrder("N1", "N2", "N3")
+            ).run());
+    IntStream.range(-1, 4)
+        .forEach(parallelism ->
+            new TestBasic<>(
+                (scheduler) ->
+                    new Parallel<>(
+                        new Iter<>("1", "2", "3").on(scheduler),
+                        () -> new Unordered<>(parallelism, Trampoline::new, new LoadBalancing<>()),
+                        (a, s) -> new For<>(a, (m) -> new Yield<>("N" + m)).on(s)
+                    ).on(scheduler),
+                (messages) -> assertThat(messages).containsExactlyInAnyOrder("N1", "N2", "N3")
+            ).run());
   }
 
   @Test
   public void cancelOrderedRound() {
-    new TestCancel<>(
-        (scheduler) ->
-            new Parallel<>(
-                new Iter<>("1", "2", "3").on(scheduler),
-                () -> new SingleStreaming<>(
-                    new RoundRobin<>(3, Trampoline::new),
-                    (a, s) -> new For<>(a, (m) -> new Yield<>("N" + m, -1)).on(s)
-                ),
-                OrderedOutput::new
-            ).on(scheduler),
-        (messages) -> assertThat(messages).containsExactly("N1", "N2", "N3")
-    ).run();
+    IntStream.range(-1, 4)
+        .forEach(parallelism ->
+            new TestCancel<>(
+                (scheduler) ->
+                    new Parallel<>(
+                        new Iter<>("1", "2", "3").on(scheduler),
+                        () -> new Ordered<>(parallelism, Trampoline::new, new RoundRobin<>()),
+                        (a, s) -> new For<>(-1, a, (m) -> new Yield<>("N" + m, -1)).on(s)
+                    ).on(scheduler),
+                (messages) -> assertThat(messages).containsExactly("N1", "N2", "N3")
+            ).run());
+    IntStream.range(-1, 4)
+        .forEach(parallelism ->
+            new TestCancel<>(
+                (scheduler) ->
+                    new Parallel<>(
+                        new Iter<>("1", "2", "3").on(scheduler),
+                        () -> new Ordered<>(parallelism, Trampoline::new, new RoundRobin<>()),
+                        (a, s) -> new For<>(a, (m) -> new Yield<>("N" + m)).on(s)
+                    ).on(scheduler),
+                (messages) -> assertThat(messages).containsExactly("N1", "N2", "N3")
+            ).run());
   }
 
   @Test
   public void cancelOrderedBalance() {
-    new TestCancel<>(
-        (scheduler) ->
-            new Parallel<>(
-                new Iter<>("1", "2", "3").on(scheduler),
-                () -> new SingleStreaming<>(
-                    new LoadBalancing<>(3, Trampoline::new),
-                    (a, s) -> new For<>(a, (m) -> new Yield<>("N" + m, -1)).on(s)
-                ),
-                OrderedOutput::new
-            ).on(scheduler),
-        (messages) -> assertThat(messages).containsExactly("N1", "N2", "N3")
-    ).run();
+    IntStream.range(-1, 4)
+        .forEach(parallelism ->
+            new TestCancel<>(
+                (scheduler) ->
+                    new Parallel<>(
+                        new Iter<>("1", "2", "3").on(scheduler),
+                        () -> new Ordered<>(parallelism, Trampoline::new, new LoadBalancing<>()),
+                        (a, s) -> new For<>(-1, a, (m) -> new Yield<>("N" + m, -1)).on(s)
+                    ).on(scheduler),
+                (messages) -> assertThat(messages).containsExactly("N1", "N2", "N3")
+            ).run());
+    IntStream.range(-1, 4)
+        .forEach(parallelism ->
+            new TestCancel<>(
+                (scheduler) ->
+                    new Parallel<>(
+                        new Iter<>("1", "2", "3").on(scheduler),
+                        () -> new Ordered<>(parallelism, Trampoline::new, new LoadBalancing<>()),
+                        (a, s) -> new For<>(a, (m) -> new Yield<>("N" + m)).on(s)
+                    ).on(scheduler),
+                (messages) -> assertThat(messages).containsExactly("N1", "N2", "N3")
+            ).run());
   }
 
   @Test
   public void cancelUnorderedRound() {
-    new TestCancel<>(
-        (scheduler) ->
-            new Parallel<>(
-                new Iter<>("1", "2", "3").on(scheduler),
-                () -> new SingleStreaming<>(
-                    new RoundRobin<>(3, Trampoline::new),
-                    (a, s) -> new For<>(a, (m) -> new Yield<>("N" + m, -1)).on(s)
-                ),
-                UnorderedOutput::new
-            ).on(scheduler),
-        (messages) -> assertThat(messages).containsExactly("N1", "N2", "N3")
-    ).run();
+    IntStream.range(-1, 4)
+        .forEach(parallelism ->
+            new TestCancel<>(
+                (scheduler) ->
+                    new Parallel<>(
+                        new Iter<>("1", "2", "3").on(scheduler),
+                        () -> new Unordered<>(parallelism, Trampoline::new, new RoundRobin<>()),
+                        (a, s) -> new For<>(-1, a, (m) -> new Yield<>("N" + m, -1)).on(s)
+                    ).on(scheduler),
+                (messages) -> assertThat(messages).containsExactlyInAnyOrder("N1", "N2", "N3")
+            ).run());
+    IntStream.range(-1, 4)
+        .forEach(parallelism ->
+            new TestCancel<>(
+                (scheduler) ->
+                    new Parallel<>(
+                        new Iter<>("1", "2", "3").on(scheduler),
+                        () -> new Unordered<>(parallelism, Trampoline::new, new RoundRobin<>()),
+                        (a, s) -> new For<>(a, (m) -> new Yield<>("N" + m)).on(s)
+                    ).on(scheduler),
+                (messages) -> assertThat(messages).containsExactlyInAnyOrder("N1", "N2", "N3")
+            ).run());
   }
 
   @Test
   public void cancelUnorderedBalance() {
-    new TestCancel<>(
-        (scheduler) ->
-            new Parallel<>(
-                new Iter<>("1", "2", "3").on(scheduler),
-                () -> new SingleStreaming<>(
-                    new LoadBalancing<>(3, Trampoline::new),
-                    (a, s) -> new For<>(a, (m) -> new Yield<>("N" + m, -1)).on(s)
-                ),
-                UnorderedOutput::new
-            ).on(scheduler),
-        (messages) -> assertThat(messages).containsExactly("N1", "N2", "N3")
-    ).run();
+    IntStream.range(-1, 4)
+        .forEach(parallelism ->
+            new TestCancel<>(
+                (scheduler) ->
+                    new Parallel<>(
+                        new Iter<>("1", "2", "3").on(scheduler),
+                        () -> new Unordered<>(parallelism, Trampoline::new, new LoadBalancing<>()),
+                        (a, s) -> new For<>(-1, a, (m) -> new Yield<>("N" + m, -1)).on(s)
+                    ).on(scheduler),
+                (messages) -> assertThat(messages).containsExactlyInAnyOrder("N1", "N2", "N3")
+            ).run());
+    IntStream.range(-1, 4)
+        .forEach(parallelism ->
+            new TestCancel<>(
+                (scheduler) ->
+                    new Parallel<>(
+                        new Iter<>("1", "2", "3").on(scheduler),
+                        () -> new Unordered<>(parallelism, Trampoline::new, new LoadBalancing<>()),
+                        (a, s) -> new For<>(a, (m) -> new Yield<>("N" + m)).on(s)
+                    ).on(scheduler),
+                (messages) -> assertThat(messages).containsExactlyInAnyOrder("N1", "N2", "N3")
+            ).run());
   }
 }
