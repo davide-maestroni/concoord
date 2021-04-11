@@ -18,6 +18,7 @@ package concoord.scheduling;
 import concoord.concurrent.Awaitable;
 import concoord.concurrent.Scheduler;
 import concoord.concurrent.SchedulerFactory;
+import concoord.concurrent.Trampoline;
 import concoord.lang.Parallel.Block;
 import concoord.lang.Parallel.InputChannel;
 import concoord.lang.Parallel.OutputChannel;
@@ -33,12 +34,12 @@ public class StandardSchedulingControl<T, M> implements SchedulingControl<T, M> 
 
   private final int maxParallelism;
   private final SchedulerFactory schedulerFactory;
-  private final SchedulingStrategy<M> schedulingStrategy;
+  private final SchedulingStrategy<? super M> schedulingStrategy;
   private final StreamingControl<T, M> streamingControl;
   private final OutputControl<T> outputControl;
 
   public StandardSchedulingControl(int maxParallelism, @NotNull SchedulerFactory schedulerFactory,
-      @NotNull SchedulingStrategy<M> schedulingStrategy,
+      @NotNull SchedulingStrategy<? super M> schedulingStrategy,
       @NotNull StreamingControl<T, M> streamingControl, @NotNull OutputControl<T> outputControl) {
     new IfSomeOf(
         new IfNull("schedulerFactory", schedulerFactory),
@@ -48,7 +49,15 @@ public class StandardSchedulingControl<T, M> implements SchedulingControl<T, M> 
     ).throwException();
     this.maxParallelism = maxParallelism;
     this.schedulerFactory = schedulerFactory;
-    this.schedulingStrategy = schedulingStrategy;
+    if (maxParallelism < 0) {
+      // infinite parallelism
+      this.schedulingStrategy = new FactoryStrategy<M>();
+    } else if (maxParallelism == 0) {
+      // no parallelism
+      this.schedulingStrategy = new TrampolineFactory<M>();
+    } else {
+      this.schedulingStrategy = schedulingStrategy;
+    }
     this.streamingControl = streamingControl;
     this.outputControl = outputControl;
   }
@@ -72,5 +81,25 @@ public class StandardSchedulingControl<T, M> implements SchedulingControl<T, M> 
   @NotNull
   public OutputChannel<T> outputBufferOutput() throws Exception {
     return outputControl.outputBufferOutput();
+  }
+
+  private static class FactoryStrategy<M> implements SchedulingStrategy<M> {
+
+    @NotNull
+    public Scheduler schedulerFor(M message, int maxParallelism,
+        @NotNull SchedulerFactory schedulerFactory) throws Exception {
+      return schedulerFactory.create();
+    }
+  }
+
+  private static class TrampolineFactory<M> implements SchedulingStrategy<M> {
+
+    private final Trampoline trampoline = new Trampoline();
+
+    @NotNull
+    public Scheduler schedulerFor(M message, int maxParallelism,
+        @NotNull SchedulerFactory schedulerFactory) {
+      return trampoline;
+    }
   }
 }

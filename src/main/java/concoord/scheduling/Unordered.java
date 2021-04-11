@@ -35,17 +35,17 @@ public class Unordered<T, M> implements SchedulingControl<T, M> {
   private final StandardSchedulingControl<T, M> control;
 
   public Unordered(int maxParallelism, @NotNull SchedulerFactory schedulerFactory,
-      @NotNull SchedulingStrategy<M> schedulingStrategy) {
+      @NotNull SchedulingStrategy<? super M> schedulingStrategy) {
     this(maxParallelism, schedulerFactory, schedulingStrategy, new Buffered<T>());
   }
 
   public Unordered(int maxParallelism, @NotNull SchedulerFactory schedulerFactory,
-      @NotNull SchedulingStrategy<M> schedulingStrategy, int initialCapacity) {
+      @NotNull SchedulingStrategy<? super M> schedulingStrategy, int initialCapacity) {
     this(maxParallelism, schedulerFactory, schedulingStrategy, new Buffered<T>(initialCapacity));
   }
 
   public Unordered(int maxParallelism, @NotNull SchedulerFactory schedulerFactory,
-      @NotNull SchedulingStrategy<M> schedulingStrategy, @NotNull Buffer<T> buffer) {
+      @NotNull SchedulingStrategy<? super M> schedulingStrategy, @NotNull Buffer<T> buffer) {
     final StreamingControl<T, M> streamingControl;
     if (maxParallelism < 0) {
       // infinite parallelism

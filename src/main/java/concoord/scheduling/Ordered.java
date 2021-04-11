@@ -35,18 +35,19 @@ public class Ordered<T, M> implements SchedulingControl<T, M> {
   private final StandardSchedulingControl<T, M> control;
 
   public Ordered(int maxParallelism, @NotNull SchedulerFactory schedulerFactory,
-      @NotNull SchedulingStrategy<M> schedulingStrategy) {
+      @NotNull SchedulingStrategy<? super M> schedulingStrategy) {
     this(maxParallelism, schedulerFactory, schedulingStrategy, new DefaultBufferFactory<T>());
   }
 
   public Ordered(int maxParallelism, @NotNull SchedulerFactory schedulerFactory,
-      @NotNull SchedulingStrategy<M> schedulingStrategy, int initialCapacity) {
+      @NotNull SchedulingStrategy<? super M> schedulingStrategy, int initialCapacity) {
     this(maxParallelism, schedulerFactory, schedulingStrategy,
         new DefaultBufferFactory<T>(initialCapacity));
   }
 
   public Ordered(int maxParallelism, @NotNull SchedulerFactory schedulerFactory,
-      @NotNull SchedulingStrategy<M> schedulingStrategy, @NotNull BufferFactory<T> bufferFactory) {
+      @NotNull SchedulingStrategy<? super M> schedulingStrategy,
+      @NotNull BufferFactory<T> bufferFactory) {
     final StreamingControl<T, M> streamingControl;
     if (maxParallelism == 0) {
       // no parallelism
