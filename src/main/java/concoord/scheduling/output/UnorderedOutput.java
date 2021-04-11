@@ -17,30 +17,29 @@ package concoord.scheduling.output;
 
 import concoord.data.Buffer;
 import concoord.data.Buffered;
-import concoord.lang.Parallel.OutputStrategy;
 import concoord.lang.Parallel.InputChannel;
 import concoord.lang.Parallel.OutputChannel;
 import concoord.util.assertion.IfNull;
 import java.util.Iterator;
 import org.jetbrains.annotations.NotNull;
 
-public class Unordered<M> implements OutputStrategy<M> {
+public class UnorderedOutput<M> implements OutputControl<M> {
 
   private final Buffer<M> buffer;
   private UnorderedInputChannel<M> inputChannel;
   private UnorderedOutputChannel<M> outputChannel;
 
-  public Unordered() {
+  public UnorderedOutput() {
     this.buffer = new Buffered<M>();
   }
 
-  public Unordered(@NotNull Buffer<M> buffer) {
+  public UnorderedOutput(@NotNull Buffer<M> buffer) {
     new IfNull("buffer", buffer).throwException();
     this.buffer = buffer;
   }
 
   @NotNull
-  public InputChannel<M> inputChannel() {
+  public InputChannel<M> outputBufferInput() {
     if (inputChannel == null) {
       inputChannel = new UnorderedInputChannel<M>(buffer);
     }
@@ -48,7 +47,7 @@ public class Unordered<M> implements OutputStrategy<M> {
   }
 
   @NotNull
-  public OutputChannel<M> outputChannel() {
+  public OutputChannel<M> outputBufferOutput() {
     if (outputChannel == null) {
       outputChannel = new UnorderedOutputChannel<M>(buffer.iterator());
     }

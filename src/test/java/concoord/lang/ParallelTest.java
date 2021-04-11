@@ -19,9 +19,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import concoord.concurrent.Trampoline;
 import concoord.flow.Yield;
-import concoord.scheduling.control.Each;
-import concoord.scheduling.output.Ordered;
-import concoord.scheduling.output.Unordered;
+import concoord.scheduling.Ordered;
+import concoord.scheduling.output.OrderedOutput;
+import concoord.scheduling.streaming.SingleStreaming;
+import concoord.scheduling.output.UnorderedOutput;
 import concoord.scheduling.strategy.LoadBalancing;
 import concoord.scheduling.strategy.RoundRobin;
 import concoord.test.TestBasic;
@@ -36,12 +37,8 @@ public class ParallelTest {
         (scheduler) ->
             new Parallel<>(
                 new Iter<>("1", "2", "3").on(scheduler),
-                () -> new RoundRobin<>(
-                    3,
-                    Trampoline::new,
-                    (a, s) -> new For<>(-1, a, (m) -> new Yield<>("N" + m, -1)).on(s)
-                ),
-                Ordered::new
+                () -> new Ordered<>(3, Trampoline::new, new RoundRobin<>()),
+                (a, s) -> new For<>(-1, a, (m) -> new Yield<>("N" + m, -1)).on(s)
             ).on(scheduler),
         (messages) -> assertThat(messages).containsExactly("N1", "N2", "N3")
     ).run();
@@ -58,7 +55,7 @@ public class ParallelTest {
                     Trampoline::new,
                     (a, s) -> new For<>(a, (m) -> new Yield<>("N" + m, -1)).on(s)
                 ),
-                Ordered::new
+                OrderedOutput::new
             ).on(scheduler),
         (messages) -> assertThat(messages).containsExactly("N1", "N2", "N3")
     ).run();
@@ -70,11 +67,11 @@ public class ParallelTest {
         (scheduler) ->
             new Parallel<>(
                 new Iter<>("1", "2", "3").on(scheduler),
-                () -> new Each<>(
+                () -> new SingleStreaming<>(
                     new LoadBalancing<>(3, Trampoline::new),
                     (a, s) -> new For<>(a, (m) -> new Yield<>("N" + m, -1)).on(s)
                 ),
-                Ordered::new
+                OrderedOutput::new
             ).on(scheduler),
         (messages) -> assertThat(messages).containsExactly("N1", "N2", "N3")
     ).run();
@@ -86,11 +83,11 @@ public class ParallelTest {
         (scheduler) ->
             new Parallel<>(
                 new Iter<>("1", "2", "3").on(scheduler),
-                () -> new Each<>(
+                () -> new SingleStreaming<>(
                     new RoundRobin<>(3, Trampoline::new),
                     (a, s) -> new For<>(a, (m) -> new Yield<>("N" + m, -1)).on(s)
                 ),
-                Unordered::new
+                UnorderedOutput::new
             ).on(scheduler),
         (messages) -> assertThat(messages).containsExactly("N1", "N2", "N3")
     ).run();
@@ -102,11 +99,11 @@ public class ParallelTest {
         (scheduler) ->
             new Parallel<>(
                 new Iter<>("1", "2", "3").on(scheduler),
-                () -> new Each<>(
+                () -> new SingleStreaming<>(
                     new LoadBalancing<>(3, Trampoline::new),
                     (a, s) -> new For<>(a, (m) -> new Yield<>("N" + m, -1)).on(s)
                 ),
-                Unordered::new
+                UnorderedOutput::new
             ).on(scheduler),
         (messages) -> assertThat(messages).containsExactly("N1", "N2", "N3")
     ).run();
@@ -118,11 +115,11 @@ public class ParallelTest {
         (scheduler) ->
             new Parallel<>(
                 new Iter<>("1", "2", "3").on(scheduler),
-                () -> new Each<>(
+                () -> new SingleStreaming<>(
                     new RoundRobin<>(3, Trampoline::new),
                     (a, s) -> new For<>(a, (m) -> new Yield<>("N" + m, -1)).on(s)
                 ),
-                Ordered::new
+                OrderedOutput::new
             ).on(scheduler),
         (messages) -> assertThat(messages).containsExactly("N1", "N2", "N3")
     ).run();
@@ -134,11 +131,11 @@ public class ParallelTest {
         (scheduler) ->
             new Parallel<>(
                 new Iter<>("1", "2", "3").on(scheduler),
-                () -> new Each<>(
+                () -> new SingleStreaming<>(
                     new LoadBalancing<>(3, Trampoline::new),
                     (a, s) -> new For<>(a, (m) -> new Yield<>("N" + m, -1)).on(s)
                 ),
-                Ordered::new
+                OrderedOutput::new
             ).on(scheduler),
         (messages) -> assertThat(messages).containsExactly("N1", "N2", "N3")
     ).run();
@@ -150,11 +147,11 @@ public class ParallelTest {
         (scheduler) ->
             new Parallel<>(
                 new Iter<>("1", "2", "3").on(scheduler),
-                () -> new Each<>(
+                () -> new SingleStreaming<>(
                     new RoundRobin<>(3, Trampoline::new),
                     (a, s) -> new For<>(a, (m) -> new Yield<>("N" + m, -1)).on(s)
                 ),
-                Unordered::new
+                UnorderedOutput::new
             ).on(scheduler),
         (messages) -> assertThat(messages).containsExactly("N1", "N2", "N3")
     ).run();
@@ -166,11 +163,11 @@ public class ParallelTest {
         (scheduler) ->
             new Parallel<>(
                 new Iter<>("1", "2", "3").on(scheduler),
-                () -> new Each<>(
+                () -> new SingleStreaming<>(
                     new LoadBalancing<>(3, Trampoline::new),
                     (a, s) -> new For<>(a, (m) -> new Yield<>("N" + m, -1)).on(s)
                 ),
-                Unordered::new
+                UnorderedOutput::new
             ).on(scheduler),
         (messages) -> assertThat(messages).containsExactly("N1", "N2", "N3")
     ).run();

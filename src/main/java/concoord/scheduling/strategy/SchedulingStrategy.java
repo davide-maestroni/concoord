@@ -17,27 +17,11 @@ package concoord.scheduling.strategy;
 
 import concoord.concurrent.Scheduler;
 import concoord.concurrent.SchedulerFactory;
-import concoord.util.assertion.IfNull;
-import java.util.ArrayList;
 import org.jetbrains.annotations.NotNull;
 
-public class RoundRobin<M> implements SchedulingStrategy<M> {
-
-  private final ArrayList<Scheduler> schedulers = new ArrayList<Scheduler>();
-  private int index;
+public interface SchedulingStrategy<M> {
 
   @NotNull
-  public Scheduler schedulerFor(M message, int maxParallelism,
-      @NotNull SchedulerFactory schedulerFactory) throws Exception {
-    final ArrayList<Scheduler> schedulers = this.schedulers;
-    if (schedulers.size() < maxParallelism) {
-      index = schedulers.size();
-      final Scheduler scheduler = schedulerFactory.create();
-      new IfNull("scheduler", scheduler).throwException();
-      schedulers.add(scheduler);
-    } else {
-      index = (index + 1) % maxParallelism;
-    }
-    return schedulers.get(index);
-  }
+  Scheduler schedulerFor(M message, int maxParallelism, @NotNull SchedulerFactory schedulerFactory)
+      throws Exception;
 }

@@ -36,20 +36,20 @@ import org.jetbrains.annotations.NotNull;
 public class Parallel<T, M> implements Task<T> {
 
   private final Awaitable<M> awaitable;
-  private final SchedulingStrategyFactory<? extends T, ? super M> schedulingStrategyFactory;
-  private final OutputStrategyFactory<T> outputStrategyFactory;
+  private final SchedulingControlFactory<T, M> schedulingControlFactory;
+  private final Block<T, ? super M> block;
 
   public Parallel(@NotNull Awaitable<M> awaitable,
-      @NotNull SchedulingStrategyFactory<? extends T, ? super M> schedulingStrategyFactory,
-      @NotNull OutputStrategyFactory<T> outputStrategyFactory) {
+      @NotNull SchedulingControlFactory<T, M> schedulingControlFactory,
+      @NotNull Block<T, ? super M> block) {
     new IfSomeOf(
         new IfNull("awaitable", awaitable),
-        new IfNull("schedulingControlFactory", schedulingStrategyFactory),
-        new IfNull("bufferControlFactory", outputStrategyFactory)
+        new IfNull("schedulingControlFactory", schedulingControlFactory),
+        new IfNull("block", block)
     ).throwException();
     this.awaitable = awaitable;
-    this.schedulingStrategyFactory = schedulingStrategyFactory;
-    this.outputStrategyFactory = outputStrategyFactory;
+    this.schedulingControlFactory = schedulingControlFactory;
+    this.block = block;
   }
 
   @NotNull
@@ -59,40 +59,31 @@ public class Parallel<T, M> implements Task<T> {
         new ParallelControl<T, M>(
             scheduler,
             awaitable,
-            schedulingStrategyFactory,
-            outputStrategyFactory
+            schedulingControlFactory,
+            block
         )
     );
   }
 
-  public interface SchedulingStrategy<T, M> {
+  public interface SchedulingControl<T, M> {
 
     @NotNull
-    Awaitable<T> schedule(M message) throws Exception;
+    Awaitable<T> schedule(M message, @NotNull Block<T, ? super M> block) throws Exception;
 
-    void stopAll() throws Exception;
-  }
-
-  public interface SchedulingStrategyFactory<T, M> {
+    void end() throws Exception;
 
     @NotNull
-    SchedulingStrategy<T, M> create() throws Exception;
-  }
-
-  public interface OutputStrategy<M> {
+    InputChannel<T> outputBufferInput() throws Exception;
 
     @NotNull
-    InputChannel<M> inputChannel() throws Exception;
-
-    @NotNull
-    OutputChannel<M> outputChannel() throws Exception;
+    OutputChannel<T> outputBufferOutput() throws Exception;
   }
 
   public interface InputChannel<M> {
 
-    void push(M message);
+    void push(M message) throws Exception;
 
-    void close();
+    void close() throws Exception;
   }
 
   public interface OutputChannel<M> {
@@ -102,16 +93,16 @@ public class Parallel<T, M> implements Task<T> {
     M next();
   }
 
-  public interface OutputStrategyFactory<M> {
+  public interface SchedulingControlFactory<T, M> {
 
     @NotNull
-    OutputStrategy<M> create() throws Exception;
+    SchedulingControl<T, M> create() throws Exception;
   }
 
   public interface Block<T, M> {
 
     @NotNull
-    Awaitable<T> execute(@NotNull Awaitable<M> awaitable, @NotNull Scheduler scheduler)
+    Awaitable<T> execute(@NotNull Awaitable<? extends M> awaitable, @NotNull Scheduler scheduler)
         throws Exception;
   }
 
@@ -119,26 +110,25 @@ public class Parallel<T, M> implements Task<T> {
 
     private static final Object NULL = new Object();
 
-    private final IdentityHashMap<Awaitable<? extends T>, Restartable> awaitables =
-        new IdentityHashMap<Awaitable<? extends T>, Restartable>();
+    private final IdentityHashMap<Awaitable<T>, Restartable> awaitables =
+        new IdentityHashMap<Awaitable<T>, Restartable>();
     private final Scheduler scheduler;
     private final Awaitable<M> awaitable;
-    private final SchedulingStrategyFactory<? extends T, ? super M> schedulingStrategyFactory;
-    private final OutputStrategyFactory<T> outputStrategyFactory;
+    private final SchedulingControlFactory<T, M> schedulingControlFactory;
+    private final Block<T, ? super M> block;
     private State<T> controlState = new InputState();
-    private SchedulingStrategy<? extends T, ? super M> schedulingStrategy;
-    private OutputStrategy<T> outputStrategy;
+    private SchedulingControl<T, M> schedulingControl;
     private OutputChannel<T> outputChannel;
     private ParallelAwaiter awaiter;
     private Cancelable cancelable;
 
     private ParallelControl(@NotNull Scheduler scheduler, @NotNull Awaitable<M> awaitable,
-        @NotNull SchedulingStrategyFactory<? extends T, ? super M> schedulingStrategyFactory,
-        @NotNull OutputStrategyFactory<T> outputStrategyFactory) {
+        @NotNull SchedulingControlFactory<T, M> schedulingControlFactory,
+        @NotNull Block<T, ? super M> block) {
       this.scheduler = scheduler;
       this.awaitable = awaitable;
-      this.schedulingStrategyFactory = schedulingStrategyFactory;
-      this.outputStrategyFactory = outputStrategyFactory;
+      this.schedulingControlFactory = schedulingControlFactory;
+      this.block = block;
     }
 
     public boolean executeBlock(@NotNull StandardFlowControl<T> flowControl) throws Exception {
@@ -157,7 +147,7 @@ public class Parallel<T, M> implements Task<T> {
 
     public void abortExecution(@NotNull Throwable error) {
       this.awaitable.abort();
-      for (final Awaitable<? extends T> awaitable : awaitables.keySet()) {
+      for (final Awaitable<T> awaitable : awaitables.keySet()) {
         awaitable.abort();
       }
     }
@@ -218,12 +208,13 @@ public class Parallel<T, M> implements Task<T> {
           final StandardFlowControl<T> flowControl = ParallelAwaiter.this.flowControl;
           final M input = message != NULL ? (M) message : null;
           try {
-            final Awaitable<? extends T> awaitable = schedulingStrategy.schedule(input);
+            final Awaitable<T> awaitable = schedulingControl.schedule(input, block);
             if (!awaitables.containsKey(awaitable)) {
+              // TODO: 10/04/21 [executing] block
               flowControl.logger().log(
                   new DbgMessage("[scheduling] awaitable: %s", new PrintIdentity(awaitable))
               );
-              new OutputAwaiter(awaitable, outputStrategy.inputChannel()).start();
+              new OutputAwaiter(awaitable, schedulingControl.outputBufferInput()).start();
             }
           } catch (final Exception e) {
             flowControl.logger().log(
@@ -262,7 +253,7 @@ public class Parallel<T, M> implements Task<T> {
         public void run() {
           awaiterState = new EndState();
           try {
-            schedulingStrategy.stopAll();
+            schedulingControl.end();
           } catch (final Exception exception) {
             awaiterState = new ErrorState(exception);
           }
@@ -311,12 +302,11 @@ public class Parallel<T, M> implements Task<T> {
 
         private final OutputMessageCommand outputMessageCommand = new OutputMessageCommand();
         private final ConcurrentLinkedQueue<Object> outputQueue = new ConcurrentLinkedQueue<Object>();
-        private final Awaitable<? extends T> awaitable;
+        private final Awaitable<T> awaitable;
         private final InputChannel<T> channel;
         private Cancelable cancelable;
 
-        private OutputAwaiter(@NotNull Awaitable<? extends T> awaitable,
-            @NotNull InputChannel<T> channel) {
+        private OutputAwaiter(@NotNull Awaitable<T> awaitable, @NotNull InputChannel<T> channel) {
           this.awaitable = awaitable;
           this.channel = channel;
         }
@@ -357,7 +347,11 @@ public class Parallel<T, M> implements Task<T> {
           public void run() {
             final Object message = outputQueue.poll();
             if (message != null) {
-              channel.push(message != NULL ? (T) message : null);
+              try {
+                channel.push(message != NULL ? (T) message : null);
+              } catch (final Exception e) {
+                awaiterState = new ErrorState(e);
+              }
               flowControl.execute();
             }
           }
@@ -372,15 +366,19 @@ public class Parallel<T, M> implements Task<T> {
 
         private class EndCommand implements Runnable {
 
-          private final Awaitable<? extends T> awaitable;
+          private final Awaitable<T> awaitable;
 
-          private EndCommand(@NotNull Awaitable<? extends T> awaitable) {
+          private EndCommand(@NotNull Awaitable<T> awaitable) {
             this.awaitable = awaitable;
           }
 
           public void run() {
-            channel.close();
             awaitables.remove(awaitable);
+            try {
+              channel.close();
+            } catch (final Exception e) {
+              awaiterState = new ErrorState(e);
+            }
             flowControl.execute();
           }
         }
@@ -390,9 +388,8 @@ public class Parallel<T, M> implements Task<T> {
     private class InputState implements State<T> {
 
       public boolean executeBlock(@NotNull StandardFlowControl<T> flowControl) throws Exception {
-        schedulingStrategy = schedulingStrategyFactory.create();
-        outputStrategy = outputStrategyFactory.create();
-        outputChannel = outputStrategy.outputChannel();
+        schedulingControl = schedulingControlFactory.create();
+        outputChannel = schedulingControl.outputBufferOutput();
         controlState = new MessageState();
         awaiter = new ParallelAwaiter();
         return awaiter.executeBlock(flowControl);
@@ -407,7 +404,7 @@ public class Parallel<T, M> implements Task<T> {
           flowControl.postOutput(outputChannel.next());
           return true;
         }
-        final IdentityHashMap<Awaitable<? extends T>, Restartable> awaitables =
+        final IdentityHashMap<Awaitable<T>, Restartable> awaitables =
             ParallelControl.this.awaitables;
         for (final Restartable restartable : awaitables.values()) {
           restartable.start();

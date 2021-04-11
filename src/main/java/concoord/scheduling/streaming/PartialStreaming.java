@@ -13,35 +13,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package concoord.scheduling.control;
+package concoord.scheduling.streaming;
 
 import concoord.concurrent.Awaitable;
 import concoord.concurrent.Scheduler;
 import concoord.concurrent.Trampoline;
 import concoord.data.ConsumingFactory;
 import concoord.lang.Parallel.Block;
-import concoord.lang.Parallel.SchedulingStrategy;
 import concoord.lang.Streamed;
 import concoord.lang.Streamed.StreamedAwaitable;
-import concoord.scheduling.strategy.StandardSchedulingStrategy.SchedulingControl;
 import java.util.WeakHashMap;
 import org.jetbrains.annotations.NotNull;
 
-public class Partial<T, M> implements SchedulingStrategy<T, M> {
+public class PartialStreaming<T, M> implements StreamingControl<T, M> {
 
   private final WeakHashMap<Scheduler, ScheduledTask<T, M>> tasks =
       new WeakHashMap<Scheduler, ScheduledTask<T, M>>();
-  private final SchedulingControl<M> schedulingControl;
-  private final Block<T, M> block;
-
-  public Partial(@NotNull SchedulingControl<M> schedulingControl, @NotNull Block<T, M> block) {
-    this.schedulingControl = schedulingControl;
-    this.block = block;
-  }
 
   @NotNull
-  public Awaitable<T> schedule(M message) throws Exception {
-    final Scheduler scheduler = schedulingControl.schedulerFor(message);
+  public Awaitable<T> stream(@NotNull Scheduler scheduler, M message,
+      @NotNull Block<T, ? super M> block) throws Exception {
     ScheduledTask<T, M> task = tasks.get(scheduler);
     if (task == null) {
       final StreamedAwaitable<M> input = new Streamed<M>(new ConsumingFactory<M>())
@@ -54,8 +45,8 @@ public class Partial<T, M> implements SchedulingStrategy<T, M> {
     return task.output();
   }
 
-  public void stopAll() throws Exception {
-    for (ScheduledTask<T, M> task : tasks.values()) {
+  public void end() throws Exception {
+    for (final ScheduledTask<T, M> task : tasks.values()) {
       task.input().end();
     }
   }

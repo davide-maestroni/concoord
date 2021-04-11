@@ -15,88 +15,37 @@
  */
 package concoord.scheduling.strategy;
 
-import concoord.concurrent.Awaitable;
 import concoord.concurrent.Scheduler;
 import concoord.concurrent.SchedulerFactory;
-import concoord.lang.Parallel.Block;
-import concoord.lang.Parallel.SchedulingStrategy;
-import concoord.scheduling.strategy.StandardSchedulingStrategy.SchedulingControl;
-import concoord.util.assertion.IfContainsNull;
+import concoord.concurrent.Trampoline;
+import concoord.util.assertion.IfNull;
 import java.util.ArrayList;
 import org.jetbrains.annotations.NotNull;
 
-public class LoadBalancing<T, M> implements SchedulingStrategy<T, M> {
+public class LoadBalancing<M> implements SchedulingStrategy<M> {
 
-  private final StandardSchedulingStrategy<T, M> strategy;
-
-  public LoadBalancing(int maxParallelism, @NotNull SchedulerFactory schedulerFactory,
-      @NotNull Block<T, M> block) {
-    this.strategy = new StandardSchedulingStrategy<T, M>(
-        maxParallelism,
-        schedulerFactory,
-        new LoadBalancingControl<M>(maxParallelism, schedulerFactory),
-        block
-    );
-  }
+  private final Trampoline trampoline = new Trampoline();
+  private final ArrayList<Scheduler> schedulers = new ArrayList<Scheduler>();
 
   @NotNull
-  public Awaitable<T> schedule(M message) throws Exception {
-    return strategy.schedule(message);
-  }
-
-  public void stopAll() throws Exception {
-    strategy.stopAll();
-  }
-
-  private static class LoadBalancingControl<M> implements SchedulingControl<M> {
-
-    private final ArrayList<Scheduler> schedulers = new ArrayList<Scheduler>();
-    private final int maxParallelism;
-    private final SchedulerFactory schedulerFactory;
-    private SchedulerFactory factoryState = new InitState();
-
-    private LoadBalancingControl(int maxParallelism, @NotNull SchedulerFactory schedulerFactory) {
-      this.maxParallelism = maxParallelism;
-      this.schedulerFactory = schedulerFactory;
-    }
-
-    @NotNull
-    public Scheduler schedulerFor(M message) throws Exception {
-      return factoryState.create();
-    }
-
-    private class InitState implements SchedulerFactory {
-
-      @NotNull
-      public Scheduler create() throws Exception {
-        final SchedulerFactory schedulerFactory = LoadBalancingControl.this.schedulerFactory;
-        final ArrayList<Scheduler> schedulers = LoadBalancingControl.this.schedulers;
-        for (int i = 0; i < maxParallelism; ++i) {
-          final Scheduler scheduler = schedulerFactory.create();
-          schedulers.add(scheduler);
+  public Scheduler schedulerFor(M message, int maxParallelism,
+      @NotNull SchedulerFactory schedulerFactory) throws Exception {
+    Scheduler selected = trampoline;
+    final ArrayList<Scheduler> schedulers = this.schedulers;
+    if (schedulers.size() < maxParallelism) {
+      selected = schedulerFactory.create();
+      new IfNull("scheduler", selected).throwException();
+      schedulers.add(selected);
+    } else {
+      int min = Integer.MAX_VALUE;
+      for (final Scheduler scheduler : schedulers) {
+        final int pendingCommands = scheduler.pendingCommands();
+        if (pendingCommands < min) {
+          min = pendingCommands;
+          selected = scheduler;
         }
-        new IfContainsNull("schedulers", schedulers).throwException();
-        factoryState = new FactoryState();
-        return factoryState.create();
       }
     }
-
-    private class FactoryState implements SchedulerFactory {
-
-      @NotNull
-      @SuppressWarnings("ConstantConditions")
-      public Scheduler create() {
-        int min = Integer.MAX_VALUE;
-        Scheduler selected = null;
-        for (final Scheduler scheduler : schedulers) {
-          final int pendingCommands = scheduler.pendingCommands();
-          if (pendingCommands < min) {
-            min = pendingCommands;
-            selected = scheduler;
-          }
-        }
-        return selected;
-      }
-    }
+    return selected;
   }
 }

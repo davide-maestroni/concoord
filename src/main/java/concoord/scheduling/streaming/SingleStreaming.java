@@ -13,32 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package concoord.scheduling.control;
+package concoord.scheduling.streaming;
 
 import concoord.concurrent.Awaitable;
 import concoord.concurrent.Scheduler;
 import concoord.concurrent.Trampoline;
 import concoord.data.ConsumingFactory;
 import concoord.lang.Parallel.Block;
-import concoord.lang.Parallel.SchedulingStrategy;
 import concoord.lang.Streamed;
 import concoord.lang.Streamed.StreamedAwaitable;
-import concoord.scheduling.strategy.StandardSchedulingStrategy.SchedulingControl;
 import org.jetbrains.annotations.NotNull;
 
-public class Each<T, M> implements SchedulingStrategy<T, M> {
-
-  private final SchedulingControl<M> schedulingControl;
-  private final Block<T, M> block;
-
-  public Each(@NotNull SchedulingControl<M> schedulingControl, @NotNull Block<T, M> block) {
-    this.schedulingControl = schedulingControl;
-    this.block = block;
-  }
+public class SingleStreaming<T, M> implements StreamingControl<T, M> {
 
   @NotNull
-  public Awaitable<T> schedule(M message) throws Exception {
-    final Scheduler scheduler = schedulingControl.schedulerFor(message);
+  public Awaitable<T> stream(@NotNull Scheduler scheduler, M message,
+      @NotNull Block<T, ? super M> block) throws Exception {
     final StreamedAwaitable<M> input = new Streamed<M>(new ConsumingFactory<M>())
         .on(new Trampoline());
     final Awaitable<T> output = block.execute(input, scheduler);
@@ -47,6 +37,6 @@ public class Each<T, M> implements SchedulingStrategy<T, M> {
     return output;
   }
 
-  public void stopAll() {
+  public void end() {
   }
 }

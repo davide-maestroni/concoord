@@ -18,7 +18,6 @@ package concoord.scheduling.output;
 import concoord.data.Buffer;
 import concoord.data.BufferFactory;
 import concoord.data.DefaultBufferFactory;
-import concoord.lang.Parallel.OutputStrategy;
 import concoord.lang.Parallel.InputChannel;
 import concoord.lang.Parallel.OutputChannel;
 import concoord.util.assertion.IfNull;
@@ -26,24 +25,24 @@ import concoord.util.collection.CircularQueue;
 import java.util.Iterator;
 import org.jetbrains.annotations.NotNull;
 
-public class Ordered<M> implements OutputStrategy<M> {
+public class OrderedOutput<M> implements OutputControl<M> {
 
   private final CircularQueue<OrderedInputChannel<M>> inputChannels =
       new CircularQueue<OrderedInputChannel<M>>();
   private final BufferFactory<M> bufferFactory;
   private OrderedOutputChannel<M> outputChannel;
 
-  public Ordered() {
+  public OrderedOutput() {
     this.bufferFactory = new DefaultBufferFactory<M>();
   }
 
-  public Ordered(@NotNull BufferFactory<M> bufferFactory) {
+  public OrderedOutput(@NotNull BufferFactory<M> bufferFactory) {
     new IfNull("bufferFactory", bufferFactory).throwException();
     this.bufferFactory = bufferFactory;
   }
 
   @NotNull
-  public InputChannel<M> inputChannel() throws Exception {
+  public InputChannel<M> outputBufferInput() throws Exception {
     final OrderedInputChannel<M> inputChannel =
         new OrderedInputChannel<M>(bufferFactory.create());
     inputChannels.offer(inputChannel);
@@ -51,7 +50,7 @@ public class Ordered<M> implements OutputStrategy<M> {
   }
 
   @NotNull
-  public OutputChannel<M> outputChannel() {
+  public OutputChannel<M> outputBufferOutput() {
     if (outputChannel == null) {
       outputChannel = new OrderedOutputChannel<M>(inputChannels);
     }
