@@ -20,9 +20,9 @@ import concoord.concurrent.Awaitable;
 import concoord.concurrent.Awaiter;
 import concoord.concurrent.CancelException;
 import concoord.concurrent.Cancelable;
-import concoord.concurrent.CombinedAwaiter;
 import concoord.concurrent.EndAwaiter;
 import concoord.concurrent.EventAwaiter;
+import concoord.concurrent.FunctionalAwaiter;
 import concoord.concurrent.Scheduler;
 import concoord.flow.FlowControl;
 import concoord.util.assertion.IfInterrupt;
@@ -98,7 +98,7 @@ public class StandardAwaitable<T> implements Awaitable<T> {
   @NotNull
   public Cancelable await(int maxEvents, @NotNull EventAwaiter<? super T> messageAwaiter,
       @NotNull EventAwaiter<? super Throwable> errorAwaiter, @NotNull EndAwaiter endAwaiter) {
-    return await(maxEvents, new CombinedAwaiter<T>(messageAwaiter, errorAwaiter, endAwaiter));
+    return await(maxEvents, new FunctionalAwaiter<T>(messageAwaiter, errorAwaiter, endAwaiter));
   }
 
   public void abort() {

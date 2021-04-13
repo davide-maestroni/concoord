@@ -17,8 +17,6 @@ package concoord.scheduling.streaming;
 
 import concoord.concurrent.Awaitable;
 import concoord.concurrent.Scheduler;
-import concoord.concurrent.Trampoline;
-import concoord.data.ConsumingFactory;
 import concoord.lang.Parallel.Block;
 import concoord.lang.Streamed;
 import concoord.lang.Streamed.StreamedAwaitable;
@@ -29,8 +27,7 @@ public class SingleStreaming<T, M> implements StreamingControl<T, M> {
   @NotNull
   public Awaitable<T> stream(@NotNull Scheduler scheduler, M message,
       @NotNull Block<T, ? super M> block) throws Exception {
-    final StreamedAwaitable<M> input = new Streamed<M>(new ConsumingFactory<M>())
-        .on(new Trampoline());
+    final StreamedAwaitable<M> input = new Streamed<M>(new ConsumingFactory<M>()).on(scheduler);
     final Awaitable<T> output = block.execute(input, scheduler);
     input.message(message);
     input.end();

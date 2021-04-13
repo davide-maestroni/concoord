@@ -13,11 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package concoord.data;
+package concoord.scheduling.streaming;
 
+import concoord.data.Buffer;
+import concoord.data.BufferFactory;
+import concoord.data.Consuming;
 import org.jetbrains.annotations.NotNull;
 
-public class ConsumingFactory<M> implements BufferFactory<M> {
+class ConsumingFactory<M> implements BufferFactory<M> {
 
   @NotNull
   public Buffer<M> create() {

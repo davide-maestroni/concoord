@@ -38,7 +38,7 @@ public class ParallelTest {
                 (scheduler) ->
                     new Parallel<>(
                         new Iter<>("1", "2", "3").on(scheduler),
-                        () -> new Ordered<>(parallelism, Trampoline::new, new RoundRobin<>()),
+                        () -> new Ordered<>(parallelism, new RoundRobin<>(), Trampoline::new),
                         (a, s) -> new For<>(-1, a, (m) -> new Yield<>("N" + m, -1)).on(s)
                     ).on(scheduler),
                 (messages) -> assertThat(messages).containsExactly("N1", "N2", "N3")
@@ -49,7 +49,7 @@ public class ParallelTest {
                 (scheduler) ->
                     new Parallel<>(
                         new Iter<>("1", "2", "3").on(scheduler),
-                        () -> new Ordered<>(parallelism, Trampoline::new, new RoundRobin<>()),
+                        () -> new Ordered<>(parallelism, new RoundRobin<>(), Trampoline::new),
                         (a, s) -> new For<>(a, (m) -> new Yield<>("N" + m)).on(s)
                     ).on(scheduler),
                 (messages) -> assertThat(messages).containsExactly("N1", "N2", "N3")
@@ -64,7 +64,7 @@ public class ParallelTest {
                 (scheduler) ->
                     new Parallel<>(
                         new Iter<>("1", "2", "3").on(scheduler),
-                        () -> new Ordered<>(parallelism, Trampoline::new, new LoadBalancing<>()),
+                        () -> new Ordered<>(parallelism, new LoadBalancing<>(), Trampoline::new),
                         (a, s) -> new For<>(-1, a, (m) -> new Yield<>("N" + m, -1)).on(s)
                     ).on(scheduler),
                 (messages) -> assertThat(messages).containsExactly("N1", "N2", "N3")
@@ -75,7 +75,7 @@ public class ParallelTest {
                 (scheduler) ->
                     new Parallel<>(
                         new Iter<>("1", "2", "3").on(scheduler),
-                        () -> new Ordered<>(parallelism, Trampoline::new, new LoadBalancing<>()),
+                        () -> new Ordered<>(parallelism, new LoadBalancing<>(), Trampoline::new),
                         (a, s) -> new For<>(a, (m) -> new Yield<>("N" + m)).on(s)
                     ).on(scheduler),
                 (messages) -> assertThat(messages).containsExactly("N1", "N2", "N3")
@@ -90,7 +90,7 @@ public class ParallelTest {
                 (scheduler) ->
                     new Parallel<>(
                         new Iter<>("1", "2", "3").on(scheduler),
-                        () -> new Unordered<>(parallelism, Trampoline::new, new RoundRobin<>()),
+                        () -> new Unordered<>(parallelism, new RoundRobin<>(), Trampoline::new),
                         (a, s) -> new For<>(-1, a, (m) -> new Yield<>("N" + m, -1)).on(s)
                     ).on(scheduler),
                 (messages) -> assertThat(messages).containsExactlyInAnyOrder("N1", "N2", "N3")
@@ -101,7 +101,7 @@ public class ParallelTest {
                 (scheduler) ->
                     new Parallel<>(
                         new Iter<>("1", "2", "3").on(scheduler),
-                        () -> new Unordered<>(parallelism, Trampoline::new, new RoundRobin<>()),
+                        () -> new Unordered<>(parallelism, new RoundRobin<>(), Trampoline::new),
                         (a, s) -> new For<>(a, (m) -> new Yield<>("N" + m)).on(s)
                     ).on(scheduler),
                 (messages) -> assertThat(messages).containsExactlyInAnyOrder("N1", "N2", "N3")
@@ -116,7 +116,7 @@ public class ParallelTest {
                 (scheduler) ->
                     new Parallel<>(
                         new Iter<>("1", "2", "3").on(scheduler),
-                        () -> new Unordered<>(parallelism, Trampoline::new, new LoadBalancing<>()),
+                        () -> new Unordered<>(parallelism, new LoadBalancing<>(), Trampoline::new),
                         (a, s) -> new For<>(-1, a, (m) -> new Yield<>("N" + m, -1)).on(s)
                     ).on(scheduler),
                 (messages) -> assertThat(messages).containsExactlyInAnyOrder("N1", "N2", "N3")
@@ -127,7 +127,7 @@ public class ParallelTest {
                 (scheduler) ->
                     new Parallel<>(
                         new Iter<>("1", "2", "3").on(scheduler),
-                        () -> new Unordered<>(parallelism, Trampoline::new, new LoadBalancing<>()),
+                        () -> new Unordered<>(parallelism, new LoadBalancing<>(), Trampoline::new),
                         (a, s) -> new For<>(a, (m) -> new Yield<>("N" + m)).on(s)
                     ).on(scheduler),
                 (messages) -> assertThat(messages).containsExactlyInAnyOrder("N1", "N2", "N3")
@@ -142,7 +142,7 @@ public class ParallelTest {
                 (scheduler) ->
                     new Parallel<>(
                         new Iter<>("1", "2", "3").on(scheduler),
-                        () -> new Ordered<>(parallelism, Trampoline::new, new RoundRobin<>()),
+                        () -> new Ordered<>(parallelism, new RoundRobin<>(), Trampoline::new),
                         (a, s) -> new For<>(-1, a, (m) -> new Yield<>("N" + m, -1)).on(s)
                     ).on(scheduler),
                 (messages) -> assertThat(messages).containsExactly("N1", "N2", "N3")
@@ -153,7 +153,7 @@ public class ParallelTest {
                 (scheduler) ->
                     new Parallel<>(
                         new Iter<>("1", "2", "3").on(scheduler),
-                        () -> new Ordered<>(parallelism, Trampoline::new, new RoundRobin<>()),
+                        () -> new Ordered<>(parallelism, new RoundRobin<>(), Trampoline::new),
                         (a, s) -> new For<>(a, (m) -> new Yield<>("N" + m)).on(s)
                     ).on(scheduler),
                 (messages) -> assertThat(messages).containsExactly("N1", "N2", "N3")
@@ -168,7 +168,7 @@ public class ParallelTest {
                 (scheduler) ->
                     new Parallel<>(
                         new Iter<>("1", "2", "3").on(scheduler),
-                        () -> new Ordered<>(parallelism, Trampoline::new, new LoadBalancing<>()),
+                        () -> new Ordered<>(parallelism, new LoadBalancing<>(), Trampoline::new),
                         (a, s) -> new For<>(-1, a, (m) -> new Yield<>("N" + m, -1)).on(s)
                     ).on(scheduler),
                 (messages) -> assertThat(messages).containsExactly("N1", "N2", "N3")
@@ -179,7 +179,7 @@ public class ParallelTest {
                 (scheduler) ->
                     new Parallel<>(
                         new Iter<>("1", "2", "3").on(scheduler),
-                        () -> new Ordered<>(parallelism, Trampoline::new, new LoadBalancing<>()),
+                        () -> new Ordered<>(parallelism, new LoadBalancing<>(), Trampoline::new),
                         (a, s) -> new For<>(a, (m) -> new Yield<>("N" + m)).on(s)
                     ).on(scheduler),
                 (messages) -> assertThat(messages).containsExactly("N1", "N2", "N3")
@@ -194,7 +194,7 @@ public class ParallelTest {
                 (scheduler) ->
                     new Parallel<>(
                         new Iter<>("1", "2", "3").on(scheduler),
-                        () -> new Unordered<>(parallelism, Trampoline::new, new RoundRobin<>()),
+                        () -> new Unordered<>(parallelism, new RoundRobin<>(), Trampoline::new),
                         (a, s) -> new For<>(-1, a, (m) -> new Yield<>("N" + m, -1)).on(s)
                     ).on(scheduler),
                 (messages) -> assertThat(messages).containsExactlyInAnyOrder("N1", "N2", "N3")
@@ -205,7 +205,7 @@ public class ParallelTest {
                 (scheduler) ->
                     new Parallel<>(
                         new Iter<>("1", "2", "3").on(scheduler),
-                        () -> new Unordered<>(parallelism, Trampoline::new, new RoundRobin<>()),
+                        () -> new Unordered<>(parallelism, new RoundRobin<>(), Trampoline::new),
                         (a, s) -> new For<>(a, (m) -> new Yield<>("N" + m)).on(s)
                     ).on(scheduler),
                 (messages) -> assertThat(messages).containsExactlyInAnyOrder("N1", "N2", "N3")
@@ -220,7 +220,7 @@ public class ParallelTest {
                 (scheduler) ->
                     new Parallel<>(
                         new Iter<>("1", "2", "3").on(scheduler),
-                        () -> new Unordered<>(parallelism, Trampoline::new, new LoadBalancing<>()),
+                        () -> new Unordered<>(parallelism, new LoadBalancing<>(), Trampoline::new),
                         (a, s) -> new For<>(-1, a, (m) -> new Yield<>("N" + m, -1)).on(s)
                     ).on(scheduler),
                 (messages) -> assertThat(messages).containsExactlyInAnyOrder("N1", "N2", "N3")
@@ -231,7 +231,7 @@ public class ParallelTest {
                 (scheduler) ->
                     new Parallel<>(
                         new Iter<>("1", "2", "3").on(scheduler),
-                        () -> new Unordered<>(parallelism, Trampoline::new, new LoadBalancing<>()),
+                        () -> new Unordered<>(parallelism, new LoadBalancing<>(), Trampoline::new),
                         (a, s) -> new For<>(a, (m) -> new Yield<>("N" + m)).on(s)
                     ).on(scheduler),
                 (messages) -> assertThat(messages).containsExactlyInAnyOrder("N1", "N2", "N3")

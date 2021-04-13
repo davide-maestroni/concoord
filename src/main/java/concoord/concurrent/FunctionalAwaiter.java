@@ -4,13 +4,13 @@ import concoord.util.assertion.IfNull;
 import concoord.util.assertion.IfSomeOf;
 import org.jetbrains.annotations.NotNull;
 
-public class CombinedAwaiter<T> implements Awaiter<T> {
+public class FunctionalAwaiter<T> implements Awaiter<T> {
 
   private final EventAwaiter<? super T> messageAwaiter;
   private final EventAwaiter<? super Throwable> errorAwaiter;
   private final EndAwaiter endAwaiter;
 
-  public CombinedAwaiter(@NotNull EventAwaiter<? super T> messageAwaiter,
+  public FunctionalAwaiter(@NotNull EventAwaiter<? super T> messageAwaiter,
       @NotNull EventAwaiter<? super Throwable> errorAwaiter,
       @NotNull EndAwaiter endAwaiter) {
     new IfSomeOf(

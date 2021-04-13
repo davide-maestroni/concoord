@@ -34,20 +34,19 @@ public class Ordered<T, M> implements SchedulingControl<T, M> {
 
   private final StandardSchedulingControl<T, M> control;
 
-  public Ordered(int maxParallelism, @NotNull SchedulerFactory schedulerFactory,
-      @NotNull SchedulingStrategy<? super M> schedulingStrategy) {
-    this(maxParallelism, schedulerFactory, schedulingStrategy, new DefaultBufferFactory<T>());
+  public Ordered(int maxParallelism, @NotNull SchedulingStrategy<? super M> schedulingStrategy,
+      @NotNull SchedulerFactory schedulerFactory) {
+    this(maxParallelism, schedulingStrategy, schedulerFactory, new DefaultBufferFactory<T>());
   }
 
-  public Ordered(int maxParallelism, @NotNull SchedulerFactory schedulerFactory,
-      @NotNull SchedulingStrategy<? super M> schedulingStrategy, int initialCapacity) {
-    this(maxParallelism, schedulerFactory, schedulingStrategy,
+  public Ordered(int maxParallelism, @NotNull SchedulingStrategy<? super M> schedulingStrategy,
+      @NotNull SchedulerFactory schedulerFactory, int initialCapacity) {
+    this(maxParallelism, schedulingStrategy, schedulerFactory,
         new DefaultBufferFactory<T>(initialCapacity));
   }
 
-  public Ordered(int maxParallelism, @NotNull SchedulerFactory schedulerFactory,
-      @NotNull SchedulingStrategy<? super M> schedulingStrategy,
-      @NotNull BufferFactory<T> bufferFactory) {
+  public Ordered(int maxParallelism, @NotNull SchedulingStrategy<? super M> schedulingStrategy,
+      @NotNull SchedulerFactory schedulerFactory, @NotNull BufferFactory<T> bufferFactory) {
     final StreamingControl<T, M> streamingControl;
     if (maxParallelism == 0) {
       // no parallelism
