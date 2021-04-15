@@ -33,7 +33,7 @@ public class PartialStreaming<T, M> implements StreamingControl<T, M> {
       @NotNull Block<T, ? super M> block) throws Exception {
     ScheduledTask<T, M> task = tasks.get(scheduler);
     if (task == null) {
-      final StreamedAwaitable<M> input = new Streamed<M>(new ConsumingFactory<M>()).on(scheduler);
+      final StreamedAwaitable<M> input = new Streamed<M>().on(scheduler);
       final Awaitable<T> output = block.execute(input, scheduler);
       task = new ScheduledTask<T, M>(input, output);
       tasks.put(scheduler, task);
@@ -46,6 +46,19 @@ public class PartialStreaming<T, M> implements StreamingControl<T, M> {
     for (final ScheduledTask<T, M> task : tasks.values()) {
       task.input().end();
     }
+  }
+
+  public int inputEvents() {
+    int events = 0;
+    for (final ScheduledTask<T, M> task : tasks.values()) {
+      final int requiredEvents = task.input().requiredEvents();
+      if (requiredEvents < 0) {
+        events = requiredEvents;
+        break;
+      }
+      events += requiredEvents;
+    }
+    return events;
   }
 
   private static class ScheduledTask<T, M> {

@@ -27,4 +27,6 @@ public interface StreamingControl<T, M> {
       throws Exception;
 
   void end() throws Exception;
+
+  int inputEvents();
 }

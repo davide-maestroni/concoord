@@ -22,11 +22,11 @@ public class DefaultBufferFactory<T> implements BufferFactory<T> {
   private final BufferFactory<T> factory;
 
   public DefaultBufferFactory() {
-    this.factory = new DefaultCapacityBufferFactory<T>();
+    this.factory = new BufferFactoryDefault<T>();
   }
 
   public DefaultBufferFactory(int initialCapacity) {
-    this.factory = new CapacityBufferFactory<T>(initialCapacity);
+    this.factory = new BufferFactoryCapacity<T>(initialCapacity);
   }
 
   @NotNull
@@ -34,7 +34,7 @@ public class DefaultBufferFactory<T> implements BufferFactory<T> {
     return factory.create();
   }
 
-  private static class DefaultCapacityBufferFactory<T> implements BufferFactory<T> {
+  private static class BufferFactoryDefault<T> implements BufferFactory<T> {
 
     @NotNull
     public Buffer<T> create() {
@@ -42,11 +42,11 @@ public class DefaultBufferFactory<T> implements BufferFactory<T> {
     }
   }
 
-  private static class CapacityBufferFactory<T> implements BufferFactory<T> {
+  private static class BufferFactoryCapacity<T> implements BufferFactory<T> {
 
     private final int initialCapacity;
 
-    public CapacityBufferFactory(int initialCapacity) {
+    public BufferFactoryCapacity(int initialCapacity) {
       this.initialCapacity = initialCapacity;
     }
 

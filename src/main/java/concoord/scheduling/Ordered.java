@@ -72,6 +72,10 @@ public class Ordered<T, M> implements SchedulingControl<T, M> {
     control.end();
   }
 
+  public int inputEvents() {
+    return control.inputEvents();
+  }
+
   @NotNull
   public InputChannel<T> outputBufferInput() throws Exception {
     return control.outputBufferInput();

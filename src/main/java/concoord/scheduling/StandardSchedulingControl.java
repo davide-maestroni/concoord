@@ -73,6 +73,10 @@ public class StandardSchedulingControl<T, M> implements SchedulingControl<T, M> 
     streamingControl.end();
   }
 
+  public int inputEvents() {
+    return streamingControl.inputEvents();
+  }
+
   @NotNull
   public InputChannel<T> outputBufferInput() throws Exception {
     return outputControl.outputBufferInput();

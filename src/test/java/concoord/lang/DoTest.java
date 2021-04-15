@@ -12,6 +12,7 @@ import concoord.flow.Return;
 import concoord.flow.Yield;
 import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
@@ -64,19 +65,19 @@ public class DoTest {
     Awaitable<String> awaitable = new Do<>(() -> new Return<>("hello")).on(scheduler);
     AtomicReference<String> testMessage = new AtomicReference<>();
     AtomicReference<Throwable> testError = new AtomicReference<>();
-    AtomicBoolean testEnd = new AtomicBoolean();
-    awaitable.await(1, testMessage::set, testError::set, () -> testEnd.set(true));
+    AtomicInteger testEnd = new AtomicInteger();
+    awaitable.await(1, testMessage::set, testError::set, testEnd::incrementAndGet);
     lazyExecutor.advance(Integer.MAX_VALUE);
     assertThat(testMessage).hasValue("hello");
     assertThat(testError).hasValue(null);
-    assertThat(testEnd).isFalse();
+    assertThat(testEnd).hasValue(0);
 
     testMessage.set(null);
-    awaitable.await(1, testMessage::set, testError::set, () -> testEnd.set(true));
+    awaitable.await(1, testMessage::set, testError::set, testEnd::incrementAndGet);
     lazyExecutor.advance(Integer.MAX_VALUE);
     assertThat(testMessage).hasValue(null);
     assertThat(testError).hasValue(null);
-    assertThat(testEnd).isTrue();
+    assertThat(testEnd).hasValue(1);
   }
 
   @Test
@@ -86,13 +87,13 @@ public class DoTest {
     Awaitable<String> awaitable = new Do<>(() -> new Return<>("hello")).on(scheduler);
     AtomicReference<String> testMessage = new AtomicReference<>();
     AtomicReference<Throwable> testError = new AtomicReference<>();
-    AtomicBoolean testEnd = new AtomicBoolean();
-    awaitable.await(1, testMessage::set, testError::set, () -> testEnd.set(true));
-    awaitable.await(1, testMessage::set, testError::set, () -> testEnd.set(true));
+    AtomicInteger testEnd = new AtomicInteger();
+    awaitable.await(1, testMessage::set, testError::set, testEnd::incrementAndGet);
+    awaitable.await(1, testMessage::set, testError::set, testEnd::incrementAndGet);
     lazyExecutor.advance(Integer.MAX_VALUE);
     assertThat(testMessage).hasValue("hello");
     assertThat(testError).hasValue(null);
-    assertThat(testEnd).isTrue();
+    assertThat(testEnd).hasValue(1);
   }
 
   @Test

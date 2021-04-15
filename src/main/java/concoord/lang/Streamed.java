@@ -22,7 +22,7 @@ import concoord.concurrent.Scheduler;
 import concoord.concurrent.Task;
 import concoord.data.Buffer;
 import concoord.data.BufferFactory;
-import concoord.data.DefaultBufferFactory;
+import concoord.data.Consuming;
 import concoord.lang.StandardAwaitable.ExecutionControl;
 import concoord.lang.StandardAwaitable.StandardFlowControl;
 import concoord.util.assertion.IfNull;
@@ -30,6 +30,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -41,11 +42,11 @@ public class Streamed<T> implements Task<T> {
   private final BufferFactory<T> bufferFactory;
 
   public Streamed() {
-    this(new DefaultBufferFactory<T>());
+    this(new ConsumingFactoryDefault<T>());
   }
 
   public Streamed(int initialCapacity) {
-    this(new DefaultBufferFactory<T>(initialCapacity));
+    this(new ConsumingFactoryCapacity<T>(initialCapacity));
   }
 
   public Streamed(@NotNull BufferFactory<T> bufferFactory) {
@@ -60,12 +61,15 @@ public class Streamed<T> implements Task<T> {
 
   public interface StreamedAwaitable<T> extends Awaitable<T>, Awaiter<T> {
 
+    int requiredEvents();
+
     @NotNull
     Closeable asCloseable();
   }
 
   private static class StreamedControl<T> implements ExecutionControl<T>, Runnable {
 
+    private final AtomicInteger requiredEvents = new AtomicInteger();
     private final ConcurrentLinkedQueue<Object> inputQueue = new ConcurrentLinkedQueue<Object>();
     private final AtomicReference<Throwable> error = new AtomicReference<Throwable>();
     private final BufferFactory<T> bufferFactory;
@@ -104,6 +108,10 @@ public class Streamed<T> implements Task<T> {
     private void end() {
       controlState = new EndState();
       run();
+    }
+
+    private int requiredEvents() {
+      return requiredEvents.get();
     }
 
     @Nullable
@@ -162,6 +170,7 @@ public class Streamed<T> implements Task<T> {
         iterator = buffer.iterator();
         controlState = new MessageState();
         controlCommand = new MessageCommand();
+        requiredEvents.set(flowControl.inputEvents());
         return controlState.executeBlock(flowControl);
       }
     }
@@ -172,6 +181,12 @@ public class Streamed<T> implements Task<T> {
         final Iterator<T> iterator = StreamedControl.this.iterator;
         if (iterator.hasNext()) {
           flowControl.postOutput(iterator.next());
+          final int inputEvents = flowControl.inputEvents();
+          if (inputEvents < 0) {
+            requiredEvents.set(inputEvents);
+          } else {
+            requiredEvents.set(Math.max(0, inputEvents - buffer.size()));
+          }
           return true;
         }
         return false;
@@ -190,6 +205,7 @@ public class Streamed<T> implements Task<T> {
       public boolean executeBlock(@NotNull StandardFlowControl<T> flowControl) throws Exception {
         if (!super.executeBlock(flowControl)) {
           flowControl.error(error);
+          requiredEvents.set(0);
         }
         return true;
       }
@@ -201,9 +217,32 @@ public class Streamed<T> implements Task<T> {
       public boolean executeBlock(@NotNull StandardFlowControl<T> flowControl) throws Exception {
         if (!super.executeBlock(flowControl)) {
           flowControl.stop();
+          requiredEvents.set(0);
         }
         return true;
       }
+    }
+  }
+
+  private static class ConsumingFactoryDefault<M> implements BufferFactory<M> {
+
+    @NotNull
+    public Buffer<M> create() {
+      return new Consuming<M>();
+    }
+  }
+
+  private static class ConsumingFactoryCapacity<M> implements BufferFactory<M> {
+
+    private final int initialCapacity;
+
+    private ConsumingFactoryCapacity(int initialCapacity) {
+      this.initialCapacity = initialCapacity;
+    }
+
+    @NotNull
+    public Buffer<M> create() {
+      return new Consuming<M>(initialCapacity);
     }
   }
 
@@ -235,6 +274,10 @@ public class Streamed<T> implements Task<T> {
     public void end() throws Exception {
       throwIfError();
       scheduler.scheduleLow(new EndCommand());
+    }
+
+    public int requiredEvents() {
+      return executionControl.requiredEvents();
     }
 
     @NotNull

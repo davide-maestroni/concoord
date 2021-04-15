@@ -72,6 +72,8 @@ public class Parallel<T, M> implements Task<T> {
 
     void end() throws Exception;
 
+    int inputEvents();
+
     @NotNull
     InputChannel<T> outputBufferInput() throws Exception;
 
@@ -168,7 +170,7 @@ public class Parallel<T, M> implements Task<T> {
 
       private final ConcurrentLinkedQueue<Object> inputQueue = new ConcurrentLinkedQueue<Object>();
       private final InputMessageCommand inputMessageCommand = new InputMessageCommand();
-      private State<T> awaiterState = new ReadState();
+      private State<T> awaiterState = new InitState();
       private StandardFlowControl<T> flowControl;
       private int eventCount;
 
@@ -261,12 +263,26 @@ public class Parallel<T, M> implements Task<T> {
         }
       }
 
+      private class InitState implements State<T> {
+
+        public boolean executeBlock(@NotNull StandardFlowControl<T> flowControl) {
+          eventCount = flowControl.outputEvents();
+          cancelable = awaitable.await(eventCount, ParallelAwaiter.this);
+          awaiterState = new ReadState();
+          return false;
+        }
+      }
+
       private class ReadState implements State<T> {
 
         public boolean executeBlock(@NotNull StandardFlowControl<T> flowControl) {
           if (eventCount == 0) {
-            eventCount = flowControl.outputEvents();
-            cancelable = awaitable.await(eventCount, ParallelAwaiter.this);
+            int inputEvents = schedulingControl.inputEvents();
+            if (inputEvents == 0) {
+              inputEvents = flowControl.outputEvents();
+            }
+            eventCount = inputEvents;
+            cancelable = awaitable.await(inputEvents, ParallelAwaiter.this);
           }
           return false;
         }

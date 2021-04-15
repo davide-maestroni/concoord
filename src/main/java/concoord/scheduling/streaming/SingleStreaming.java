@@ -27,7 +27,7 @@ public class SingleStreaming<T, M> implements StreamingControl<T, M> {
   @NotNull
   public Awaitable<T> stream(@NotNull Scheduler scheduler, M message,
       @NotNull Block<T, ? super M> block) throws Exception {
-    final StreamedAwaitable<M> input = new Streamed<M>(new ConsumingFactory<M>()).on(scheduler);
+    final StreamedAwaitable<M> input = new Streamed<M>().on(scheduler);
     final Awaitable<T> output = block.execute(input, scheduler);
     input.message(message);
     input.end();
@@ -35,5 +35,9 @@ public class SingleStreaming<T, M> implements StreamingControl<T, M> {
   }
 
   public void end() {
+  }
+
+  public int inputEvents() {
+    return 0;
   }
 }
