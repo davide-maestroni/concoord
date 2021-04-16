@@ -29,17 +29,29 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import org.jetbrains.annotations.NotNull;
 
-public class TestBasic<T> implements Runnable {
+public class TestBasic<T> implements TestRunnable {
 
   // TODO: 08/04/21 abort => end (Streamed?)
 
+  private final String name;
   private final Function<Scheduler, Awaitable<T>> factory;
   private final Consumer<List<T>> assertion;
 
   public TestBasic(@NotNull Function<Scheduler, Awaitable<T>> awaitableFactory,
       @NotNull Consumer<List<T>> messageAssertion) {
+    this("basic", awaitableFactory, messageAssertion);
+  }
+
+  public TestBasic(String name, @NotNull Function<Scheduler, Awaitable<T>> awaitableFactory,
+      @NotNull Consumer<List<T>> messageAssertion) {
+    this.name = name;
     this.factory = awaitableFactory;
     this.assertion = messageAssertion;
+  }
+
+  @Override
+  public String name() {
+    return name;
   }
 
   @Override

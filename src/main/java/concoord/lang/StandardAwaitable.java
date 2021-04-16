@@ -618,7 +618,7 @@ public class StandardAwaitable<T> implements Awaitable<T> {
         return;
       }
       awaitableLogger.log(new DbgMessage("[reading]"));
-      currentState.run();
+      scheduler.scheduleLow(controlCommand);
     }
 
     private void resetPosts() {

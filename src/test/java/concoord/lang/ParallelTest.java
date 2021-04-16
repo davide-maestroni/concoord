@@ -25,6 +25,9 @@ import concoord.scheduling.strategy.LoadBalancing;
 import concoord.scheduling.strategy.RoundRobin;
 import concoord.test.TestBasic;
 import concoord.test.TestCancel;
+import concoord.test.TestRunnable;
+import concoord.test.TestSuite;
+import java.util.ArrayList;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 
@@ -32,9 +35,11 @@ public class ParallelTest {
 
   @Test
   public void basicOrderedRound() {
+    ArrayList<TestRunnable> tests = new ArrayList<>();
     IntStream.range(-1, 4)
-        .forEach(parallelism ->
+        .mapToObj(parallelism ->
             new TestBasic<>(
+                "basic infinite: " + parallelism,
                 (scheduler) ->
                     new Parallel<>(
                         new Iter<>("1", "2", "3").on(scheduler),
@@ -42,10 +47,12 @@ public class ParallelTest {
                         (a, s) -> new For<>(-1, a, (m) -> new Yield<>("N" + m, -1)).on(s)
                     ).on(scheduler),
                 (messages) -> assertThat(messages).containsExactly("N1", "N2", "N3")
-            ).run());
+            ))
+        .forEach(tests::add);
     IntStream.range(-1, 4)
-        .forEach(parallelism ->
+        .mapToObj(parallelism ->
             new TestBasic<>(
+                "basic single: " + parallelism,
                 (scheduler) ->
                     new Parallel<>(
                         new Iter<>("1", "2", "3").on(scheduler),
@@ -53,7 +60,9 @@ public class ParallelTest {
                         (a, s) -> new For<>(a, (m) -> new Yield<>("N" + m)).on(s)
                     ).on(scheduler),
                 (messages) -> assertThat(messages).containsExactly("N1", "N2", "N3")
-            ).run());
+            ))
+        .forEach(tests::add);
+    new TestSuite(tests).run();
   }
 
   @Test

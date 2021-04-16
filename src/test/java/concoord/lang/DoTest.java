@@ -140,7 +140,7 @@ public class DoTest {
     AtomicBoolean testEnd = new AtomicBoolean();
     Cancelable cancelable =
         awaitable.await(-1, messages::add, testError::set, () -> testEnd.set(true));
-    lazyExecutor.advance(3);
+    lazyExecutor.advance(5);
     cancelable.cancel();
     lazyExecutor.advance(Integer.MAX_VALUE);
     assertThat(messages).containsExactly("1");
@@ -160,7 +160,7 @@ public class DoTest {
     AtomicBoolean testEnd = new AtomicBoolean();
     Cancelable cancelable =
         awaitable.await(-1, messages::add, testError::set, () -> testEnd.set(true));
-    lazyExecutor.advance(4);
+    lazyExecutor.advance(6);
     cancelable.cancel();
     lazyExecutor.advance(Integer.MAX_VALUE);
     assertThat(messages).containsExactly("1");
@@ -179,7 +179,7 @@ public class DoTest {
     AtomicReference<Throwable> testError = new AtomicReference<>();
     AtomicBoolean testEnd = new AtomicBoolean();
     awaitable.await(-1, messages::add, testError::set, () -> testEnd.set(true));
-    lazyExecutor.advance(3);
+    lazyExecutor.advance(5);
     awaitable.abort();
     lazyExecutor.advance(Integer.MAX_VALUE);
     assertThat(messages).containsExactly("1");
@@ -198,7 +198,7 @@ public class DoTest {
     AtomicReference<Throwable> testError = new AtomicReference<>();
     AtomicBoolean testEnd = new AtomicBoolean();
     awaitable.await(-1, messages::add, testError::set, () -> testEnd.set(true));
-    lazyExecutor.advance(4);
+    lazyExecutor.advance(6);
     awaitable.abort();
     lazyExecutor.advance(Integer.MAX_VALUE);
     assertThat(messages).containsExactly("1");

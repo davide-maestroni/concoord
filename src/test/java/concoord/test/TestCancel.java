@@ -31,7 +31,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import org.jetbrains.annotations.NotNull;
 
-public class TestCancel<T> implements Runnable {
+public class TestCancel<T> implements TestRunnable {
 
   private final Function<Scheduler, Awaitable<T>> factory;
   private final Consumer<List<T>> assertion;
@@ -40,6 +40,11 @@ public class TestCancel<T> implements Runnable {
       @NotNull Consumer<List<T>> messageAssertion) {
     this.factory = awaitableFactory;
     this.assertion = messageAssertion;
+  }
+
+  @Override
+  public String name() {
+    return "cancel";
   }
 
   @Override
