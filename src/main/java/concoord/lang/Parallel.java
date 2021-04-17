@@ -210,12 +210,11 @@ public class Parallel<T, M> implements Task<T> {
           final StandardFlowControl<T> flowControl = ParallelAwaiter.this.flowControl;
           final M input = message != NULL ? (M) message : null;
           try {
+            flowControl.logger().log(
+                new DbgMessage("[scheduling] block: %s", new PrintIdentity(block))
+            );
             final Awaitable<T> awaitable = schedulingControl.schedule(input, block);
             if (!awaitables.containsKey(awaitable)) {
-              // TODO: 10/04/21 [executing] block??
-              flowControl.logger().log(
-                  new DbgMessage("[scheduling] awaitable: %s", new PrintIdentity(awaitable))
-              );
               new OutputAwaiter(awaitable, schedulingControl.outputBufferInput()).start();
             }
           } catch (final Exception e) {
