@@ -67,14 +67,21 @@ public class Streamed<T> implements Task<T> {
     Closeable asCloseable();
   }
 
+  private static class NoOpCommand implements Runnable {
+
+    public void run() {
+    }
+  }
+
   private static class StreamedControl<T> implements ExecutionControl<T>, Runnable {
 
     private final AtomicInteger requiredEvents = new AtomicInteger();
     private final ConcurrentLinkedQueue<Object> inputQueue = new ConcurrentLinkedQueue<Object>();
     private final AtomicReference<Throwable> error = new AtomicReference<Throwable>();
     private final BufferFactory<T> bufferFactory;
-    private Runnable controlCommand = new InitCommand();
-    private State<T> controlState = new InitState();
+    private Runnable initCommand = new InitCommand();
+    private Runnable controlCommand = new MessageCommand();
+    private State<T> controlState = new MessageState();
     private StandardFlowControl<T> flowControl = new DummyFlowControl<T>();
     private Buffer<T> buffer;
     private Iterator<T> iterator;
@@ -97,6 +104,7 @@ public class Streamed<T> implements Task<T> {
     }
 
     public void run() {
+      initCommand.run();
       controlCommand.run();
     }
 
@@ -132,11 +140,10 @@ public class Streamed<T> implements Task<T> {
     private class InitCommand implements Runnable {
 
       public void run() {
+        initCommand = new NoOpCommand();
         try {
           buffer = bufferFactory.create();
           iterator = buffer.iterator();
-          controlState = new MessageState();
-          controlCommand = new MessageCommand();
         } catch (Exception exception) {
           controlState = new ErrorState(exception);
           controlCommand = new FlowCommand();
@@ -163,28 +170,16 @@ public class Streamed<T> implements Task<T> {
       }
     }
 
-    private class InitState implements State<T> {
-
-      public boolean executeBlock(@NotNull StandardFlowControl<T> flowControl) throws Exception {
-        buffer = bufferFactory.create();
-        iterator = buffer.iterator();
-        controlState = new MessageState();
-        controlCommand = new MessageCommand();
-        requiredEvents.set(flowControl.inputEvents());
-        return controlState.executeBlock(flowControl);
-      }
-    }
-
     private class MessageState implements State<T> {
 
       public boolean executeBlock(@NotNull StandardFlowControl<T> flowControl) throws Exception {
         final Iterator<T> iterator = StreamedControl.this.iterator;
+        final AtomicInteger requiredEvents = StreamedControl.this.requiredEvents;
+        requiredEvents.set(flowControl.inputEvents());
         if (iterator.hasNext()) {
           flowControl.postOutput(iterator.next());
           final int inputEvents = flowControl.inputEvents();
-          if (inputEvents < 0) {
-            requiredEvents.set(inputEvents);
-          } else {
+          if (inputEvents >= 0) {
             requiredEvents.set(Math.max(0, inputEvents - buffer.size()));
           }
           return true;
