@@ -16,7 +16,9 @@
 package concoord.lang;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import concoord.concurrent.AbortException;
 import concoord.concurrent.LazyExecutor;
 import concoord.concurrent.ScheduledExecutor;
 import concoord.lang.Streamed.StreamedAwaitable;
@@ -88,11 +90,63 @@ public class StreamedTest {
     assertThat(testEnd).hasValue(1);
 
     awaitable.abort();
+    awaitable.end();
+    testEnd.set(0);
+    awaitable.await(-1, testMessages::add, testError::set, testEnd::incrementAndGet);
+    lazyExecutor.advance(Integer.MAX_VALUE);
+    assertThat(testMessages).isEmpty();
+    assertThat(testError.get()).isInstanceOf(AbortException.class);
+    assertThat(testEnd).hasValue(0);
+
+    testError.set(null);
+    awaitable.await(-1, testMessages::add, testError::set, testEnd::incrementAndGet);
+    lazyExecutor.advance(Integer.MAX_VALUE);
+    assertThat(testMessages).isEmpty();
+    assertThat(testError.get()).isInstanceOf(AbortException.class);
+    assertThat(testEnd).hasValue(0);
+
+    assertThatThrownBy(awaitable::end).isInstanceOf(AbortException.class);
+  }
+
+  @Test
+  public void error() throws Exception {
+    LazyExecutor lazyExecutor = new LazyExecutor();
+    ScheduledExecutor scheduler = new ScheduledExecutor(lazyExecutor);
+    Streamed<Integer> streamed = new Streamed<>();
+    ArrayList<Integer> testMessages = new ArrayList<>();
+    AtomicReference<Throwable> testError = new AtomicReference<>();
+    AtomicInteger testEnd = new AtomicInteger();
+    StreamedAwaitable<Integer> awaitable = streamed.on(scheduler);
+    awaitable.end();
+    awaitable.await(-1, testMessages::add, testError::set, testEnd::incrementAndGet);
+    lazyExecutor.advance(Integer.MAX_VALUE);
+    assertThat(testMessages).isEmpty();
+    assertThat(testError).hasValue(null);
+    assertThat(testEnd).hasValue(1);
+
     testEnd.set(0);
     awaitable.await(-1, testMessages::add, testError::set, testEnd::incrementAndGet);
     lazyExecutor.advance(Integer.MAX_VALUE);
     assertThat(testMessages).isEmpty();
     assertThat(testError).hasValue(null);
     assertThat(testEnd).hasValue(1);
+
+    awaitable.abort();
+    awaitable.error(new IllegalAccessError());
+    testEnd.set(0);
+    awaitable.await(-1, testMessages::add, testError::set, testEnd::incrementAndGet);
+    lazyExecutor.advance(Integer.MAX_VALUE);
+    assertThat(testMessages).isEmpty();
+    assertThat(testError.get()).isInstanceOf(AbortException.class);
+    assertThat(testEnd).hasValue(0);
+
+    testError.set(null);
+    awaitable.await(-1, testMessages::add, testError::set, testEnd::incrementAndGet);
+    lazyExecutor.advance(Integer.MAX_VALUE);
+    assertThat(testMessages).isEmpty();
+    assertThat(testError.get()).isInstanceOf(AbortException.class);
+    assertThat(testEnd).hasValue(0);
+
+    assertThatThrownBy(awaitable::end).isInstanceOf(AbortException.class);
   }
 }

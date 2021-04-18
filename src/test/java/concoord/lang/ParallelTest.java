@@ -17,8 +17,12 @@ package concoord.lang;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import concoord.concurrent.Awaitable;
+import concoord.concurrent.Scheduler;
 import concoord.concurrent.Trampoline;
 import concoord.flow.Yield;
+import concoord.lang.Parallel.Block;
+import concoord.scheduling.BalancedInput;
 import concoord.scheduling.Ordered;
 import concoord.scheduling.Unordered;
 import concoord.scheduling.strategy.LoadBalancing;
@@ -29,6 +33,7 @@ import concoord.test.TestRunnable;
 import concoord.test.TestSuite;
 import java.util.ArrayList;
 import java.util.stream.IntStream;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 
 public class ParallelTest {
@@ -138,6 +143,54 @@ public class ParallelTest {
                         new Iter<>("1", "2", "3").on(scheduler),
                         () -> new Unordered<>(parallelism, new LoadBalancing<>(), Trampoline::new),
                         (a, s) -> new For<>(a, (m) -> new Yield<>("N" + m)).on(s)
+                    ).on(scheduler),
+                (messages) -> assertThat(messages).containsExactlyInAnyOrder("N1", "N2", "N3")
+            ).run());
+  }
+
+  @Test
+  public void basicBalancedInput() {
+    IntStream.range(-1, 4)
+        .forEach(parallelism ->
+            new TestBasic<>(
+                (scheduler) ->
+                    new Parallel<>(
+                        new Iter<>("1", "2", "3").on(scheduler),
+                        () -> new BalancedInput<>(parallelism, Trampoline::new),
+                        (a, s) -> new For<>(-1, a, (m) -> new Yield<>("N" + m, -1)).on(s)
+                    ).on(scheduler),
+                (messages) -> assertThat(messages).containsExactlyInAnyOrder("N1", "N2", "N3")
+            ).run());
+    IntStream.range(-1, 4)
+        .forEach(parallelism ->
+            new TestBasic<>(
+                (scheduler) ->
+                    new Parallel<>(
+                        new Iter<>("1", "2", "3").on(scheduler),
+                        () -> new BalancedInput<>(parallelism, Trampoline::new),
+                        (a, s) -> new For<>(a, (m) -> new Yield<>("N" + m)).on(s)
+                    ).on(scheduler),
+                (messages) -> assertThat(messages).containsExactlyInAnyOrder("N1", "N2", "N3")
+            ).run());
+    IntStream.range(-1, 4)
+        .forEach(parallelism ->
+            new TestBasic<>(
+                (scheduler) ->
+                    new Parallel<>(
+                        new Iter<>("1", "2", "3").on(scheduler),
+                        () -> new BalancedInput<>(parallelism, Trampoline::new),
+                        new Block<String, String>() {
+
+                          private int count = 0;
+
+                          @NotNull
+                          @Override
+                          public Awaitable<String> execute(@NotNull Awaitable<? extends String> a,
+                              @NotNull Scheduler s) {
+                            int myCount = ++count;
+                            return new For<>(myCount, a, (m) -> new Yield<>("N" + m, myCount)).on(s);
+                          }
+                        }
                     ).on(scheduler),
                 (messages) -> assertThat(messages).containsExactlyInAnyOrder("N1", "N2", "N3")
             ).run());
