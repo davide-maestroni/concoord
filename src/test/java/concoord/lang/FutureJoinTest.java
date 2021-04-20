@@ -36,15 +36,34 @@ import org.junit.jupiter.api.Test;
 public class FutureJoinTest {
 
   @Test
-  public void join() throws ExecutionException, InterruptedException {
+  public void join1() throws ExecutionException, InterruptedException {
     Awaitable<String> awaitable = new Iter<>(Arrays.asList("a", "b", "c")).on(new Trampoline());
-    assertThat(new FutureJoin<>(awaitable, 1).get()).containsExactly("a", "b", "c");
+    assertThat(new FutureJoin<>(awaitable, 1).get()).containsExactly("a");
+  }
+
+  @Test
+  public void join2() throws ExecutionException, InterruptedException {
+    Awaitable<String> awaitable = new Iter<>(Arrays.asList("a", "b", "c")).on(new Trampoline());
+    assertThat(new FutureJoin<>(awaitable, 2).get()).containsExactly("a", "b");
+  }
+
+  @Test
+  public void join3() throws ExecutionException, InterruptedException {
+    Awaitable<String> awaitable = new Iter<>(Arrays.asList("a", "b", "c")).on(new Trampoline());
+    assertThat(new FutureJoin<>(awaitable, 3).get()).containsExactly("a", "b", "c");
   }
 
   @Test
   public void joinTotal() throws InterruptedException, ExecutionException, TimeoutException {
     Awaitable<String> awaitable = new Iter<>(Arrays.asList("a", "b", "c")).on(new Trampoline());
     assertThat(new FutureJoin<>(awaitable, 10).get(1, TimeUnit.SECONDS))
+        .containsExactly("a", "b", "c");
+  }
+
+  @Test
+  public void joinInfinite() throws InterruptedException, ExecutionException, TimeoutException {
+    Awaitable<String> awaitable = new Iter<>(Arrays.asList("a", "b", "c")).on(new Trampoline());
+    assertThat(new FutureJoin<>(awaitable, -1).get(1, TimeUnit.SECONDS))
         .containsExactly("a", "b", "c");
   }
 

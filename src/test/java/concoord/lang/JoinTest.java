@@ -34,9 +34,21 @@ import org.junit.jupiter.api.Test;
 public class JoinTest {
 
   @Test
-  public void join() {
+  public void join1() {
     Awaitable<String> awaitable = new Iter<>(Arrays.asList("a", "b", "c")).on(new Trampoline());
-    assertThat(new Join<>(awaitable, 1, 1, TimeUnit.SECONDS).toList())
+    assertThat(new Join<>(awaitable, 1, 1, TimeUnit.SECONDS).toList()).containsExactly("a");
+  }
+
+  @Test
+  public void join2() {
+    Awaitable<String> awaitable = new Iter<>(Arrays.asList("a", "b", "c")).on(new Trampoline());
+    assertThat(new Join<>(awaitable, 2, 1, TimeUnit.SECONDS).toList()).containsExactly("a", "b");
+  }
+
+  @Test
+  public void join3() {
+    Awaitable<String> awaitable = new Iter<>(Arrays.asList("a", "b", "c")).on(new Trampoline());
+    assertThat(new Join<>(awaitable, 3, 1, TimeUnit.SECONDS).toList())
         .containsExactly("a", "b", "c");
   }
 
@@ -44,6 +56,13 @@ public class JoinTest {
   public void joinTotal() {
     Awaitable<String> awaitable = new Iter<>(Arrays.asList("a", "b", "c")).on(new Trampoline());
     assertThat(new Join<>(awaitable, 10, 1, 1, TimeUnit.SECONDS).toList())
+        .containsExactly("a", "b", "c");
+  }
+
+  @Test
+  public void joinInfinite() {
+    Awaitable<String> awaitable = new Iter<>(Arrays.asList("a", "b", "c")).on(new Trampoline());
+    assertThat(new Join<>(awaitable, -1, 1, 1, TimeUnit.SECONDS).toList())
         .containsExactly("a", "b", "c");
   }
 

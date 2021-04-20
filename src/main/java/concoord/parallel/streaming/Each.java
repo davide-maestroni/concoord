@@ -13,16 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package concoord.scheduling.streaming;
+package concoord.parallel.streaming;
 
 import concoord.concurrent.Awaitable;
 import concoord.concurrent.Scheduler;
 import concoord.lang.Parallel.Block;
+import concoord.lang.Parallel.StreamingStrategy;
 import concoord.lang.Streamed;
 import concoord.lang.Streamed.StreamedAwaitable;
 import org.jetbrains.annotations.NotNull;
 
-public class SingleStreaming<T, M> implements StreamingControl<T, M> {
+public class Each<T, M> implements StreamingStrategy<T, M> {
 
   @NotNull
   public Awaitable<T> stream(@NotNull Scheduler scheduler, M message,

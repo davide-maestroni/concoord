@@ -13,26 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package concoord.scheduling.streaming;
+package concoord.parallel.streaming;
 
 import concoord.concurrent.Awaitable;
 import concoord.concurrent.Scheduler;
 import concoord.lang.Parallel.Block;
+import concoord.lang.Parallel.StreamingStrategy;
 import concoord.lang.Streamed;
 import concoord.lang.Streamed.StreamedAwaitable;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Random;
 import java.util.WeakHashMap;
 import org.jetbrains.annotations.NotNull;
 
-public class BalancedStreaming<T, M> implements StreamingControl<T, M> {
+public class Grouped<T, M> implements StreamingStrategy<T, M> {
 
   private final WeakHashMap<Scheduler, ScheduledTask<T, M>> tasks =
       new WeakHashMap<Scheduler, ScheduledTask<T, M>>();
-  private final Random random = new Random();
 
   @NotNull
   public Awaitable<T> stream(@NotNull Scheduler scheduler, M message,
@@ -43,44 +38,6 @@ public class BalancedStreaming<T, M> implements StreamingControl<T, M> {
       final Awaitable<T> output = block.execute(input, scheduler);
       task = new ScheduledTask<T, M>(input, output);
       tasks.put(scheduler, task);
-    } else {
-      final HashMap<Integer, ArrayList<ScheduledTask<T, M>>> tasksByEvents =
-          new HashMap<Integer, ArrayList<ScheduledTask<T, M>>>();
-      for (final ScheduledTask<T, M> aTask : tasks.values()) {
-        int events = aTask.input().requiredEvents();
-        if (events < 0) {
-          events = -1;
-        }
-        ArrayList<ScheduledTask<T, M>> scheduledTasks = tasksByEvents.get(events);
-        if (scheduledTasks == null) {
-          scheduledTasks = new ArrayList<ScheduledTask<T, M>>();
-          tasksByEvents.put(events, scheduledTasks);
-        }
-        scheduledTasks.add(aTask);
-      }
-
-      int maxEvents = 0;
-      for (final Integer events : tasksByEvents.keySet()) {
-        if ((events < 0) || (events > maxEvents)) {
-          maxEvents = events;
-        }
-        if (maxEvents < 0) {
-          break;
-        }
-      }
-      if (maxEvents != 0) {
-        final ArrayList<ScheduledTask<T, M>> scheduledTasks = tasksByEvents.get(maxEvents);
-        final int index = random.nextInt(scheduledTasks.size());
-        task = scheduledTasks.get(index);
-      } else {
-        final Collection<ScheduledTask<T, M>> scheduledTasks = tasks.values();
-        final int index = random.nextInt(scheduledTasks.size());
-        final Iterator<ScheduledTask<T, M>> iterator = scheduledTasks.iterator();
-        for (int i = 0; i < index; ++i) {
-          iterator.next();
-        }
-        task = iterator.next();
-      }
     }
     task.input().message(message);
     return task.output();
@@ -95,7 +52,7 @@ public class BalancedStreaming<T, M> implements StreamingControl<T, M> {
   public int inputEvents() {
     int events = 0;
     for (final ScheduledTask<T, M> task : tasks.values()) {
-      final int requiredEvents = task.input().requiredEvents();
+      final int requiredEvents = task.input().inputEvents();
       if (requiredEvents < 0) {
         events = requiredEvents;
         break;

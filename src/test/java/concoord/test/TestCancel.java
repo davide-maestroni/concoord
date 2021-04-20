@@ -33,18 +33,25 @@ import org.jetbrains.annotations.NotNull;
 
 public class TestCancel<T> implements TestRunnable {
 
+  private final String name;
   private final Function<Scheduler, Awaitable<T>> factory;
   private final Consumer<List<T>> assertion;
 
   public TestCancel(@NotNull Function<Scheduler, Awaitable<T>> awaitableFactory,
       @NotNull Consumer<List<T>> messageAssertion) {
+    this("cancel", awaitableFactory, messageAssertion);
+  }
+
+  public TestCancel(String name, @NotNull Function<Scheduler, Awaitable<T>> awaitableFactory,
+      @NotNull Consumer<List<T>> messageAssertion) {
+    this.name = name;
     this.factory = awaitableFactory;
     this.assertion = messageAssertion;
   }
 
   @Override
   public String name() {
-    return "cancel";
+    return name;
   }
 
   @Override

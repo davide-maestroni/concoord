@@ -13,27 +13,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package concoord.scheduling.output;
+package concoord.parallel.output;
 
 import concoord.data.Buffer;
 import concoord.data.Buffered;
 import concoord.lang.Parallel.InputChannel;
 import concoord.lang.Parallel.OutputChannel;
+import concoord.lang.Parallel.OutputStrategy;
 import concoord.util.assertion.IfNull;
 import java.util.Iterator;
 import org.jetbrains.annotations.NotNull;
 
-public class UnorderedOutput<M> implements OutputControl<M> {
+public class Unordered<M> implements OutputStrategy<M> {
 
   private final Buffer<M> buffer;
   private UnorderedInputChannel<M> inputChannel;
   private UnorderedOutputChannel<M> outputChannel;
 
-  public UnorderedOutput() {
-    this.buffer = new Buffered<M>();
+  public Unordered() {
+    this(new Buffered<M>());
   }
 
-  public UnorderedOutput(@NotNull Buffer<M> buffer) {
+  public Unordered(int initialCapacity) {
+    this(new Buffered<M>(initialCapacity));
+  }
+
+  public Unordered(@NotNull Buffer<M> buffer) {
     new IfNull("buffer", buffer).throwException();
     this.buffer = buffer;
   }

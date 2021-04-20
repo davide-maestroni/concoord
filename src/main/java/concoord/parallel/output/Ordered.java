@@ -13,30 +13,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package concoord.scheduling.output;
+package concoord.parallel.output;
 
 import concoord.data.Buffer;
 import concoord.data.BufferFactory;
 import concoord.data.DefaultBufferFactory;
 import concoord.lang.Parallel.InputChannel;
 import concoord.lang.Parallel.OutputChannel;
+import concoord.lang.Parallel.OutputStrategy;
 import concoord.util.assertion.IfNull;
 import concoord.util.collection.CircularQueue;
 import java.util.Iterator;
 import org.jetbrains.annotations.NotNull;
 
-public class OrderedOutput<M> implements OutputControl<M> {
+public class Ordered<M> implements OutputStrategy<M> {
 
   private final CircularQueue<OrderedInputChannel<M>> inputChannels =
       new CircularQueue<OrderedInputChannel<M>>();
   private final BufferFactory<M> bufferFactory;
   private OrderedOutputChannel<M> outputChannel;
 
-  public OrderedOutput() {
+  public Ordered() {
     this.bufferFactory = new DefaultBufferFactory<M>();
   }
 
-  public OrderedOutput(@NotNull BufferFactory<M> bufferFactory) {
+  public Ordered(int initialCapacity) {
+    this.bufferFactory = new DefaultBufferFactory<M>(initialCapacity);
+  }
+
+  public Ordered(@NotNull BufferFactory<M> bufferFactory) {
     new IfNull("bufferFactory", bufferFactory).throwException();
     this.bufferFactory = bufferFactory;
   }

@@ -84,8 +84,10 @@ public class Join<T> implements Iterable<T> {
     private final CircularQueue<T> queue = new CircularQueue<T>();
     private final JoinAwaiter awaiter = new JoinAwaiter();
     private final Awaitable<T> awaitable;
-    private final int maxEvents;
     private final TimeoutProvider timeoutProvider;
+    private int maxEvents;
+    private Runnable awaitCommand = new AwaitCommand();
+    private Cancelable cancelable;
     private Throwable throwable;
     private boolean isDone;
 
@@ -107,46 +109,53 @@ public class Join<T> implements Iterable<T> {
     public boolean hasNext() {
       final long startTimeMs = System.currentTimeMillis();
       final TimeoutProvider timeoutProvider = this.timeoutProvider;
-      synchronized (mutex) {
-        while (true) {
-          final long timeoutMs = timeoutProvider.getNextTimeout(startTimeMs);
-          if (timeoutMs >= 0) {
-            // await events
-            final Cancelable cancelable = awaitable.await(maxEvents, awaiter);
-            if (!queue.isEmpty()) {
-              return true;
-            }
-            if (isDone) {
-              return false;
-            }
-            if (throwable != null) {
-              if (throwable instanceof AbortException) {
-                throw new JoinAbortException(throwable);
+      try {
+        synchronized (mutex) {
+          while (true) {
+            final long timeoutMs = timeoutProvider.getNextTimeout(startTimeMs);
+            if (timeoutMs >= 0) {
+              // await events
+              awaitCommand.run();
+              if (!queue.isEmpty()) {
+                return true;
               }
-              throw new JoinException(throwable);
-            }
-            if (timeoutMs == 0) {
+              if (isDone) {
+                return false;
+              }
+              if (throwable != null) {
+                if (throwable instanceof AbortException) {
+                  throw new JoinAbortException(throwable);
+                }
+                throw new JoinException(throwable);
+              }
+              if (timeoutMs == 0) {
+                break;
+              }
+              try {
+                mutex.wait(timeoutMs);
+              } catch (final InterruptedException e) {
+                throw new UncheckedInterruptedException(e);
+              }
+            } else {
               break;
             }
-            try {
-              mutex.wait(timeoutMs);
-            } catch (final InterruptedException e) {
-              throw new UncheckedInterruptedException(e);
-            } finally {
-              cancelable.cancel();
-            }
-          } else {
-            break;
           }
+          // timeout
+          throw new JoinTimeoutException("no event received after ms: "
+              + (System.currentTimeMillis() - startTimeMs));
         }
-        // timeout
-        throw new JoinTimeoutException("no event received after ms: "
-            + (startTimeMs - System.currentTimeMillis()));
+      } catch (final RuntimeException e) {
+        if (cancelable != null) {
+          cancelable.cancel();
+        }
+        throw e;
       }
     }
 
+    @SuppressWarnings("ResultOfMethodCallIgnored")
     public T next() {
       synchronized (mutex) {
+        hasNext();
         return queue.remove();
       }
     }
@@ -189,11 +198,30 @@ public class Join<T> implements Iterable<T> {
       }
     }
 
+    private static class NoOpCommand implements Runnable {
+
+      public void run() {
+      }
+    }
+
+    private class AwaitCommand implements Runnable {
+
+      public void run() {
+        cancelable = awaitable.await(maxEvents, awaiter);
+        awaitCommand = new NoOpCommand();
+      }
+    }
+
     private class JoinAwaiter implements Awaiter<T> {
 
       public void message(T message) {
         synchronized (mutex) {
           queue.add(message);
+          if (maxEvents > 0) {
+            if (--maxEvents == 0) {
+              isDone = true;
+            }
+          }
           mutex.notifyAll();
         }
       }

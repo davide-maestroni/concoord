@@ -61,7 +61,7 @@ public class Streamed<T> implements Task<T> {
 
   public interface StreamedAwaitable<T> extends Awaitable<T>, Awaiter<T> {
 
-    int requiredEvents();
+    int inputEvents();
 
     @NotNull
     Closeable asCloseable();
@@ -271,7 +271,7 @@ public class Streamed<T> implements Task<T> {
       scheduler.scheduleLow(new EndCommand());
     }
 
-    public int requiredEvents() {
+    public int inputEvents() {
       return executionControl.requiredEvents();
     }
 

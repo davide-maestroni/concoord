@@ -13,20 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package concoord.scheduling.streaming;
+package concoord.parallel.scheduling;
 
-import concoord.concurrent.Awaitable;
 import concoord.concurrent.Scheduler;
-import concoord.lang.Parallel.Block;
+import concoord.concurrent.SchedulerFactory;
+import concoord.lang.Parallel.SchedulingStrategy;
+import concoord.util.assertion.IfNull;
 import org.jetbrains.annotations.NotNull;
 
-public interface StreamingControl<T, M> {
+class FactoryStrategy<M> implements SchedulingStrategy<M> {
+
+  private final SchedulerFactory schedulerFactory;
+
+  FactoryStrategy(@NotNull SchedulerFactory schedulerFactory) {
+    new IfNull("schedulerFactory", schedulerFactory).throwException();
+    this.schedulerFactory = schedulerFactory;
+  }
 
   @NotNull
-  Awaitable<T> stream(@NotNull Scheduler scheduler, M message, @NotNull Block<T, ? super M> block)
-      throws Exception;
-
-  void end() throws Exception;
-
-  int inputEvents();
+  public Scheduler schedulerFor(M message) throws Exception {
+    return schedulerFactory.create();
+  }
 }
